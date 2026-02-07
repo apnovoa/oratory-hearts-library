@@ -140,6 +140,8 @@ class Book(db.Model):
 
     @property
     def active_loan_count(self):
+        # Note: fires a query per access. Acceptable for detail/admin pages (small N).
+        # Catalog browse uses a subquery instead to avoid N+1.
         return Loan.query.filter(
             Loan.book_id == self.id,
             Loan.is_active == True,  # noqa: E712
@@ -187,6 +189,7 @@ class Loan(db.Model):
     invalidated_reason = db.Column(db.String(500), nullable=True)
 
     circulation_filename = db.Column(db.String(255), nullable=True)
+    # 64 hex chars (two uuid4 hex values concatenated) — used as unguessable URL token
     access_token = db.Column(db.String(64), unique=True, nullable=False, default=lambda: uuid.uuid4().hex + uuid.uuid4().hex)
     download_count = db.Column(db.Integer, nullable=False, default=0)
 

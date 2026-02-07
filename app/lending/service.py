@@ -70,6 +70,26 @@ def checkout_book(user, book):
         db.session.add(loan)
         db.session.commit()
 
+        # Generate circulation PDF — if this fails, roll back the loan so
+        # the patron is not charged a loan slot with no downloadable file.
+        try:
+            from ..pdf_service import generate_circulation_copy
+            filename = generate_circulation_copy(loan, book, user)
+            loan.circulation_filename = filename
+            db.session.commit()
+        except Exception as exc:
+            current_app.logger.error(
+                f"PDF generation failed for loan {loan.public_id}, "
+                f"rolling back loan: {exc}"
+            )
+            # Delete the loan record so the copy is released back
+            db.session.delete(loan)
+            db.session.commit()
+            raise ValueError(
+                "Unable to prepare your copy at this time. "
+                "Please try again later or contact the librarian."
+            )
+
         log_event(
             action="book_checkout",
             target_type="loan",
@@ -78,17 +98,6 @@ def checkout_book(user, book):
                    f"due {due_date.strftime('%Y-%m-%d %H:%M UTC')}",
             user_id=user.id,
         )
-
-        # Generate circulation PDF
-        try:
-            from ..pdf_service import generate_circulation_copy
-            filename = generate_circulation_copy(loan, book, user)
-            loan.circulation_filename = filename
-            db.session.commit()
-        except Exception as exc:
-            current_app.logger.error(
-                f"PDF generation failed for loan {loan.public_id}: {exc}"
-            )
 
         # Remove fulfilled waitlist entry if present
         waitlist_entry = WaitlistEntry.query.filter_by(
@@ -229,6 +238,7 @@ def process_waitlist(book):
 
     next_entry = (
         WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False)
+        .filter(WaitlistEntry.notified_at == None)  # noqa: E711 — skip already-notified
         .order_by(WaitlistEntry.created_at.asc())
         .first()
     )

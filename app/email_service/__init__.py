@@ -1,5 +1,10 @@
+import time
+
 from flask import current_app, render_template
 from flask_mail import Message
+
+# Seconds to pause between emails in bulk sends to avoid SMTP rate limits
+_BULK_SEND_DELAY = 0.2
 
 
 def _send_email(subject, recipient, html_body):
@@ -134,6 +139,8 @@ def send_birthday_greetings():
             html_body=html,
         )
         sent_count += 1
+        if sent_count < len(birthday_patrons):
+            time.sleep(_BULK_SEND_DELAY)
 
     current_app.logger.info(f"Birthday greetings sent to {sent_count} patron(s).")
 
@@ -186,6 +193,8 @@ def send_new_acquisitions_digest():
             html_body=html,
         )
         sent_count += 1
+        if sent_count < len(active_patrons):
+            time.sleep(_BULK_SEND_DELAY)
 
     current_app.logger.info(
         f"New acquisitions digest sent: {len(new_books)} books, {sent_count} patrons."

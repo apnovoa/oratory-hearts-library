@@ -582,36 +582,39 @@ def _scan_worker(staging_dir, batch_id, app):
     with app.app_context():
         progress_path = _progress_file_path()
 
-        pdf_files = sorted(
-            p for p in Path(staging_dir).iterdir()
-            if p.is_file() and p.suffix.lower() == ".pdf" and _is_valid_pdf(p)
-        )
-
-        progress = _read_progress(progress_path)
-        progress["total"] = len(pdf_files)
-        _write_progress(progress, progress_path)
-
-        logger.info("Scan batch %s started: %d PDF(s) in %s",
-                     batch_id, len(pdf_files), staging_dir)
-
-        for filepath in pdf_files:
-            progress = _read_progress(progress_path)
-            progress["current_file"] = filepath.name
-            _write_progress(progress, progress_path)
-
-            success = _scan_single_file(str(filepath), batch_id, app)
+        try:
+            pdf_files = sorted(
+                p for p in Path(staging_dir).iterdir()
+                if p.is_file() and p.suffix.lower() == ".pdf" and _is_valid_pdf(p)
+            )
 
             progress = _read_progress(progress_path)
-            progress["processed"] += 1
-            if not success:
-                progress["errors"] += 1
+            progress["total"] = len(pdf_files)
             _write_progress(progress, progress_path)
 
-        progress = _read_progress(progress_path)
-        progress["finished_at"] = datetime.now(timezone.utc).isoformat()
-        progress["running"] = False
-        progress["current_file"] = ""
-        _write_progress(progress, progress_path)
+            logger.info("Scan batch %s started: %d PDF(s) in %s",
+                         batch_id, len(pdf_files), staging_dir)
+
+            for filepath in pdf_files:
+                progress = _read_progress(progress_path)
+                progress["current_file"] = filepath.name
+                _write_progress(progress, progress_path)
+
+                success = _scan_single_file(str(filepath), batch_id, app)
+
+                progress = _read_progress(progress_path)
+                progress["processed"] += 1
+                if not success:
+                    progress["errors"] += 1
+                _write_progress(progress, progress_path)
+        except Exception:
+            logger.exception("Scan batch %s failed with unhandled error.", batch_id)
+        finally:
+            progress = _read_progress(progress_path)
+            progress["finished_at"] = datetime.now(timezone.utc).isoformat()
+            progress["running"] = False
+            progress["current_file"] = ""
+            _write_progress(progress, progress_path)
 
         logger.info("Scan batch %s finished: %d processed, %d errors.",
                      batch_id, progress["processed"], progress["errors"])

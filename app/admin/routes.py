@@ -172,6 +172,11 @@ def book_add():
         # Handle master PDF upload
         master_file = form.master_file.data
         if master_file and master_file.filename:
+            header = master_file.read(5)
+            master_file.seek(0)
+            if header != b"%PDF-":
+                flash("The uploaded file does not appear to be a valid PDF.", "danger")
+                return render_template("admin/book_edit.html", form=form, book=None)
             filename = f"{uuid.uuid4().hex}_{secure_filename(master_file.filename)}"
             master_file.save(os.path.join(current_app.config["MASTER_STORAGE"], filename))
             book.master_filename = filename
@@ -231,6 +236,11 @@ def book_edit(book_id):
         # Handle master PDF upload
         master_file = form.master_file.data
         if master_file and master_file.filename:
+            header = master_file.read(5)
+            master_file.seek(0)
+            if header != b"%PDF-":
+                flash("The uploaded file does not appear to be a valid PDF.", "danger")
+                return render_template("admin/book_edit.html", form=form, book=book)
             filename = f"{uuid.uuid4().hex}_{secure_filename(master_file.filename)}"
             master_file.save(os.path.join(current_app.config["MASTER_STORAGE"], filename))
             book.master_filename = filename
@@ -406,9 +416,12 @@ def loan_terminate(loan_id):
     loan = db.session.get(Loan, loan_id)
     if not loan:
         abort(404)
-    loan.is_active = False
-    loan.returned_at = _utcnow()
-    db.session.commit()
+    try:
+        from ..lending.service import return_loan
+        return_loan(loan)
+    except ValueError as exc:
+        flash(str(exc), "warning")
+        return redirect(url_for("admin.loan_detail", loan_id=loan.id))
     log_event("loan_terminated", target_type="loan", target_id=loan.id,
               detail="Loan terminated by admin")
     flash("Loan terminated.", "success")
@@ -430,6 +443,11 @@ def loan_invalidate(loan_id):
         db.session.commit()
         log_event("loan_invalidated", target_type="loan", target_id=loan.id,
                   detail=f"Invalidated: {loan.invalidated_reason}")
+        # Clean up circulation file and process waitlist (same as return)
+        from ..lending.service import _delete_circulation_file, process_waitlist
+        _delete_circulation_file(loan)
+        if loan.book:
+            process_waitlist(loan.book)
         flash("Loan invalidated.", "success")
     else:
         flash("Please provide a reason for invalidation.", "danger")
@@ -822,31 +840,44 @@ def _sanitize_csv_value(val):
 @admin_bp.route("/audit/export")
 @admin_required
 def audit_export():
-    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(50000).all()
+    def generate():
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["id", "timestamp", "user_id", "user_email", "action",
+                         "target_type", "target_id", "detail", "ip_address"])
+        yield buf.getvalue()
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["id", "timestamp", "user_id", "user_email", "action",
-                     "target_type", "target_id", "detail", "ip_address"])
-
-    for log in logs:
-        writer.writerow([
-            log.id,
-            log.timestamp.isoformat() if log.timestamp else "",
-            log.user_id or "",
-            _sanitize_csv_value(log.user.email if log.user else ""),
-            _sanitize_csv_value(log.action),
-            _sanitize_csv_value(log.target_type or ""),
-            log.target_id or "",
-            _sanitize_csv_value(log.detail or ""),
-            _sanitize_csv_value(log.ip_address or ""),
-        ])
-
-    csv_content = output.getvalue()
-    output.close()
+        page = 1
+        page_size = 1000
+        while True:
+            logs = (
+                AuditLog.query
+                .order_by(AuditLog.timestamp.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+                .all()
+            )
+            if not logs:
+                break
+            for log in logs:
+                buf = io.StringIO()
+                writer = csv.writer(buf)
+                writer.writerow([
+                    log.id,
+                    log.timestamp.isoformat() if log.timestamp else "",
+                    log.user_id or "",
+                    _sanitize_csv_value(log.user.email if log.user else ""),
+                    _sanitize_csv_value(log.action),
+                    _sanitize_csv_value(log.target_type or ""),
+                    log.target_id or "",
+                    _sanitize_csv_value(log.detail or ""),
+                    _sanitize_csv_value(log.ip_address or ""),
+                ])
+                yield buf.getvalue()
+            page += 1
 
     return Response(
-        csv_content,
+        generate(),
         mimetype="text/csv",
         headers={
             "Content-Disposition": "attachment; filename=audit_log_export.csv",
@@ -1221,9 +1252,18 @@ def import_pdf_staged_approve(staged_id):
     staged.status = "approved"
     staged.approved_at = _utcnow()
     staged.imported_book_id = book.id
-    db.session.commit()
 
+    # Move file BEFORE commit so a crash between these two operations
+    # leaves the DB unchanged rather than pointing to a missing file.
     shutil.move(str(src_path), str(dst_path))
+    try:
+        db.session.commit()
+    except Exception:
+        # Roll back the file move on DB failure
+        shutil.move(str(dst_path), str(src_path))
+        db.session.rollback()
+        flash("A database error occurred during approval.", "danger")
+        return redirect(url_for("admin.import_pdf_review"))
 
     log_event("staged_book_approved", target_type="book", target_id=book.id,
               detail=f"Imported from staging: {staged.original_filename}")
@@ -1297,9 +1337,15 @@ def import_pdf_bulk_approve():
             staged.status = "approved"
             staged.approved_at = _utcnow()
             staged.imported_book_id = book.id
-            db.session.commit()
 
+            # Move file BEFORE commit (see H1 in review)
             shutil.move(str(src_path), str(dst_path))
+            try:
+                db.session.commit()
+            except Exception:
+                shutil.move(str(dst_path), str(src_path))
+                raise
+
             approved_count += 1
 
             log_event("staged_book_approved", target_type="book", target_id=book.id,

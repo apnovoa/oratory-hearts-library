@@ -313,6 +313,8 @@ def google_callback():
             role="patron",
             google_id=google_id,
         )
+        # Set a random password so the bcrypt field is non-null but the user
+        # cannot sign in via the password form (they must use Google OAuth).
         user.set_password(secrets.token_urlsafe(32))
         db.session.add(user)
         db.session.commit()

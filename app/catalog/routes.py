@@ -289,6 +289,8 @@ def detail(public_id):
 @catalog_bp.route("/covers/<filename>")
 @login_required
 def serve_cover(filename):
+    # Safe: DB lookup ensures only known filenames are served, and
+    # send_from_directory rejects path traversal (e.g. "../") internally.
     book = Book.query.filter_by(cover_filename=filename).first()
     if not book:
         abort(404)

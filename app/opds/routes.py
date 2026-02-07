@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
 
-from flask import Blueprint, Response, url_for
+from flask import Blueprint, Response, request, url_for
 from flask_login import login_required
 
 from ..models import Book, db
+
+OPDS_PAGE_SIZE = 50
 
 opds_bp = Blueprint("opds", __name__)
 
@@ -63,14 +65,17 @@ def _escape_xml(text):
 @opds_bp.route("/opds/all.xml")
 @login_required
 def all_books():
-    books = (
+    page = max(1, request.args.get("page", 1, type=int))
+
+    query = (
         Book.query.filter(
             Book.is_visible == True,   # noqa: E712
             Book.is_disabled == False,  # noqa: E712
         )
         .order_by(Book.title.asc())
-        .all()
     )
+    pagination = query.paginate(page=page, per_page=OPDS_PAGE_SIZE, error_out=False)
+    books = pagination.items
 
     updated = _utcnow_iso()
     entries = []
@@ -100,6 +105,13 @@ def all_books():
 {links}  </entry>"""
         entries.append(entry)
 
+    # OPDS pagination links
+    nav_links = ""
+    if pagination.has_next:
+        nav_links += f'  <link rel="next" href="/opds/all.xml?page={pagination.next_num}" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>\n'
+    if pagination.has_prev:
+        nav_links += f'  <link rel="previous" href="/opds/all.xml?page={pagination.prev_num}" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>\n'
+
     entries_xml = "\n".join(entries)
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"
@@ -111,9 +123,9 @@ def all_books():
   <author>
     <name>Bibliotheca Oratorii</name>
   </author>
-  <link rel="self" href="/opds/all.xml" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  <link rel="self" href="/opds/all.xml?page={page}" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
   <link rel="start" href="/opds/catalog.xml" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
   <link rel="up" href="/opds/catalog.xml" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
-{entries_xml}
+{nav_links}{entries_xml}
 </feed>"""
     return _make_xml_response(xml)

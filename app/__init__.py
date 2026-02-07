@@ -19,6 +19,8 @@ login_manager.login_message = "Please sign in to access the library."
 login_manager.login_message_category = "info"
 login_manager.session_protection = "strong"
 
+# In-memory storage; counters reset on process restart. Acceptable for
+# single-worker SQLite deployments. For multi-worker setups use Redis storage.
 limiter = Limiter(key_func=get_remote_address)
 mail = Mail()
 migrate = Migrate()
@@ -121,7 +123,8 @@ def create_app(config_name=None):
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline'; "
+                "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+                "worker-src 'self' blob: https://cdnjs.cloudflare.com; "
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data:; "
@@ -157,7 +160,10 @@ def create_app(config_name=None):
     with app.app_context():
         db.create_all()
 
-        # Schema migrations for existing databases
+        # Schema migrations for existing databases.
+        # Each (ALTER, INDEX) pair is idempotent: ALTER TABLE raises if column
+        # already exists, which the except block silently handles via rollback.
+        # For a formal migration system, consider Alembic.
         _migrations = [
             ("ALTER TABLE users ADD COLUMN google_id VARCHAR(255)", None),
             (None, "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_id ON users(google_id)"),
