@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SERVER="${DEPLOY_SERVER:?Set DEPLOY_SERVER env var (e.g. root@1.2.3.4)}"
+SERVER="${DEPLOY_SERVER:-root@104.131.189.253}"
 KEY="${DEPLOY_KEY:-$HOME/.ssh/oratory-lib}"
 REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/bibliotheca}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
