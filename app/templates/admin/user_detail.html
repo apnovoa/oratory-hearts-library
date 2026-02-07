@@ -110,7 +110,7 @@
           <form method="POST" action="{{ url_for('admin.user_change_role', user_id=user.id) }}" class="inline-form">
             {{ role_form.hidden_tag() }}
             <div class="form-group">
-              {{ role_form.role(class="form-control", style="width: 180px; display: inline-block;") }}
+              {{ role_form.role(class="form-control form-control-w180") }}
             </div>
             {{ role_form.submit(class="btn btn-secondary") }}
           </form>

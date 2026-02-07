@@ -1564,6 +1564,27 @@ select.form-control {
 .mb-lg { margin-bottom: 1.5rem; }
 .mb-xl { margin-bottom: 2rem; }
 
+/* Text utilities */
+.text-subdued { color: #8a8078; }
+.text-xs      { font-size: 0.8rem; }
+.text-error   { color: #c0392b; }
+.text-mono    { font-family: monospace; font-size: 0.8rem; }
+.text-break   { word-break: break-all; }
+.text-dotted  { cursor: help; text-decoration: underline dotted; font-size: 0.85rem; }
+
+/* Layout utilities */
+.d-flex         { display: flex; }
+.d-inline       { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-none         { display: none; }
+.flex-wrap      { flex-wrap: wrap; }
+.flex-between   { display: flex; justify-content: space-between; align-items: center; }
+.flex-center    { display: flex; align-items: center; }
+.gap-sm         { gap: 0.5rem; }
+.gap-md         { gap: 1rem; }
+.ml-auto        { margin-left: auto; }
+.nowrap         { white-space: nowrap; }
+
 
 /* =================================================================
    ADMIN
@@ -1739,6 +1760,298 @@ select.form-control {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #8a8078;
+}
+
+/* Admin structural classes */
+.admin-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.admin-section {
+    margin-top: 2rem;
+}
+
+.admin-section h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #1a1412;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e8e0d6;
+    margin-bottom: 1rem;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-table thead {
+    background-color: #faf8f5;
+}
+
+.admin-table th {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8a8078;
+    padding: 0.75rem 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid #e8e0d6;
+}
+
+.admin-table td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid #f0ebe4;
+    color: #5c534d;
+    vertical-align: middle;
+}
+
+.admin-table tbody tr:hover {
+    background-color: #faf8f5;
+}
+
+.admin-actions {
+    margin-top: 1.5rem;
+}
+
+.admin-actions h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a1412;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e8e0d6;
+    margin-bottom: 1rem;
+}
+
+.action-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f0ebe4;
+}
+
+.action-row:last-child {
+    border-bottom: none;
+}
+
+.detail-card {
+    background-color: #ffffff;
+    border: 1px solid #f0ebe4;
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 4px rgba(26, 20, 18, 0.04);
+}
+
+.detail-card dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1.5rem;
+    margin: 0;
+}
+
+.detail-card dt {
+    font-weight: 600;
+    color: #5c534d;
+    font-size: 0.9rem;
+}
+
+.detail-card dd {
+    margin: 0;
+    color: #1a1412;
+    font-size: 0.9rem;
+}
+
+.inline-form {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f0ebe4;
+}
+
+.stat-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #6b1d2a;
+    display: block;
+    margin-bottom: 0.25rem;
+    line-height: 1.1;
+}
+
+.stat-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8a8078;
+}
+
+.pagination-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+    color: #5c534d;
+}
+
+/* Details dropdown (resolve actions) */
+.details-dropdown {
+    position: relative;
+}
+
+.details-dropdown-panel {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 10;
+    background: #fff;
+    border: 1px solid #e0d8cf;
+    border-radius: 6px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 280px;
+    margin-top: 0.25rem;
+}
+
+/* Drop zone (file upload) */
+.drop-zone {
+    border: 2px dashed #c5b9a8;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.drop-zone--active {
+    border-color: #c5993e;
+    background-color: #fdf8ef;
+}
+
+.drop-zone-text {
+    margin: 0;
+    color: #8a8078;
+    font-size: 0.95rem;
+}
+
+.drop-zone-text strong {
+    color: #5c534d;
+}
+
+.drop-zone-hint {
+    margin: 0.5rem 0 0;
+    color: #b0a89e;
+    font-size: 0.8rem;
+}
+
+/* Filter form */
+.filter-form {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: end;
+}
+
+.form-group--grow {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Desc table (key-value info) */
+.desc-table {
+    font-size: 0.9rem;
+    color: #5c534d;
+}
+
+.desc-table td {
+    padding: 0.25rem 0;
+}
+
+.desc-table td:first-child {
+    padding-right: 1rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Grid layout */
+.grid-3col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+/* Fixed-width form controls */
+.form-control-w50  { width: 50px; }
+.form-control-w180 { width: 180px; display: inline-block; }
+
+/* Inline label */
+.form-label-inline {
+    font-size: 0.85rem;
+    color: #6b1d2a;
+    cursor: pointer;
+}
+
+/* Empty state */
+.empty-state {
+    color: #8b7355;
+    font-style: italic;
+}
+
+/* Card constraint */
+.card-max-720 {
+    max-width: 720px;
+}
+
+/* File list items (JS-rendered) */
+.file-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.25rem;
+    background: #faf8f5;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #5c534d;
+}
+
+.file-list-item--invalid {
+    background: #fdf0ef;
+    color: #b44a3e;
+}
+
+.file-list-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #b44a3e;
+    font-size: 1rem;
+    padding: 0 0.3rem;
 }
 
 
@@ -3674,6 +3987,41 @@ textarea,
 .badge-warning {
     background-color: #fff3cd;
     color: #856404;
+}
+
+.badge-success {
+    background-color: #2a7d4f;
+    color: #fff;
+}
+
+.badge-danger {
+    background-color: #6b1d2a;
+    color: #fff;
+}
+
+.badge-secondary {
+    background-color: #8a8078;
+    color: #fff;
+}
+
+.badge-gold {
+    background-color: #c5993e;
+    color: #fff;
+}
+
+.badge-fulfilled {
+    background-color: #1a6b3a;
+    color: #fff;
+}
+
+.badge-ai {
+    background: #c5993e;
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 0.3rem;
 }
 
 .progress-bar-track {

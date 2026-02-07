@@ -35,11 +35,11 @@
     {% endwith %}
 
     <!-- Filters -->
-    <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card mb-lg">
       <div class="card-body">
-        <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: end;">
+        <form method="GET" class="filter-form">
           <div class="form-group" style="min-width: 150px;">
-            <label class="form-label" style="font-size: 0.85rem;">Status</label>
+            <label class="form-label">Status</label>
             <select name="status" class="form-control">
               <option value="pending" {{ 'selected' if status_filter == 'pending' }}>Pending</option>
               <option value="approved" {{ 'selected' if status_filter == 'approved' }}>Approved</option>
@@ -49,7 +49,7 @@
             </select>
           </div>
           <div class="form-group" style="min-width: 150px;">
-            <label class="form-label" style="font-size: 0.85rem;">Confidence</label>
+            <label class="form-label">Confidence</label>
             <select name="confidence" class="form-control">
               <option value="">All</option>
               <option value="high" {{ 'selected' if confidence_filter == 'high' }}>High</option>
@@ -57,8 +57,8 @@
               <option value="low" {{ 'selected' if confidence_filter == 'low' }}>Low</option>
             </select>
           </div>
-          <div class="form-group" style="flex: 1; min-width: 200px;">
-            <label class="form-label" style="font-size: 0.85rem;">Search</label>
+          <div class="form-group form-group--grow">
+            <label class="form-label">Search</label>
             <input type="text" name="q" value="{{ q or '' }}" class="form-control" placeholder="Search filename, title, or author">
           </div>
           <button type="submit" class="btn btn-secondary" style="height: fit-content;">Filter</button>
@@ -71,7 +71,7 @@
     <form method="POST" id="bulk-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+      <div class="d-flex gap-sm mb-md flex-wrap">
         <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_approve') }}" class="btn btn-primary btn-sm"
                 onclick="return confirm('Approve selected books?')">
           Approve Selected
@@ -80,9 +80,13 @@
                 onclick="return confirm('Dismiss selected books?')">
           Dismiss Selected
         </button>
+        <button type="submit" formaction="{{ url_for('admin.import_pdf_ai_enrich') }}" class="btn btn-secondary btn-sm"
+                onclick="return confirm('Run AI extraction on selected books?')">
+          Enrich with AI
+        </button>
         {% if status_filter == 'pending' %}
         <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_approve') }}" name="approve_all" value="1"
-                class="btn btn-primary btn-sm" style="margin-left: auto;"
+                class="btn btn-primary btn-sm ml-auto"
                 onclick="return confirm('Approve ALL {{ pagination.total }} pending books? This cannot be undone.')">
           Approve All Pending ({{ pagination.total }})
         </button>
@@ -110,10 +114,10 @@
                 <div style="font-weight: 500;">
                   {{ staged.title or '(No title)' }}
                   {% if staged.metadata_sources and 'ai_claude' in staged.metadata_sources %}
-                    <span class="badge" style="background: #c5993e; color: #fff; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px; vertical-align: middle; margin-left: 0.3rem;" title="Metadata extracted by Claude AI">AI</span>
+                    <span class="badge badge-ai" title="Metadata extracted by Claude AI">AI</span>
                   {% endif %}
                 </div>
-                <div style="font-size: 0.8rem; color: #8a8078; word-break: break-all;">{{ staged.original_filename }}</div>
+                <div class="text-subdued text-xs text-break">{{ staged.original_filename }}</div>
                 {% if staged.duplicate_of_book_id %}
                   <span class="badge badge-warning" style="font-size: 0.75rem;">Duplicate ({{ staged.duplicate_type }})</span>
                 {% endif %}
@@ -122,18 +126,18 @@
               <td>
                 <span class="badge badge-confidence-{{ staged.confidence }}">{{ staged.confidence }}</span>
               </td>
-              <td style="white-space: nowrap;">{{ "%.1f"|format(staged.file_size / 1048576) }} MB</td>
+              <td class="nowrap">{{ "%.1f"|format(staged.file_size / 1048576) }} MB</td>
               <td>
                 <span class="badge badge-{{ staged.status }}">{{ staged.status }}</span>
               </td>
-              <td style="white-space: nowrap;">
+              <td class="nowrap">
                 <a href="{{ url_for('admin.import_pdf_staged_edit', staged_id=staged.id) }}" class="btn btn-secondary btn-sm">Edit</a>
                 {% if staged.status == 'pending' %}
-                  <form method="POST" action="{{ url_for('admin.import_pdf_staged_approve', staged_id=staged.id) }}" style="display:inline;">
+                  <form method="POST" action="{{ url_for('admin.import_pdf_staged_approve', staged_id=staged.id) }}" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-primary btn-sm">Approve</button>
                   </form>
-                  <form method="POST" action="{{ url_for('admin.import_pdf_staged_dismiss', staged_id=staged.id) }}" style="display:inline;">
+                  <form method="POST" action="{{ url_for('admin.import_pdf_staged_dismiss', staged_id=staged.id) }}" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-secondary btn-sm">Dismiss</button>
                   </form>
@@ -148,11 +152,11 @@
 
     <!-- Pagination -->
     {% if pagination.pages > 1 %}
-    <nav class="pagination-nav" style="margin-top: 1.5rem;">
+    <nav class="pagination-nav">
       {% if pagination.has_prev %}
         <a href="{{ url_for('admin.import_pdf_review', page=pagination.prev_num, status=status_filter, confidence=confidence_filter, q=q) }}" class="btn btn-secondary btn-sm">&laquo; Prev</a>
       {% endif %}
-      <span style="margin: 0 1rem; font-size: 0.9rem; color: #5c534d;">
+      <span>
         Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total)
       </span>
       {% if pagination.has_next %}
@@ -164,7 +168,7 @@
     {% else %}
     <div class="card">
       <div class="card-body" style="text-align: center; padding: 3rem;">
-        <p style="color: #8a8078; font-size: 1.1rem;">No staged books found matching your filters.</p>
+        <p class="text-subdued" style="font-size: 1.1rem;">No staged books found matching your filters.</p>
         <a href="{{ url_for('admin.import_pdf_dashboard') }}" class="btn btn-secondary">Back to Import Dashboard</a>
       </div>
     </div>

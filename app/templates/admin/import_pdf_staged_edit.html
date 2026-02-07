@@ -35,27 +35,27 @@
     {% endwith %}
 
     <!-- File Info -->
-    <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card mb-lg">
       <div class="card-body">
         <h3>Source File</h3>
-        <table style="font-size: 0.9rem; color: #5c534d;">
-          <tr><td style="padding-right: 1rem; font-weight: 500;">Filename:</td><td style="word-break: break-all;">{{ staged.original_filename }}</td></tr>
-          <tr><td style="padding-right: 1rem; font-weight: 500;">Size:</td><td>{{ "%.1f"|format(staged.file_size / 1048576) }} MB</td></tr>
-          <tr><td style="padding-right: 1rem; font-weight: 500;">SHA-256:</td><td style="font-family: monospace; font-size: 0.8rem;">{{ staged.file_hash }}</td></tr>
-          <tr><td style="padding-right: 1rem; font-weight: 500;">Confidence:</td><td><span class="badge badge-confidence-{{ staged.confidence }}">{{ staged.confidence }}</span></td></tr>
-          <tr><td style="padding-right: 1rem; font-weight: 500;">Sources:</td><td>{{ staged.metadata_sources or 'none' }}</td></tr>
+        <table class="desc-table">
+          <tr><td>Filename:</td><td class="text-break">{{ staged.original_filename }}</td></tr>
+          <tr><td>Size:</td><td>{{ "%.1f"|format(staged.file_size / 1048576) }} MB</td></tr>
+          <tr><td>SHA-256:</td><td class="text-mono">{{ staged.file_hash }}</td></tr>
+          <tr><td>Confidence:</td><td><span class="badge badge-confidence-{{ staged.confidence }}">{{ staged.confidence }}</span></td></tr>
+          <tr><td>Sources:</td><td>{{ staged.metadata_sources or 'none' }}</td></tr>
           {% if staged.duplicate_of_book_id %}
-          <tr><td style="padding-right: 1rem; font-weight: 500;">Duplicate:</td><td><span class="badge badge-warning">{{ staged.duplicate_type }} match — Book #{{ staged.duplicate_of_book_id }}</span></td></tr>
+          <tr><td>Duplicate:</td><td><span class="badge badge-warning">{{ staged.duplicate_type }} match — Book #{{ staged.duplicate_of_book_id }}</span></td></tr>
           {% endif %}
           {% if staged.error_message %}
-          <tr><td style="padding-right: 1rem; font-weight: 500;">Error:</td><td style="color: #c0392b;">{{ staged.error_message }}</td></tr>
+          <tr><td>Error:</td><td class="text-error">{{ staged.error_message }}</td></tr>
           {% endif %}
         </table>
       </div>
     </div>
 
     <!-- Edit Form -->
-    <div class="card" style="max-width: 720px;">
+    <div class="card card-max-720">
       <div class="card-body">
         <form method="POST">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -75,7 +75,7 @@
             {{ form.description(class="form-control", id="description") }}
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+          <div class="grid-3col">
             <div class="form-group">
               <label class="form-label" for="language">Language</label>
               {{ form.language(class="form-control", id="language") }}
@@ -95,10 +95,10 @@
             {{ form.tags_text(class="form-control", id="tags_text") }}
           </div>
 
-          <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+          <div class="form-actions">
             {{ form.submit(class="btn btn-primary") }}
             {% if staged.status == 'pending' %}
-            <form method="POST" action="{{ url_for('admin.import_pdf_staged_approve', staged_id=staged.id) }}" style="display:inline;">
+            <form method="POST" action="{{ url_for('admin.import_pdf_staged_approve', staged_id=staged.id) }}" class="d-inline">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-primary">Save &amp; Approve</button>
             </form>

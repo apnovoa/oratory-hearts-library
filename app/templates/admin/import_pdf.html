@@ -32,7 +32,7 @@
     {% endwith %}
 
     <!-- Staging Stats -->
-    <div class="stats-grid" style="margin-bottom: 2rem;">
+    <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-value">{{ staging_file_count }}</div>
         <div class="stat-label">PDFs in Staging</div>
@@ -52,30 +52,30 @@
     </div>
 
     <!-- Upload PDFs -->
-    <div class="card" style="margin-bottom: 2rem;">
+    <div class="card mb-xl">
       <div class="card-body">
         <h3>Upload PDFs</h3>
-        <p style="color: #8a8078; font-size: 0.9rem; margin-bottom: 1rem;">
+        <p class="text-subdued mb-md" style="font-size: 0.9rem;">
           Drag-and-drop PDF files or click the area below to select them. Files are placed in the staging directory for scanning.
         </p>
 
         <form id="upload-form" method="POST" action="{{ url_for('admin.import_pdf_upload') }}" enctype="multipart/form-data">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="file" id="pdf-file-input" name="pdf_files" multiple accept=".pdf" style="display: none;">
+          <input type="file" id="pdf-file-input" name="pdf_files" multiple accept=".pdf" class="d-none">
 
-          <div id="drop-zone" style="border: 2px dashed #c5b9a8; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background-color 0.2s;">
-            <p style="margin: 0; color: #8a8078; font-size: 0.95rem;">
-              <strong style="color: #5c534d;">Drop PDF files here</strong><br>
+          <div id="drop-zone" class="drop-zone">
+            <p class="drop-zone-text">
+              <strong>Drop PDF files here</strong><br>
               or click to browse
             </p>
-            <p style="margin: 0.5rem 0 0; color: #b0a89e; font-size: 0.8rem;">
+            <p class="drop-zone-hint">
               Max 100 MB per file &middot; PDF only
             </p>
           </div>
 
-          <div id="file-list" style="margin-top: 1rem; display: none;"></div>
+          <div id="file-list" class="mt-md d-none"></div>
 
-          <button type="submit" id="upload-btn" class="btn btn-primary" style="margin-top: 1rem; display: none;">
+          <button type="submit" id="upload-btn" class="btn btn-primary mt-md d-none">
             Upload
           </button>
         </form>
@@ -83,15 +83,15 @@
     </div>
 
     <!-- Scan Controls -->
-    <div class="card" style="margin-bottom: 2rem;">
+    <div class="card mb-xl">
       <div class="card-body">
         <h3>Scan Staging Directory</h3>
-        <p style="color: #8a8078; font-size: 0.9rem; margin-bottom: 1rem;">
+        <p class="text-subdued mb-md" style="font-size: 0.9rem;">
           After uploading (or adding files via SCP/rsync), click "Start Scan" to extract metadata and queue them for review.
         </p>
 
         <div id="scan-controls">
-          <form method="POST" action="{{ url_for('admin.import_pdf_scan') }}" style="display: inline;">
+          <form method="POST" action="{{ url_for('admin.import_pdf_scan') }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-primary" id="scan-btn" {% if scan_progress.running %}disabled{% endif %}>
               {% if scan_progress.running %}Scanning...{% else %}Start Scan{% endif %}
@@ -105,32 +105,32 @@
         </div>
 
         <!-- Progress Bar (shown during scan) -->
-        <div id="scan-progress" style="margin-top: 1.5rem; {% if not scan_progress.running %}display: none;{% endif %}">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem; color: #5c534d;">
+        <div id="scan-progress" class="mt-lg" {% if not scan_progress.running %}style="display: none;"{% endif %}>
+          <div class="flex-between mb-sm" style="font-size: 0.85rem; color: #5c534d;">
             <span id="progress-label">Processing...</span>
             <span id="progress-count">0 / 0</span>
           </div>
           <div class="progress-bar-track">
             <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
           </div>
-          <p id="progress-current" style="margin-top: 0.5rem; font-size: 0.8rem; color: #8a8078; word-break: break-all;"></p>
+          <p id="progress-current" class="mt-sm text-subdued text-xs text-break"></p>
         </div>
       </div>
     </div>
 
     <!-- AI Extraction Status -->
-    <div class="card" style="margin-bottom: 2rem;">
+    <div class="card mb-xl">
       <div class="card-body">
-        <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+        <h3 class="flex-center gap-sm">
           AI Metadata Extraction
           {% if config.AI_EXTRACTION_ENABLED %}
-            <span class="badge" style="background: #c5993e; color: #fff; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;">Active</span>
+            <span class="badge badge-gold">Active</span>
           {% else %}
-            <span class="badge" style="background: #8a8078; color: #fff; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;">Disabled</span>
+            <span class="badge badge-secondary">Disabled</span>
           {% endif %}
         </h3>
         {% if config.AI_EXTRACTION_ENABLED %}
-          <p style="color: #5c534d; font-size: 0.9rem; margin-bottom: 0.5rem;">
+          <p style="color: #5c534d; font-size: 0.9rem;" class="mb-sm">
             Claude AI reads the first pages of each PDF to extract title, author, year, ISBN, language, and subject tags.
             {% if config.AI_EXTRACTION_TIER == 'tier3' %}
               Running in <strong>Tier 3 (deep read)</strong> mode — first 25 pages with rich descriptions.
@@ -140,11 +140,11 @@
               Running in <strong>Tier 1</strong> mode — metadata only.
             {% endif %}
           </p>
-          <p style="color: #8a8078; font-size: 0.8rem;">
+          <p class="text-subdued text-xs">
             AI-extracted fields have the highest priority in the merge pipeline. Books processed with AI show a gold badge in the review queue.
           </p>
         {% else %}
-          <p style="color: #8a8078; font-size: 0.9rem;">
+          <p class="text-subdued" style="font-size: 0.9rem;">
             Set <code>AI_EXTRACTION_ENABLED=true</code> and provide an <code>ANTHROPIC_API_KEY</code> in the server <code>.env</code> to enable Claude-powered metadata extraction.
           </p>
         {% endif %}
@@ -183,22 +183,22 @@
 
   function renderFileList() {
     if (selectedFiles.length === 0) {
-      fileList.style.display = 'none';
-      uploadBtn.style.display = 'none';
+      fileList.classList.add('d-none');
+      uploadBtn.classList.add('d-none');
       return;
     }
-    fileList.style.display = 'block';
-    uploadBtn.style.display = 'inline-block';
+    fileList.classList.remove('d-none');
+    uploadBtn.classList.remove('d-none');
 
     var html = '';
     for (var i = 0; i < selectedFiles.length; i++) {
       var f = selectedFiles[i];
       var valid = f.name.toLowerCase().endsWith('.pdf');
-      html += '<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; margin-bottom: 0.25rem; background: ' + (valid ? '#faf8f5' : '#fdf0ef') + '; border-radius: 4px; font-size: 0.85rem;">';
-      html += '<span style="color: ' + (valid ? '#5c534d' : '#b44a3e') + '; word-break: break-all;">' + f.name + ' <span style="color: #b0a89e;">(' + formatSize(f.size) + ')</span>';
-      if (!valid) html += ' <span style="color: #b44a3e;">&mdash; not a PDF</span>';
+      html += '<div class="file-list-item' + (valid ? '' : ' file-list-item--invalid') + '">';
+      html += '<span class="text-break">' + f.name + ' <span class="text-subdued">(' + formatSize(f.size) + ')</span>';
+      if (!valid) html += ' <span class="text-error">&mdash; not a PDF</span>';
       html += '</span>';
-      html += '<button type="button" data-index="' + i + '" style="background: none; border: none; cursor: pointer; color: #b44a3e; font-size: 1rem; padding: 0 0.3rem;" title="Remove">&times;</button>';
+      html += '<button type="button" data-index="' + i + '" class="file-list-remove" title="Remove">&times;</button>';
       html += '</div>';
     }
     fileList.innerHTML = html;
@@ -246,20 +246,17 @@
 
   dropZone.addEventListener('dragover', function(e) {
     e.preventDefault();
-    dropZone.style.borderColor = '#c5993e';
-    dropZone.style.backgroundColor = '#fdf8ef';
+    dropZone.classList.add('drop-zone--active');
   });
 
   dropZone.addEventListener('dragleave', function(e) {
     e.preventDefault();
-    dropZone.style.borderColor = '#c5b9a8';
-    dropZone.style.backgroundColor = '';
+    dropZone.classList.remove('drop-zone--active');
   });
 
   dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
-    dropZone.style.borderColor = '#c5b9a8';
-    dropZone.style.backgroundColor = '';
+    dropZone.classList.remove('drop-zone--active');
     if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   });
 })();

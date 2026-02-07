@@ -13,7 +13,7 @@
       <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
       <li><a href="{{ url_for('admin.users') }}">Users</a></li>
       <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
-      <li><a href="{{ url_for('admin.book_requests') }}" class="active">Requests{% if pending_count %} <span style="background:#c5993e; color:#fff; border-radius:10px; padding:0.1rem 0.5rem; font-size:0.75rem; margin-left:0.25rem;">{{ pending_count }}</span>{% endif %}</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}" class="active">Requests{% if pending_count %} <span class="badge badge-gold">{{ pending_count }}</span>{% endif %}</a></li>
       <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
       <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
       <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
@@ -23,7 +23,7 @@
   <div class="admin-content">
     <h1>Book Requests</h1>
 
-    <div style="margin-bottom:1rem;">
+    <div class="mb-md">
       <a href="{{ url_for('admin.book_requests', status='pending') }}" class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-outline{% endif %}">Pending{% if pending_count %} ({{ pending_count }}){% endif %}</a>
       <a href="{{ url_for('admin.book_requests', status='approved') }}" class="btn btn-sm {% if status_filter == 'approved' %}btn-primary{% else %}btn-outline{% endif %}">Approved</a>
       <a href="{{ url_for('admin.book_requests', status='declined') }}" class="btn btn-sm {% if status_filter == 'declined' %}btn-primary{% else %}btn-outline{% endif %}">Declined</a>
@@ -48,7 +48,7 @@
           <tr>
             <td>
               <a href="{{ url_for('admin.user_detail', user_id=req.user.id) }}">{{ req.user.display_name }}</a>
-              <br><small style="color:#888;">{{ req.user.email }}</small>
+              <br><small class="text-subdued">{{ req.user.email }}</small>
             </td>
             <td><strong>{{ req.title }}</strong></td>
             <td>{{ req.author or '&mdash;'|safe }}</td>
@@ -58,35 +58,35 @@
             <td>{{ req.created_at.strftime('%Y-%m-%d') }}</td>
             <td>
               {% if req.status == 'pending' %}
-                <span class="badge badge-warning" style="background:#c5993e; color:#fff;">Pending</span>
+                <span class="badge badge-gold">Pending</span>
               {% elif req.status == 'approved' %}
-                <span class="badge badge-success" style="background:#2a7d4f; color:#fff;">Approved</span>
+                <span class="badge badge-success">Approved</span>
               {% elif req.status == 'declined' %}
-                <span class="badge badge-danger" style="background:#6b1d2a; color:#fff;">Declined</span>
+                <span class="badge badge-danger">Declined</span>
               {% elif req.status == 'fulfilled' %}
-                <span class="badge badge-success" style="background:#1a6b3a; color:#fff;">Fulfilled</span>
+                <span class="badge badge-fulfilled">Fulfilled</span>
               {% else %}
                 <span class="badge">{{ req.status|capitalize }}</span>
               {% endif %}
             </td>
             <td>
               {% if req.status == 'pending' %}
-              <details style="position:relative;">
-                <summary class="btn btn-sm btn-primary" style="cursor:pointer;">Resolve</summary>
-                <div style="position:absolute; right:0; top:100%; z-index:10; background:#fff; border:1px solid #e0d8cf; border-radius:6px; padding:1rem; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:280px; margin-top:0.25rem;">
+              <details class="details-dropdown">
+                <summary class="btn btn-sm btn-primary">Resolve</summary>
+                <div class="details-dropdown-panel">
                   <form method="post" action="{{ url_for('admin.book_request_resolve', request_id=req.id) }}">
                     {{ resolve_form.hidden_tag() }}
-                    <div class="form-group" style="margin-bottom:0.75rem;">
-                      <label class="form-label" style="font-size:0.85rem; font-weight:600;">Decision</label>
-                      <select name="status" class="form-control" style="width:100%; padding:0.4rem; border:1px solid #ccc; border-radius:4px;">
+                    <div class="form-group">
+                      <label class="form-label">Decision</label>
+                      <select name="status" class="form-control">
                         <option value="approved">Approved</option>
                         <option value="declined">Declined</option>
                         <option value="fulfilled">Fulfilled</option>
                       </select>
                     </div>
-                    <div class="form-group" style="margin-bottom:0.75rem;">
-                      <label class="form-label" style="font-size:0.85rem; font-weight:600;">Notes</label>
-                      <textarea name="admin_notes" rows="2" class="form-control" style="width:100%; padding:0.4rem; border:1px solid #ccc; border-radius:4px;" placeholder="Notes for the patron (optional)"></textarea>
+                    <div class="form-group">
+                      <label class="form-label">Notes</label>
+                      <textarea name="admin_notes" rows="2" class="form-control" placeholder="Notes for the patron (optional)"></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm">Submit</button>
                   </form>
@@ -94,7 +94,7 @@
               </details>
               {% else %}
                 {% if req.admin_notes %}
-                  <span title="{{ req.admin_notes }}" style="cursor:help; text-decoration:underline dotted; font-size:0.85rem;">View notes</span>
+                  <span title="{{ req.admin_notes }}" class="text-dotted">View notes</span>
                 {% else %}
                   &mdash;
                 {% endif %}

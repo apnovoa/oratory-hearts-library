@@ -75,7 +75,7 @@
         <legend>Books in this List</legend>
 
         {% if reading_list.items %}
-        <table class="admin-table" style="margin-bottom:1.5rem;">
+        <table class="admin-table mb-lg">
           <thead>
             <tr>
               <th style="width:60px;">Order</th>
@@ -89,15 +89,15 @@
             {% for item in reading_list.items %}
             <tr>
               <td>
-                <input type="number" name="position_{{ item.id }}" value="{{ item.position }}" min="1" style="width:50px;" class="form-control">
+                <input type="number" name="position_{{ item.id }}" value="{{ item.position }}" min="1" class="form-control form-control-w50">
               </td>
               <td>{{ item.book.title }}</td>
               <td>{{ item.book.author }}</td>
               <td>
-                <input type="text" name="note_{{ item.id }}" value="{{ item.note or '' }}" class="form-control" placeholder="Optional curator note" style="font-size:0.85rem;">
+                <input type="text" name="note_{{ item.id }}" value="{{ item.note or '' }}" class="form-control text-small" placeholder="Optional curator note">
               </td>
               <td>
-                <label style="font-size:0.85rem; color:#6b1d2a; cursor:pointer;">
+                <label class="form-label-inline">
                   <input type="checkbox" name="remove_{{ item.id }}" value="1"> Remove
                 </label>
               </td>
@@ -106,7 +106,7 @@
           </tbody>
         </table>
         {% else %}
-        <p style="color:#8b7355; font-style:italic; margin-bottom:1rem;">No books added yet.</p>
+        <p class="empty-state mb-md">No books added yet.</p>
         {% endif %}
 
         <div class="form-group">
