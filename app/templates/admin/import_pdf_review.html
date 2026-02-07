@@ -107,7 +107,12 @@
             <tr>
               <td><input type="checkbox" name="staged_ids" value="{{ staged.id }}" class="row-check"></td>
               <td>
-                <div style="font-weight: 500;">{{ staged.title or '(No title)' }}</div>
+                <div style="font-weight: 500;">
+                  {{ staged.title or '(No title)' }}
+                  {% if staged.metadata_sources and 'ai_claude' in staged.metadata_sources %}
+                    <span class="badge" style="background: #c5993e; color: #fff; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px; vertical-align: middle; margin-left: 0.3rem;" title="Metadata extracted by Claude AI">AI</span>
+                  {% endif %}
+                </div>
                 <div style="font-size: 0.8rem; color: #8a8078; word-break: break-all;">{{ staged.original_filename }}</div>
                 {% if staged.duplicate_of_book_id %}
                   <span class="badge badge-warning" style="font-size: 0.75rem;">Duplicate ({{ staged.duplicate_type }})</span>

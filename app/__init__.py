@@ -27,6 +27,10 @@ oauth = OAuth()
 
 
 def create_app(config_name=None):
+    # Load .env so gunicorn (production) picks up env vars too
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
     if config_name is None:
         config_name = os.environ.get("FLASK_ENV", "development")
 

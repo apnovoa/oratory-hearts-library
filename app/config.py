@@ -57,6 +57,16 @@ class Config:
         "STAGING_STORAGE", str(STORAGE_DIR / "staging")
     )
 
+    # AI metadata extraction (Claude API)
+    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+    AI_EXTRACTION_ENABLED = os.environ.get("AI_EXTRACTION_ENABLED", "false").lower() == "true"
+    AI_EXTRACTION_TIER = os.environ.get("AI_EXTRACTION_TIER", "tier2")
+    AI_MODEL_TIER1 = "claude-haiku-4-5-20251001"
+    AI_MODEL_TIER2 = "claude-haiku-4-5-20251001"
+    AI_MODEL_TIER3 = "claude-sonnet-4-5-20250929"
+    AI_MAX_PAGES_METADATA = 3
+    AI_MAX_PAGES_DEEP = int(os.environ.get("AI_MAX_PAGES_DEEP", "9999"))
+
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")

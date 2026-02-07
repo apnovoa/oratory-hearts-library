@@ -88,6 +88,39 @@
       </div>
     </div>
 
+    <!-- AI Extraction Status -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-body">
+        <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+          AI Metadata Extraction
+          {% if config.AI_EXTRACTION_ENABLED %}
+            <span class="badge" style="background: #c5993e; color: #fff; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;">Active</span>
+          {% else %}
+            <span class="badge" style="background: #8a8078; color: #fff; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px;">Disabled</span>
+          {% endif %}
+        </h3>
+        {% if config.AI_EXTRACTION_ENABLED %}
+          <p style="color: #5c534d; font-size: 0.9rem; margin-bottom: 0.5rem;">
+            Claude AI reads the first pages of each PDF to extract title, author, year, ISBN, language, and subject tags.
+            {% if config.AI_EXTRACTION_TIER == 'tier3' %}
+              Running in <strong>Tier 3 (deep read)</strong> mode — first 25 pages with rich descriptions.
+            {% elif config.AI_EXTRACTION_TIER == 'tier2' %}
+              Running in <strong>Tier 2</strong> mode — metadata + catalog descriptions.
+            {% else %}
+              Running in <strong>Tier 1</strong> mode — metadata only.
+            {% endif %}
+          </p>
+          <p style="color: #8a8078; font-size: 0.8rem;">
+            AI-extracted fields have the highest priority in the merge pipeline. Books processed with AI show a gold badge in the review queue.
+          </p>
+        {% else %}
+          <p style="color: #8a8078; font-size: 0.9rem;">
+            Set <code>AI_EXTRACTION_ENABLED=true</code> and provide an <code>ANTHROPIC_API_KEY</code> in the server <code>.env</code> to enable Claude-powered metadata extraction.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- Instructions -->
     <div class="card">
       <div class="card-body">

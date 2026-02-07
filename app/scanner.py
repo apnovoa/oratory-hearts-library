@@ -6,6 +6,7 @@ records for admin review.
 """
 
 import hashlib
+import json
 import logging
 import os
 import re
@@ -20,10 +21,10 @@ import requests
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Module-level scan progress state
+# File-based scan progress (shared across gunicorn workers)
 # ---------------------------------------------------------------------------
 
-_scan_progress = {
+_PROGRESS_DEFAULTS = {
     "running": False,
     "batch_id": None,
     "total": 0,
@@ -37,10 +38,41 @@ _scan_progress = {
 _progress_lock = threading.Lock()
 
 
+def _progress_file_path():
+    """Return path to the progress JSON file inside the staging directory's parent."""
+    from flask import current_app
+    try:
+        storage = Path(current_app.config["STAGING_STORAGE"]).parent
+    except RuntimeError:
+        storage = Path("storage")
+    storage.mkdir(parents=True, exist_ok=True)
+    return storage / ".scan_progress.json"
+
+
+def _read_progress(path=None):
+    """Read progress from disk. Returns defaults if file missing/corrupt."""
+    if path is None:
+        path = _progress_file_path()
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return dict(_PROGRESS_DEFAULTS)
+
+
+def _write_progress(data, path=None):
+    """Atomically write progress to disk."""
+    if path is None:
+        path = _progress_file_path()
+    tmp = str(path) + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, str(path))
+
+
 def get_scan_progress():
     """Return a snapshot of the current scan progress."""
-    with _progress_lock:
-        return dict(_scan_progress)
+    return _read_progress()
 
 
 # ---------------------------------------------------------------------------
@@ -319,15 +351,15 @@ def _lookup_openlibrary(isbn=None, title=None, author=None):
 def _compute_confidence(metadata_sources, has_title, has_author, has_isbn):
     """Return a confidence level: 'high', 'medium', or 'low'.
 
-    - high:   title + author + at least one enrichment source (openlibrary or
-              pdf_metadata with isbn)
+    - high:   title + author + at least one enrichment source (openlibrary,
+              ai_claude, or pdf_metadata with isbn)
     - medium: title + author from any source
     - low:    only filename-derived title, or missing fields
     """
     sources = set(s.strip() for s in (metadata_sources or "").split(",") if s.strip())
 
     if has_title and has_author:
-        enriched = "openlibrary" in sources or (
+        enriched = "ai_claude" in sources or "openlibrary" in sources or (
             "pdf_metadata" in sources and has_isbn
         )
         if enriched:
@@ -385,31 +417,62 @@ def _scan_single_file(filepath, batch_id, app):
         if fn_meta["title"] or fn_meta["author"]:
             sources.append("filename")
 
+        # ---- AI metadata extraction (Claude) ----
+        ai_meta = None
+        try:
+            from .ai_service import extract_metadata_with_ai
+            ai_meta = extract_metadata_with_ai(filepath, app.config)
+        except Exception as exc:
+            logger.debug("AI extraction failed for %s: %s", filename, exc)
+
+        if ai_meta and any(v for v in ai_meta.values()):
+            sources.append("ai_claude")
+
         # ---- Open Library enrichment ----
+        # Use AI-improved title/author/isbn for the Open Library lookup
+        lookup_title = (ai_meta or {}).get("title") or merged_title
+        lookup_author = (ai_meta or {}).get("author") or merged_author
+        lookup_isbn = (ai_meta or {}).get("isbn") or merged_isbn
+
         ol_meta = {"title": None, "author": None, "description": None,
                    "year": None, "language": None, "subjects": None, "isbn": None}
 
         try:
-            if merged_isbn:
-                ol_meta = _lookup_openlibrary(isbn=merged_isbn)
-            elif merged_title and merged_author:
-                ol_meta = _lookup_openlibrary(title=merged_title, author=merged_author)
-            elif merged_title:
-                ol_meta = _lookup_openlibrary(title=merged_title)
+            if lookup_isbn:
+                ol_meta = _lookup_openlibrary(isbn=lookup_isbn)
+            elif lookup_title and lookup_author:
+                ol_meta = _lookup_openlibrary(title=lookup_title, author=lookup_author)
+            elif lookup_title:
+                ol_meta = _lookup_openlibrary(title=lookup_title)
         except Exception as exc:
             logger.debug("Open Library enrichment failed for %s: %s", filename, exc)
 
         if any(v for v in ol_meta.values()):
             sources.append("openlibrary")
 
-        # Prefer Open Library over local extraction
-        final_title = ol_meta["title"] or merged_title
-        final_author = ol_meta["author"] or merged_author
-        final_isbn = ol_meta["isbn"] or merged_isbn
-        final_description = ol_meta["description"] or merged_description
-        final_year = ol_meta["year"]
-        final_language = ol_meta["language"]
-        final_subjects = ol_meta["subjects"]
+        # ---- Merge: AI > Open Library > PDF metadata > filename ----
+        ai = ai_meta or {}
+        final_title = ai.get("title") or ol_meta["title"] or merged_title
+        final_author = ai.get("author") or ol_meta["author"] or merged_author
+        final_isbn = ai.get("isbn") or ol_meta["isbn"] or merged_isbn
+        final_year = ai.get("publication_year") or ol_meta["year"]
+        final_language = ai.get("language") or ol_meta["language"]
+
+        # Description: prefer Open Library (editorially written), AI as fallback
+        final_description = ol_meta["description"] or ai.get("description") or merged_description
+
+        # Tags: AI first (content-specific), then Open Library subjects, capped at 15
+        ai_tags = ai.get("tags") or ""
+        ol_subjects = ol_meta["subjects"] or ""
+        all_tags = [t.strip() for t in (ai_tags + ", " + ol_subjects).split(",") if t.strip()]
+        seen = set()
+        unique_tags = []
+        for tag in all_tags:
+            key = tag.lower()
+            if key not in seen:
+                seen.add(key)
+                unique_tags.append(tag)
+        final_subjects = ", ".join(unique_tags[:15]) if unique_tags else None
 
         # ---- Cover fetch ----
         cover_filename = None
@@ -507,35 +570,41 @@ def _scan_single_file(filepath, batch_id, app):
 def _scan_worker(staging_dir, batch_id, app):
     """Background thread target that processes all PDFs in the staging dir."""
     with app.app_context():
+        progress_path = _progress_file_path()
+
         pdf_files = sorted(
             p for p in Path(staging_dir).iterdir()
             if p.is_file() and p.suffix.lower() == ".pdf"
         )
 
-        with _progress_lock:
-            _scan_progress["total"] = len(pdf_files)
+        progress = _read_progress(progress_path)
+        progress["total"] = len(pdf_files)
+        _write_progress(progress, progress_path)
 
         logger.info("Scan batch %s started: %d PDF(s) in %s",
                      batch_id, len(pdf_files), staging_dir)
 
         for filepath in pdf_files:
-            with _progress_lock:
-                _scan_progress["current_file"] = filepath.name
+            progress = _read_progress(progress_path)
+            progress["current_file"] = filepath.name
+            _write_progress(progress, progress_path)
 
             success = _scan_single_file(str(filepath), batch_id, app)
 
-            with _progress_lock:
-                _scan_progress["processed"] += 1
-                if not success:
-                    _scan_progress["errors"] += 1
+            progress = _read_progress(progress_path)
+            progress["processed"] += 1
+            if not success:
+                progress["errors"] += 1
+            _write_progress(progress, progress_path)
 
-        with _progress_lock:
-            _scan_progress["finished_at"] = datetime.now(timezone.utc).isoformat()
-            _scan_progress["running"] = False
-            _scan_progress["current_file"] = ""
+        progress = _read_progress(progress_path)
+        progress["finished_at"] = datetime.now(timezone.utc).isoformat()
+        progress["running"] = False
+        progress["current_file"] = ""
+        _write_progress(progress, progress_path)
 
         logger.info("Scan batch %s finished: %d processed, %d errors.",
-                     batch_id, _scan_progress["processed"], _scan_progress["errors"])
+                     batch_id, progress["processed"], progress["errors"])
 
 
 # ---------------------------------------------------------------------------
@@ -548,22 +617,22 @@ def start_scan(app):
     Returns the batch_id string on success, or False if a scan is already
     running.
     """
-    with _progress_lock:
-        if _scan_progress["running"]:
+    with app.app_context():
+        progress_path = _progress_file_path()
+        progress = _read_progress(progress_path)
+
+        if progress["running"]:
             logger.warning("Scan already in progress (batch %s).",
-                           _scan_progress["batch_id"])
+                           progress["batch_id"])
             return False
 
         batch_id = uuid4().hex
 
-        _scan_progress["running"] = True
-        _scan_progress["batch_id"] = batch_id
-        _scan_progress["total"] = 0
-        _scan_progress["processed"] = 0
-        _scan_progress["current_file"] = ""
-        _scan_progress["errors"] = 0
-        _scan_progress["started_at"] = datetime.now(timezone.utc).isoformat()
-        _scan_progress["finished_at"] = None
+        progress = dict(_PROGRESS_DEFAULTS)
+        progress["running"] = True
+        progress["batch_id"] = batch_id
+        progress["started_at"] = datetime.now(timezone.utc).isoformat()
+        _write_progress(progress, progress_path)
 
     staging_dir = app.config.get("STAGING_STORAGE", "storage/staging")
     os.makedirs(staging_dir, exist_ok=True)

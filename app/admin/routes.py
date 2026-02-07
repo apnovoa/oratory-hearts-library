@@ -1073,6 +1073,7 @@ def import_pdf_dashboard():
         dismissed_count=status_counts["dismissed"],
         error_count=status_counts["error"],
         scan_progress=scan_progress,
+        config=current_app.config,
     )
 
 
