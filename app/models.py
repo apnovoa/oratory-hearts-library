@@ -205,7 +205,10 @@ class Loan(db.Model):
 
     @property
     def is_expired(self):
-        return _utcnow() >= self.due_at
+        due = self.due_at
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=timezone.utc)
+        return _utcnow() >= due
 
     @property
     def is_accessible(self):
