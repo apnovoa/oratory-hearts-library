@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Request a Book - {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+{% include "patron/_nav.html" %}
+
+<div class="auth-container">
+  <div class="auth-card">
+    <h1 class="page-title">Request a Book</h1>
+    <p class="page-subtitle" style="margin-bottom:1.5rem;">
+      Cannot find a title in our catalog? Submit a request and our librarian will review it.
+    </p>
+
+    <form method="post" action="{{ url_for('patron.request_new') }}">
+      {{ form.hidden_tag() }}
+
+      <div class="form-group">
+        <label for="title" class="form-label">Book Title <span style="color:#6b1d2a;">*</span></label>
+        <input type="text" id="title" name="title" class="form-input"
+               value="{{ form.title.data or '' }}" required
+               placeholder="Title of the book you would like added">
+        {% for error in form.title.errors %}
+        <p class="form-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <div class="form-group">
+        <label for="author" class="form-label">Author</label>
+        <input type="text" id="author" name="author" class="form-input"
+               value="{{ form.author.data or '' }}"
+               placeholder="Author name (if known)">
+        {% for error in form.author.errors %}
+        <p class="form-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <div class="form-group">
+        <label for="reason" class="form-label">Reason</label>
+        <textarea id="reason" name="reason" class="form-input" rows="4"
+                  placeholder="Why would you like this book added to the library?">{{ form.reason.data or '' }}</textarea>
+        {% for error in form.reason.errors %}
+        <p class="form-error">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <div class="btn-group">
+        <button type="submit" class="btn btn-primary">Submit Request</button>
+        <a href="{{ url_for('patron.requests') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

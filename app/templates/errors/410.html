@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Expired - {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-code">410</div>
+    <h2 class="error-title">Resource Expired</h2>
+    <p class="error-text">
+        This loan or resource has expired and is no longer available. If you wish to borrow the title again, please visit the catalog.
+    </p>
+    <a href="{{ url_for('catalog.index') }}" class="btn btn-primary">Browse Catalog</a>
+</div>
+{% endblock %}

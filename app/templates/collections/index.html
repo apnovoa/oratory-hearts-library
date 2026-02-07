@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Collections{% endblock %}
+
+{% block content %}
+<section class="collections-page">
+  <header class="collections-header" style="margin-bottom:2rem;">
+    <h1 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:2.2rem; margin-bottom:0.25rem;">Reading Lists</h1>
+    <p style="color:#5c4a3a; font-size:1rem; max-width:640px;">
+      Curated collections to guide your reading throughout the liturgical year and beyond.
+    </p>
+  </header>
+
+  {# ── Seasonal Recommendations ───────────────────────────────────── #}
+  {% if seasonal_lists %}
+  <section class="collections-section" style="margin-bottom:2.5rem;">
+    <div style="background:linear-gradient(135deg, #6b1d2a 0%, #8b2e3a 100%); border-radius:8px; padding:1.5rem 2rem; margin-bottom:1.25rem;">
+      <h2 style="font-family:'Cormorant Garamond',serif; color:#faf7f2; font-size:1.5rem; margin:0 0 0.35rem;">
+        {{ season_name }}
+      </h2>
+      <p style="color:#f0e6d3; font-size:0.9rem; margin:0; font-style:italic;">
+        {{ season_description }}
+      </p>
+    </div>
+
+    <div class="collections-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:1.25rem;">
+      {% for rl in seasonal_lists %}
+        <a href="{{ url_for('collections.detail', public_id=rl.public_id) }}" class="collection-card" style="display:block; background:#fff; border:1px solid #d4c5a9; border-left:4px solid #c5993e; border-radius:6px; padding:1.25rem 1.5rem; text-decoration:none; transition:box-shadow 0.2s, transform 0.2s;">
+          <h3 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:1.25rem; margin:0 0 0.5rem;">{{ rl.name }}</h3>
+          {% if rl.description %}
+            <p style="color:#5c4a3a; font-size:0.9rem; margin:0 0 0.75rem; line-height:1.5;">{{ rl.description|truncate(160) }}</p>
+          {% endif %}
+          <span style="font-size:0.8rem; color:#8b7355;">{{ rl.items|length }} {{ "book" if rl.items|length == 1 else "books" }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Featured Collections ───────────────────────────────────────── #}
+  {% if featured_lists %}
+  <section class="collections-section" style="margin-bottom:2.5rem;">
+    <h2 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:1.4rem; margin-bottom:1rem; border-bottom:2px solid #c5993e; padding-bottom:0.4rem;">
+      Featured Collections
+    </h2>
+
+    <div class="collections-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:1.25rem;">
+      {% for rl in featured_lists %}
+        <a href="{{ url_for('collections.detail', public_id=rl.public_id) }}" class="collection-card" style="display:block; background:#fff; border:1px solid #d4c5a9; border-radius:6px; padding:1.25rem 1.5rem; text-decoration:none; transition:box-shadow 0.2s, transform 0.2s;">
+          <h3 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:1.25rem; margin:0 0 0.5rem;">{{ rl.name }}</h3>
+          {% if rl.description %}
+            <p style="color:#5c4a3a; font-size:0.9rem; margin:0 0 0.75rem; line-height:1.5;">{{ rl.description|truncate(160) }}</p>
+          {% endif %}
+          <span style="font-size:0.8rem; color:#8b7355;">{{ rl.items|length }} {{ "book" if rl.items|length == 1 else "books" }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── All Other Collections ──────────────────────────────────────── #}
+  {% if other_lists %}
+  <section class="collections-section" style="margin-bottom:2.5rem;">
+    <h2 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:1.4rem; margin-bottom:1rem; border-bottom:2px solid #c5993e; padding-bottom:0.4rem;">
+      All Collections
+    </h2>
+
+    <div class="collections-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:1.25rem;">
+      {% for rl in other_lists %}
+        <a href="{{ url_for('collections.detail', public_id=rl.public_id) }}" class="collection-card" style="display:block; background:#faf7f2; border:1px solid #d4c5a9; border-radius:6px; padding:1.25rem 1.5rem; text-decoration:none; transition:box-shadow 0.2s, transform 0.2s;">
+          <h3 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:1.25rem; margin:0 0 0.5rem;">{{ rl.name }}</h3>
+          {% if rl.description %}
+            <p style="color:#5c4a3a; font-size:0.9rem; margin:0 0 0.75rem; line-height:1.5;">{{ rl.description|truncate(160) }}</p>
+          {% endif %}
+          <span style="font-size:0.8rem; color:#8b7355;">{{ rl.items|length }} {{ "book" if rl.items|length == 1 else "books" }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Empty State ────────────────────────────────────────────────── #}
+  {% if not seasonal_lists and not featured_lists and not other_lists %}
+  <div style="text-align:center; padding:3rem 1rem; color:#8b7355;">
+    <p style="font-size:1.1rem; font-style:italic;">No reading lists have been published yet.</p>
+    <p style="font-size:0.9rem;">Check back soon for curated collections from our librarians.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

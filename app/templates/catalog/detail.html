@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}{{ book.title }}{% endblock %}
+
+{% block content %}
+<div class="book-detail-page">
+  <a href="{{ url_for('catalog.browse') }}" class="back-link">&larr; Back to Catalog</a>
+
+  <div class="book-detail">
+    <div class="book-detail-cover">
+      {% if book.cover_filename %}
+      <img src="{{ url_for('catalog.serve_cover', filename=book.cover_filename) }}" alt="Cover of {{ book.title }}">
+      {% else %}
+      <div class="cover-placeholder cover-placeholder-large">
+        <span>{{ book.title[:1] }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="book-detail-info">
+      <div class="book-title-row" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+        <h1 style="margin:0;">{{ book.title }}</h1>
+        {% if current_user.is_authenticated and current_user.role == 'patron' %}
+        <form method="post" action="{{ url_for('patron.toggle_favorite', book_public_id=book.public_id) }}" style="display:inline; margin:0; padding:0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="favorite-btn" title="{{ 'Remove from favorites' if is_favorited else 'Add to favorites' }}" style="background:none; border:none; cursor:pointer; padding:0.25rem; font-size:1.5rem; line-height:1; color:#c5993e;">
+            {% if is_favorited %}
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="#c5993e" stroke="#c5993e" stroke-width="1.5"><path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z"/></svg>
+            {% else %}
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c5993e" stroke-width="1.5"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+            {% endif %}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      <p class="book-detail-author">by {{ book.author }}</p>
+
+      {% if book.tags %}
+      <div class="book-tags">
+        {% for tag in book.tags %}
+        <a href="{{ url_for('catalog.browse', tag=tag.name) }}" class="tag">{{ tag.name }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="book-availability">
+        {% if book.is_available %}
+        <span class="badge badge-available">Available</span>
+        {% else %}
+        <span class="badge badge-unavailable">Checked Out</span>
+        {% endif %}
+        <span class="availability-count">{{ book.available_copies }} of {{ book.owned_copies }} cop{{ 'ies' if book.owned_copies != 1 else 'y' }} available</span>
+        {% if not book.is_available and next_available_date %}
+        <p class="expected-availability">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 0.3rem; opacity: 0.7;">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Expected available: <strong>{{ next_available_date.strftime('%B %-d, %Y') }}</strong>
+        </p>
+        {% endif %}
+      </div>
+
+      {% if current_user.role == 'patron' %}
+      <div class="book-actions">
+        {% if patron_has_loan %}
+        <p class="action-note">You currently have this book on loan.</p>
+        <a href="{{ url_for('patron.dashboard') }}" class="btn btn-secondary">View My Loans</a>
+        {% elif book.is_available %}
+        <form method="post" action="{{ url_for('lending.borrow', book_public_id=book.public_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-primary">Borrow This Book</button>
+        </form>
+        {% elif patron_on_waitlist %}
+        <p class="action-note">You are on the waitlist for this book.</p>
+        {% else %}
+        <form method="post" action="{{ url_for('lending.join_waitlist', book_public_id=book.public_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-secondary">Join Waitlist</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <table class="book-metadata">
+        {% if book.language %}
+        <tr>
+          <th>Language</th>
+          <td>{{ book.language }}</td>
+        </tr>
+        {% endif %}
+        {% if book.publication_year %}
+        <tr>
+          <th>Publication Year</th>
+          <td>{{ book.publication_year }}</td>
+        </tr>
+        {% endif %}
+        {% if book.isbn %}
+        <tr>
+          <th>ISBN</th>
+          <td>{{ book.isbn }}</td>
+        </tr>
+        {% endif %}
+        {% if book.other_identifier %}
+        <tr>
+          <th>Other Identifier</th>
+          <td>{{ book.other_identifier }}</td>
+        </tr>
+        {% endif %}
+        {% if book.dewey_decimal %}
+        <tr>
+          <th>Dewey Decimal</th>
+          <td>{{ book.dewey_decimal }}</td>
+        </tr>
+        {% endif %}
+        {% if book.loc_classification %}
+        <tr>
+          <th>LoC Classification</th>
+          <td>{{ book.loc_classification }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+          <th>Loan Period</th>
+          <td>{{ book.loan_days }} days</td>
+        </tr>
+        {% if book.imprimatur %}
+        <tr>
+          <th>Imprimatur</th>
+          <td>{{ book.imprimatur }}</td>
+        </tr>
+        {% endif %}
+        {% if book.nihil_obstat %}
+        <tr>
+          <th>Nihil Obstat</th>
+          <td>{{ book.nihil_obstat }}</td>
+        </tr>
+        {% endif %}
+        {% if book.ecclesiastical_approval_date %}
+        <tr>
+          <th>Ecclesiastical Approval</th>
+          <td>{{ book.ecclesiastical_approval_date }}</td>
+        </tr>
+        {% endif %}
+      </table>
+
+      {% if book.description %}
+      <div class="book-description">
+        <h2>Description</h2>
+        <p>{{ book.description }}</p>
+      </div>
+      {% endif %}
+
+      {# ── Patron Notes Section ──────────────────────────────────── #}
+      {% if current_user.is_authenticated and current_user.role == 'patron' %}
+      <div class="book-notes-section" style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid #e0d8cf;">
+        <h2 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; margin-bottom:1rem;">My Notes</h2>
+
+        {% if patron_note %}
+        <div class="existing-note" style="background:#faf7f2; border:1px solid #e0d8cf; border-radius:6px; padding:1rem; margin-bottom:1rem;">
+          <p style="white-space:pre-wrap; margin:0 0 0.75rem 0; font-family:'Inter',sans-serif; font-size:0.95rem; line-height:1.6;">{{ patron_note.content }}</p>
+          <p style="font-size:0.8rem; color:#888; font-family:'Inter',sans-serif; margin:0;">
+            Last updated {{ patron_note.updated_at.strftime('%B %d, %Y') }}
+          </p>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('patron.save_note', book_public_id=book.public_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <textarea name="content" rows="4" class="form-input" placeholder="Write your personal notes about this book..." style="width:100%; font-family:'Inter',sans-serif; font-size:0.95rem;">{{ patron_note.content if patron_note else '' }}</textarea>
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <button type="submit" class="btn btn-primary btn-sm">{{ 'Update Note' if patron_note else 'Save Note' }}</button>
+            {% if patron_note %}
+            <a href="#" onclick="document.getElementById('delete-note-form').submit(); return false;" class="btn btn-outline btn-sm" style="color:#6b1d2a;">Delete Note</a>
+            {% endif %}
+          </div>
+        </form>
+
+        {% if patron_note %}
+        <form id="delete-note-form" method="post" action="{{ url_for('patron.delete_note', book_public_id=book.public_id) }}" style="display:none;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  {% if related_books %}
+  <div class="related-books" style="margin-top:3rem; padding-top:2rem; border-top:1px solid #e0d8cf;">
+    <h2 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; margin-bottom:1.5rem;">Related Books</h2>
+    <div class="book-grid">
+      {% for rbook in related_books %}
+      <div class="book-card">
+        <a href="{{ url_for('catalog.detail', public_id=rbook.public_id) }}" class="book-card-link">
+          <div class="book-cover">
+            {% if rbook.cover_filename %}
+            <img src="{{ url_for('catalog.serve_cover', filename=rbook.cover_filename) }}" alt="Cover of {{ rbook.title }}">
+            {% else %}
+            <div class="cover-placeholder">
+              <span>{{ rbook.title[:1] }}</span>
+            </div>
+            {% endif %}
+          </div>
+          <div class="book-card-info">
+            <h3 class="book-card-title">{{ rbook.title }}</h3>
+            <p class="book-card-author">{{ rbook.author }}</p>
+            {% if rbook.is_available %}
+            <span class="badge badge-available">Available</span>
+            {% else %}
+            <span class="badge badge-unavailable">Checked Out</span>
+            {% endif %}
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

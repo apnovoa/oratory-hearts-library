@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Book Requests{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}" class="active">Requests{% if pending_count %} <span style="background:#c5993e; color:#fff; border-radius:10px; padding:0.1rem 0.5rem; font-size:0.75rem; margin-left:0.25rem;">{{ pending_count }}</span>{% endif %}</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>Book Requests</h1>
+
+    <div style="margin-bottom:1rem;">
+      <a href="{{ url_for('admin.book_requests', status='pending') }}" class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-outline{% endif %}">Pending{% if pending_count %} ({{ pending_count }}){% endif %}</a>
+      <a href="{{ url_for('admin.book_requests', status='approved') }}" class="btn btn-sm {% if status_filter == 'approved' %}btn-primary{% else %}btn-outline{% endif %}">Approved</a>
+      <a href="{{ url_for('admin.book_requests', status='declined') }}" class="btn btn-sm {% if status_filter == 'declined' %}btn-primary{% else %}btn-outline{% endif %}">Declined</a>
+      <a href="{{ url_for('admin.book_requests', status='fulfilled') }}" class="btn btn-sm {% if status_filter == 'fulfilled' %}btn-primary{% else %}btn-outline{% endif %}">Fulfilled</a>
+      <a href="{{ url_for('admin.book_requests', status='all') }}" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-outline{% endif %}">All</a>
+    </div>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Patron</th>
+          <th>Requested Title</th>
+          <th>Author</th>
+          <th>Reason</th>
+          <th>Submitted</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for req in requests %}
+          <tr>
+            <td>
+              <a href="{{ url_for('admin.user_detail', user_id=req.user.id) }}">{{ req.user.display_name }}</a>
+              <br><small style="color:#888;">{{ req.user.email }}</small>
+            </td>
+            <td><strong>{{ req.title }}</strong></td>
+            <td>{{ req.author or '&mdash;'|safe }}</td>
+            <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ req.reason or '' }}">
+              {{ req.reason or '&mdash;'|safe }}
+            </td>
+            <td>{{ req.created_at.strftime('%Y-%m-%d') }}</td>
+            <td>
+              {% if req.status == 'pending' %}
+                <span class="badge badge-warning" style="background:#c5993e; color:#fff;">Pending</span>
+              {% elif req.status == 'approved' %}
+                <span class="badge badge-success" style="background:#2a7d4f; color:#fff;">Approved</span>
+              {% elif req.status == 'declined' %}
+                <span class="badge badge-danger" style="background:#6b1d2a; color:#fff;">Declined</span>
+              {% elif req.status == 'fulfilled' %}
+                <span class="badge badge-success" style="background:#1a6b3a; color:#fff;">Fulfilled</span>
+              {% else %}
+                <span class="badge">{{ req.status|capitalize }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if req.status == 'pending' %}
+              <details style="position:relative;">
+                <summary class="btn btn-sm btn-primary" style="cursor:pointer;">Resolve</summary>
+                <div style="position:absolute; right:0; top:100%; z-index:10; background:#fff; border:1px solid #e0d8cf; border-radius:6px; padding:1rem; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:280px; margin-top:0.25rem;">
+                  <form method="post" action="{{ url_for('admin.book_request_resolve', request_id=req.id) }}">
+                    {{ resolve_form.hidden_tag() }}
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label class="form-label" style="font-size:0.85rem; font-weight:600;">Decision</label>
+                      <select name="status" class="form-control" style="width:100%; padding:0.4rem; border:1px solid #ccc; border-radius:4px;">
+                        <option value="approved">Approved</option>
+                        <option value="declined">Declined</option>
+                        <option value="fulfilled">Fulfilled</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                      <label class="form-label" style="font-size:0.85rem; font-weight:600;">Notes</label>
+                      <textarea name="admin_notes" rows="2" class="form-control" style="width:100%; padding:0.4rem; border:1px solid #ccc; border-radius:4px;" placeholder="Notes for the patron (optional)"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Submit</button>
+                  </form>
+                </div>
+              </details>
+              {% else %}
+                {% if req.admin_notes %}
+                  <span title="{{ req.admin_notes }}" style="cursor:help; text-decoration:underline dotted; font-size:0.85rem;">View notes</span>
+                {% else %}
+                  &mdash;
+                {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7">No book requests found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if pagination.pages > 1 %}
+      <nav class="pagination">
+        {% if pagination.has_prev %}
+          <a href="{{ url_for('admin.book_requests', page=pagination.prev_num, status=status_filter) }}">&laquo; Previous</a>
+        {% endif %}
+        <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+        {% if pagination.has_next %}
+          <a href="{{ url_for('admin.book_requests', page=pagination.next_num, status=status_filter) }}">Next &raquo;</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Import Books from CSV{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}" class="active">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <div class="admin-header">
+      <h1>Import Books from CSV</h1>
+      <a href="{{ url_for('admin.books') }}" class="btn btn-secondary">Back to Books</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card" style="max-width: 720px;">
+      <div class="card-body">
+        <h3>CSV Format</h3>
+        <p>Upload a CSV file with the following columns. The first row must be a header row.</p>
+
+        <table class="admin-table" style="margin-bottom: 1.5rem; font-size: 0.9rem;">
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Required</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>title</code></td><td>Yes</td><td>Book title</td></tr>
+            <tr><td><code>author</code></td><td>Yes</td><td>Author name</td></tr>
+            <tr><td><code>description</code></td><td>No</td><td>Book description or summary</td></tr>
+            <tr><td><code>language</code></td><td>No</td><td>Language code (e.g. en, la, es). Defaults to "en".</td></tr>
+            <tr><td><code>publication_year</code></td><td>No</td><td>Year of publication (integer)</td></tr>
+            <tr><td><code>isbn</code></td><td>No</td><td>ISBN identifier</td></tr>
+            <tr><td><code>tags</code></td><td>No</td><td>Comma-separated tags (e.g. "theology, patristics")</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Example</h3>
+        <pre style="background: #f5f0e8; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; line-height: 1.6;">title,author,description,language,publication_year,isbn,tags
+The Imitation of Christ,Thomas a Kempis,Classic devotional work,en,1418,,spirituality, classics
+Introduction to the Devout Life,St. Francis de Sales,A guide to holiness for laypeople,en,1609,,spirituality</pre>
+
+        <p style="margin-top: 1rem; font-size: 0.85rem; color: #8a8078;">
+          Maximum 5,000 rows per import. Duplicate titles are not automatically detected.
+          PDF files and cover images must be uploaded individually after import.
+        </p>
+
+        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e8e0d6;">
+
+        <form method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group" style="margin-bottom: 1rem;">
+            <label for="csv_file" class="form-label">Select CSV File</label>
+            <input type="file" name="csv_file" id="csv_file" accept=".csv" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Import Books</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

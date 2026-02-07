@@ -1,0 +1,26 @@
+<div class="book-card">
+  <a href="{{ url_for('catalog.detail', public_id=book.public_id) }}" class="book-card-link">
+    <div class="book-cover">
+      {% if book.cover_filename %}
+      <img src="{{ url_for('catalog.serve_cover', filename=book.cover_filename) }}" alt="Cover of {{ book.title }}">
+      {% else %}
+      <div class="cover-placeholder" data-initial="{{ book.title[:1] }}"></div>
+      {% endif %}
+      {# Availability badge overlay on cover #}
+      {% if book.is_available %}
+      <span class="badge badge-available book-cover-badge">Available</span>
+      {% else %}
+      <span class="badge badge-unavailable book-cover-badge">Checked Out</span>
+      {% endif %}
+    </div>
+    <div class="book-card-info">
+      <h3 class="book-card-title">{{ book.title }}</h3>
+      <p class="book-card-author">{{ book.author }}</p>
+      <div class="book-card-meta">
+        {% if book.tags %}
+        <span class="book-card-tag">{{ book.tags[0].name }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </a>
+</div>

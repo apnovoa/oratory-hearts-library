@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Books{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}" class="active">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <div class="admin-header">
+      <h1>Books</h1>
+      <div style="display:flex; gap:0.5rem;">
+        <a href="{{ url_for('admin.book_add') }}" class="btn btn-primary">Add Book</a>
+        <a href="{{ url_for('admin.books_import_csv') }}" class="btn btn-secondary">Import CSV</a>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="GET" class="search-form">
+      {{ form.q(class="form-control") }}
+      <button type="submit" class="btn btn-secondary">Search</button>
+      {% if form.q.data %}
+        <a href="{{ url_for('admin.books') }}" class="btn btn-link">Clear</a>
+      {% endif %}
+    </form>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Author</th>
+          <th>Copies</th>
+          <th>Active Loans</th>
+          <th>Visible</th>
+          <th>Disabled</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for book in books %}
+          <tr>
+            <td>{{ book.id }}</td>
+            <td>{{ book.title }}</td>
+            <td>{{ book.author }}</td>
+            <td>{{ book.owned_copies }}</td>
+            <td>{{ book.active_loan_count }}</td>
+            <td>{{ "Yes" if book.is_visible else "No" }}</td>
+            <td>{{ "Yes" if book.is_disabled else "No" }}</td>
+            <td class="action-cell">
+              <a href="{{ url_for('admin.book_edit', book_id=book.id) }}" class="btn btn-sm">Edit</a>
+              <form method="POST" action="{{ url_for('admin.book_toggle_visibility', book_id=book.id) }}" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-secondary">
+                  {{ "Hide" if book.is_visible else "Show" }}
+                </button>
+              </form>
+              <form method="POST" action="{{ url_for('admin.book_toggle_disabled', book_id=book.id) }}" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-secondary">
+                  {{ "Enable" if book.is_disabled else "Disable" }}
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8">No books found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if pagination.pages > 1 %}
+      <nav class="pagination">
+        {% if pagination.has_prev %}
+          <a href="{{ url_for('admin.books', page=pagination.prev_num, q=form.q.data) }}">&laquo; Previous</a>
+        {% endif %}
+        <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+        {% if pagination.has_next %}
+          <a href="{{ url_for('admin.books', page=pagination.next_num, q=form.q.data) }}">Next &raquo;</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

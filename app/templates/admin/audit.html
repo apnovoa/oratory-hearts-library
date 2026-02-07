@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}" class="active">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <div class="admin-header">
+      <h1>Audit Log</h1>
+      <a href="{{ url_for('admin.audit_export', action=form.action.data or '', date_from=form.date_from.data or '', date_to=form.date_to.data or '') }}" class="btn btn-secondary">Export CSV</a>
+    </div>
+
+    <form method="GET" class="search-form">
+      <div class="form-group">
+        {{ form.action(class="form-control") }}
+      </div>
+      <div class="form-group">
+        <label>From</label>
+        {{ form.date_from(class="form-control") }}
+      </div>
+      <div class="form-group">
+        <label>To</label>
+        {{ form.date_to(class="form-control") }}
+      </div>
+      <button type="submit" class="btn btn-secondary">Filter</button>
+      {% if form.action.data or form.date_from.data or form.date_to.data %}
+        <a href="{{ url_for('admin.audit') }}" class="btn btn-link">Clear</a>
+      {% endif %}
+    </form>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Target</th>
+          <th>Detail</th>
+          <th>IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+          <tr>
+            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+            <td>
+              {% if log.user %}
+                <a href="{{ url_for('admin.user_detail', user_id=log.user.id) }}">{{ log.user.email }}</a>
+              {% else %}
+                System
+              {% endif %}
+            </td>
+            <td>{{ log.action }}</td>
+            <td>
+              {% if log.target_type and log.target_id %}
+                {{ log.target_type }} #{{ log.target_id }}
+              {% else %}
+                &mdash;
+              {% endif %}
+            </td>
+            <td>{{ log.detail or "" }}</td>
+            <td>{{ log.ip_address or "" }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6">No audit log entries found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if pagination.pages > 1 %}
+      <nav class="pagination">
+        {% if pagination.has_prev %}
+          <a href="{{ url_for('admin.audit', page=pagination.prev_num, action=form.action.data, date_from=form.date_from.data, date_to=form.date_to.data) }}">&laquo; Previous</a>
+        {% endif %}
+        <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+        {% if pagination.has_next %}
+          <a href="{{ url_for('admin.audit', page=pagination.next_num, action=form.action.data, date_from=form.date_from.data, date_to=form.date_to.data) }}">Next &raquo;</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+<nav class="patron-nav" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:2rem;">
+    <a href="{{ url_for('patron.dashboard') }}" class="btn btn-sm btn-outline">Active Loans</a>
+    <a href="{{ url_for('patron.loans') }}" class="btn btn-sm btn-outline">Loan History</a>
+    <a href="{{ url_for('patron.history') }}" class="btn btn-sm btn-outline">Reading History</a>
+    <a href="{{ url_for('patron.favorites') }}" class="btn btn-sm btn-outline">Favorites</a>
+    <a href="{{ url_for('patron.requests') }}" class="btn btn-sm btn-outline">My Requests</a>
+    <a href="{{ url_for('patron.request_new') }}" class="btn btn-sm btn-outline">Request a Book</a>
+    <a href="{{ url_for('patron.profile') }}" class="btn btn-sm btn-outline">Profile</a>
+</nav>

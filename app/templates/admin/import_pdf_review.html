@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Review Staged Books{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}" class="active">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <div class="admin-header">
+      <h1>Review Staged Books</h1>
+      <a href="{{ url_for('admin.import_pdf_dashboard') }}" class="btn btn-secondary">Back to Import</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Filters -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-body">
+        <form method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: end;">
+          <div class="form-group" style="min-width: 150px;">
+            <label class="form-label" style="font-size: 0.85rem;">Status</label>
+            <select name="status" class="form-control">
+              <option value="pending" {{ 'selected' if status_filter == 'pending' }}>Pending</option>
+              <option value="approved" {{ 'selected' if status_filter == 'approved' }}>Approved</option>
+              <option value="dismissed" {{ 'selected' if status_filter == 'dismissed' }}>Dismissed</option>
+              <option value="error" {{ 'selected' if status_filter == 'error' }}>Errors</option>
+              <option value="all" {{ 'selected' if status_filter == 'all' }}>All</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width: 150px;">
+            <label class="form-label" style="font-size: 0.85rem;">Confidence</label>
+            <select name="confidence" class="form-control">
+              <option value="">All</option>
+              <option value="high" {{ 'selected' if confidence_filter == 'high' }}>High</option>
+              <option value="medium" {{ 'selected' if confidence_filter == 'medium' }}>Medium</option>
+              <option value="low" {{ 'selected' if confidence_filter == 'low' }}>Low</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label class="form-label" style="font-size: 0.85rem;">Search</label>
+            <input type="text" name="q" value="{{ q or '' }}" class="form-control" placeholder="Search filename, title, or author">
+          </div>
+          <button type="submit" class="btn btn-secondary" style="height: fit-content;">Filter</button>
+        </form>
+      </div>
+    </div>
+
+    {% if staged_books %}
+    <!-- Bulk Actions -->
+    <form method="POST" id="bulk-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_approve') }}" class="btn btn-primary btn-sm"
+                onclick="return confirm('Approve selected books?')">
+          Approve Selected
+        </button>
+        <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_dismiss') }}" class="btn btn-secondary btn-sm"
+                onclick="return confirm('Dismiss selected books?')">
+          Dismiss Selected
+        </button>
+        {% if status_filter == 'pending' %}
+        <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_approve') }}" name="approve_all" value="1"
+                class="btn btn-primary btn-sm" style="margin-left: auto;"
+                onclick="return confirm('Approve ALL {{ pagination.total }} pending books? This cannot be undone.')">
+          Approve All Pending ({{ pagination.total }})
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="table-responsive">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="width: 30px;"><input type="checkbox" id="select-all"></th>
+              <th>Title / Filename</th>
+              <th>Author</th>
+              <th>Confidence</th>
+              <th>Size</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for staged in staged_books %}
+            <tr>
+              <td><input type="checkbox" name="staged_ids" value="{{ staged.id }}" class="row-check"></td>
+              <td>
+                <div style="font-weight: 500;">{{ staged.title or '(No title)' }}</div>
+                <div style="font-size: 0.8rem; color: #8a8078; word-break: break-all;">{{ staged.original_filename }}</div>
+                {% if staged.duplicate_of_book_id %}
+                  <span class="badge badge-warning" style="font-size: 0.75rem;">Duplicate ({{ staged.duplicate_type }})</span>
+                {% endif %}
+              </td>
+              <td>{{ staged.author or '—' }}</td>
+              <td>
+                <span class="badge badge-confidence-{{ staged.confidence }}">{{ staged.confidence }}</span>
+              </td>
+              <td style="white-space: nowrap;">{{ "%.1f"|format(staged.file_size / 1048576) }} MB</td>
+              <td>
+                <span class="badge badge-{{ staged.status }}">{{ staged.status }}</span>
+              </td>
+              <td style="white-space: nowrap;">
+                <a href="{{ url_for('admin.import_pdf_staged_edit', staged_id=staged.id) }}" class="btn btn-secondary btn-sm">Edit</a>
+                {% if staged.status == 'pending' %}
+                  <form method="POST" action="{{ url_for('admin.import_pdf_staged_approve', staged_id=staged.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-primary btn-sm">Approve</button>
+                  </form>
+                  <form method="POST" action="{{ url_for('admin.import_pdf_staged_dismiss', staged_id=staged.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-secondary btn-sm">Dismiss</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav class="pagination-nav" style="margin-top: 1.5rem;">
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('admin.import_pdf_review', page=pagination.prev_num, status=status_filter, confidence=confidence_filter, q=q) }}" class="btn btn-secondary btn-sm">&laquo; Prev</a>
+      {% endif %}
+      <span style="margin: 0 1rem; font-size: 0.9rem; color: #5c534d;">
+        Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total)
+      </span>
+      {% if pagination.has_next %}
+        <a href="{{ url_for('admin.import_pdf_review', page=pagination.next_num, status=status_filter, confidence=confidence_filter, q=q) }}" class="btn btn-secondary btn-sm">Next &raquo;</a>
+      {% endif %}
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="card">
+      <div class="card-body" style="text-align: center; padding: 3rem;">
+        <p style="color: #8a8078; font-size: 1.1rem;">No staged books found matching your filters.</p>
+        <a href="{{ url_for('admin.import_pdf_dashboard') }}" class="btn btn-secondary">Back to Import Dashboard</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function() {
+  var selectAll = document.getElementById('select-all');
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      var checkboxes = document.querySelectorAll('.row-check');
+      for (var i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = this.checked;
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

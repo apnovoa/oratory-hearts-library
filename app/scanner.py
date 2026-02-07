@@ -1,0 +1,581 @@
+"""Metadata extraction pipeline and background scan thread for bulk PDF import.
+
+Processes PDF files placed in storage/staging/, extracts metadata from embedded
+PDF properties, filenames, and the Open Library API, then creates StagedBook
+records for admin review.
+"""
+
+import hashlib
+import logging
+import os
+import re
+import threading
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Module-level scan progress state
+# ---------------------------------------------------------------------------
+
+_scan_progress = {
+    "running": False,
+    "batch_id": None,
+    "total": 0,
+    "processed": 0,
+    "current_file": "",
+    "errors": 0,
+    "started_at": None,
+    "finished_at": None,
+}
+
+_progress_lock = threading.Lock()
+
+
+def get_scan_progress():
+    """Return a snapshot of the current scan progress."""
+    with _progress_lock:
+        return dict(_scan_progress)
+
+
+# ---------------------------------------------------------------------------
+# SHA-256 hashing
+# ---------------------------------------------------------------------------
+
+def _compute_sha256(filepath):
+    """Compute the SHA-256 hex digest of a file, reading in 8 KB chunks."""
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        while True:
+            chunk = f.read(8192)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# PDF embedded metadata extraction
+# ---------------------------------------------------------------------------
+
+_ISBN_RE = re.compile(r"(?:ISBN[-:]?\s*)?(\d{9}[\dXx]|\d{13})", re.IGNORECASE)
+
+
+def _extract_pdf_metadata(filepath):
+    """Read embedded metadata from a PDF via pikepdf.
+
+    Returns a dict with keys: title, author, subject, keywords, isbn.
+    All values are strings or None.
+    """
+    result = {
+        "title": None,
+        "author": None,
+        "subject": None,
+        "keywords": None,
+        "isbn": None,
+    }
+
+    try:
+        import pikepdf
+    except ImportError:
+        logger.warning("pikepdf is not installed; skipping embedded PDF metadata.")
+        return result
+
+    try:
+        with pikepdf.open(filepath) as pdf:
+            meta = pdf.open_metadata()
+            # Dublin Core / XMP fields
+            dc_title = str(meta.get("dc:title", "")).strip() or None
+            dc_creator = str(meta.get("dc:creator", "")).strip() or None
+            dc_subject = str(meta.get("dc:subject", "")).strip() or None
+            dc_description = str(meta.get("dc:description", "")).strip() or None
+
+            # Legacy Info dict fields as fallback
+            info = pdf.docinfo
+            info_title = str(info.get("/Title", "")).strip() or None if info else None
+            info_author = str(info.get("/Author", "")).strip() or None if info else None
+            info_subject = str(info.get("/Subject", "")).strip() or None if info else None
+            info_keywords = str(info.get("/Keywords", "")).strip() or None if info else None
+
+            result["title"] = dc_title or info_title
+            result["author"] = dc_creator or info_author
+            result["subject"] = dc_subject or dc_description or info_subject
+            result["keywords"] = info_keywords
+
+            # Hunt for ISBN in subject, keywords, and description fields
+            searchable = " ".join(
+                s for s in [result["subject"], result["keywords"], dc_description] if s
+            )
+            isbn_match = _ISBN_RE.search(searchable)
+            if isbn_match:
+                result["isbn"] = isbn_match.group(1)
+
+    except Exception as exc:
+        logger.warning("Failed to read PDF metadata from %s: %s", filepath, exc)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Filename parsing
+# ---------------------------------------------------------------------------
+
+_YEAR_PAREN_RE = re.compile(r"\s*\(\d{4}\)\s*")
+_YEAR_BRACKET_RE = re.compile(r"\s*\[\d{4}\]\s*")
+
+
+def _looks_like_name(text):
+    """Heuristic: does the string look like a person's name?
+
+    True if it contains 2-4 space-separated capitalised words and no very
+    long word (> 20 chars, likely a title fragment).
+    """
+    parts = text.split()
+    if not 2 <= len(parts) <= 4:
+        return False
+    if any(len(p) > 20 for p in parts):
+        return False
+    return all(p[0].isupper() for p in parts if p)
+
+
+def _clean_text(text):
+    """Normalise underscores, excess whitespace, and stray punctuation."""
+    text = text.replace("_", " ")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip(" .-,")
+
+
+def _parse_filename(filename):
+    """Extract title and author from common PDF filename patterns.
+
+    Returns a dict with keys: title, author (both may be None).
+    """
+    stem = Path(filename).stem
+    stem = _clean_text(stem)
+
+    # Strip year patterns like (1962) or [2003]
+    stem = _YEAR_PAREN_RE.sub(" ", stem)
+    stem = _YEAR_BRACKET_RE.sub(" ", stem)
+    stem = stem.strip()
+
+    title = None
+    author = None
+
+    # Pattern: "Title (Author)"
+    m = re.match(r"^(.+?)\s*\(([^)]+)\)\s*$", stem)
+    if m:
+        title = _clean_text(m.group(1))
+        candidate = _clean_text(m.group(2))
+        if _looks_like_name(candidate):
+            author = candidate
+        return {"title": title, "author": author}
+
+    # Pattern: "Title by Author"
+    m = re.match(r"^(.+?)\s+by\s+(.+)$", stem, re.IGNORECASE)
+    if m:
+        title = _clean_text(m.group(1))
+        author = _clean_text(m.group(2))
+        return {"title": title, "author": author}
+
+    # Pattern: "Part1 - Part2"  (could be Author - Title or Title - Author)
+    if " - " in stem:
+        parts = stem.split(" - ", 1)
+        left = _clean_text(parts[0])
+        right = _clean_text(parts[1])
+
+        if _looks_like_name(left) and not _looks_like_name(right):
+            # Author - Title
+            author = left
+            title = right
+        elif _looks_like_name(right) and not _looks_like_name(left):
+            # Title - Author
+            title = left
+            author = right
+        else:
+            # Ambiguous; treat left as author, right as title (common convention)
+            author = left
+            title = right
+
+        return {"title": title, "author": author}
+
+    # Fallback: entire stem is the title
+    title = stem if stem else None
+    return {"title": title, "author": None}
+
+
+# ---------------------------------------------------------------------------
+# Open Library enrichment
+# ---------------------------------------------------------------------------
+
+_OL_SEARCH_URL = "https://openlibrary.org/search.json"
+_OL_ISBN_URL = "https://openlibrary.org/isbn/{isbn}.json"
+_OL_TIMEOUT = 10  # seconds
+
+
+def _lookup_openlibrary(isbn=None, title=None, author=None):
+    """Query the Open Library API for book metadata.
+
+    Returns a dict with keys: title, author, description, year, language,
+    subjects, isbn.  All values may be None on failure.
+    """
+    result = {
+        "title": None,
+        "author": None,
+        "description": None,
+        "year": None,
+        "language": None,
+        "subjects": None,
+        "isbn": None,
+    }
+
+    # Respect Open Library rate limits
+    time.sleep(0.5)
+
+    # --- ISBN-based lookup (more precise) ---
+    if isbn:
+        clean = isbn.strip().replace("-", "")
+        try:
+            resp = requests.get(
+                _OL_ISBN_URL.format(isbn=clean),
+                timeout=_OL_TIMEOUT,
+                allow_redirects=True,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                result["title"] = data.get("title")
+                authors = data.get("authors", [])
+                if authors:
+                    # Each author entry has a {"key": "/authors/..."} reference;
+                    # the full_title field sometimes contains the author name in
+                    # the search endpoint, but not here.  Fall through to search
+                    # below to fill in author name.
+                    pass
+                desc = data.get("description")
+                if isinstance(desc, dict):
+                    desc = desc.get("value")
+                result["description"] = desc if isinstance(desc, str) else None
+                result["isbn"] = clean
+        except (requests.RequestException, ValueError) as exc:
+            logger.debug("Open Library ISBN lookup failed for %s: %s", isbn, exc)
+
+    # --- Search-based lookup (title / author) ---
+    params = {"limit": 1, "fields": "title,author_name,first_publish_year,subject,isbn,description"}
+    if isbn:
+        params["q"] = f"isbn:{isbn.strip().replace('-', '')}"
+    elif title:
+        params["q"] = title
+        if author:
+            params["author"] = author
+    else:
+        return result
+
+    try:
+        resp = requests.get(_OL_SEARCH_URL, params=params, timeout=_OL_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.debug("Open Library search failed: %s", exc)
+        return result
+
+    docs = data.get("docs", [])
+    if not docs:
+        return result
+
+    doc = docs[0]
+
+    if not result["title"]:
+        result["title"] = doc.get("title")
+    author_names = doc.get("author_name", [])
+    if author_names:
+        result["author"] = author_names[0]
+    result["year"] = doc.get("first_publish_year")
+
+    subjects = doc.get("subject", [])
+    if subjects:
+        result["subjects"] = ", ".join(subjects[:10])
+
+    isbn_list = doc.get("isbn", [])
+    if isbn_list and not result["isbn"]:
+        result["isbn"] = isbn_list[0]
+
+    desc = doc.get("description")
+    if isinstance(desc, dict):
+        desc = desc.get("value")
+    if isinstance(desc, str) and not result["description"]:
+        result["description"] = desc
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Confidence scoring
+# ---------------------------------------------------------------------------
+
+def _compute_confidence(metadata_sources, has_title, has_author, has_isbn):
+    """Return a confidence level: 'high', 'medium', or 'low'.
+
+    - high:   title + author + at least one enrichment source (openlibrary or
+              pdf_metadata with isbn)
+    - medium: title + author from any source
+    - low:    only filename-derived title, or missing fields
+    """
+    sources = set(s.strip() for s in (metadata_sources or "").split(",") if s.strip())
+
+    if has_title and has_author:
+        enriched = "openlibrary" in sources or (
+            "pdf_metadata" in sources and has_isbn
+        )
+        if enriched:
+            return "high"
+        return "medium"
+
+    return "low"
+
+
+# ---------------------------------------------------------------------------
+# Single-file pipeline
+# ---------------------------------------------------------------------------
+
+def _scan_single_file(filepath, batch_id, app):
+    """Process one PDF file through the full metadata extraction pipeline.
+
+    Creates a StagedBook record on success.  Returns True on success, False on
+    error.
+    """
+    from .models import StagedBook, Book, db
+    from .cover_service import fetch_cover
+
+    filename = os.path.basename(filepath)
+
+    try:
+        # ---- Hash & duplicate-staged check ----
+        file_hash = _compute_sha256(filepath)
+
+        existing = StagedBook.query.filter_by(file_hash=file_hash).first()
+        if existing:
+            logger.info("Skipping %s — already staged (hash match, id=%d).",
+                        filename, existing.id)
+            return True  # not an error, just a skip
+
+        file_size = os.path.getsize(filepath)
+
+        # ---- Extract metadata from PDF ----
+        pdf_meta = _extract_pdf_metadata(filepath)
+
+        # ---- Parse filename ----
+        fn_meta = _parse_filename(filename)
+
+        # ---- Merge: prefer PDF metadata, filename as fallback ----
+        merged_title = pdf_meta["title"] or fn_meta["title"]
+        merged_author = pdf_meta["author"] or fn_meta["author"]
+        merged_isbn = pdf_meta["isbn"]
+        merged_description = None
+        merged_year = None
+        merged_language = None
+        merged_subjects = None
+
+        sources = []
+        if pdf_meta["title"] or pdf_meta["author"] or pdf_meta["isbn"]:
+            sources.append("pdf_metadata")
+        if fn_meta["title"] or fn_meta["author"]:
+            sources.append("filename")
+
+        # ---- Open Library enrichment ----
+        ol_meta = {"title": None, "author": None, "description": None,
+                   "year": None, "language": None, "subjects": None, "isbn": None}
+
+        try:
+            if merged_isbn:
+                ol_meta = _lookup_openlibrary(isbn=merged_isbn)
+            elif merged_title and merged_author:
+                ol_meta = _lookup_openlibrary(title=merged_title, author=merged_author)
+            elif merged_title:
+                ol_meta = _lookup_openlibrary(title=merged_title)
+        except Exception as exc:
+            logger.debug("Open Library enrichment failed for %s: %s", filename, exc)
+
+        if any(v for v in ol_meta.values()):
+            sources.append("openlibrary")
+
+        # Prefer Open Library over local extraction
+        final_title = ol_meta["title"] or merged_title
+        final_author = ol_meta["author"] or merged_author
+        final_isbn = ol_meta["isbn"] or merged_isbn
+        final_description = ol_meta["description"] or merged_description
+        final_year = ol_meta["year"]
+        final_language = ol_meta["language"]
+        final_subjects = ol_meta["subjects"]
+
+        # ---- Cover fetch ----
+        cover_filename = None
+        if final_title or final_isbn:
+            try:
+                # Generate a temporary public_id for the staged book cover
+                cover_public_id = uuid4().hex
+                cover_dir = app.config.get("COVER_STORAGE", "storage/covers")
+                cover_filename = fetch_cover(
+                    isbn=final_isbn,
+                    title=final_title,
+                    author=final_author,
+                    public_id=cover_public_id,
+                    cover_storage_dir=cover_dir,
+                )
+            except Exception as exc:
+                logger.debug("Cover fetch failed for %s: %s", filename, exc)
+
+        # ---- Duplicate detection against existing Book records ----
+        duplicate_of_book_id = None
+        duplicate_type = None
+
+        if final_isbn:
+            dup_book = Book.query.filter_by(isbn=final_isbn).first()
+            if dup_book:
+                duplicate_of_book_id = dup_book.id
+                duplicate_type = "isbn"
+
+        # ---- Confidence scoring ----
+        metadata_sources_str = ",".join(sources)
+        confidence = _compute_confidence(
+            metadata_sources_str,
+            has_title=bool(final_title),
+            has_author=bool(final_author),
+            has_isbn=bool(final_isbn),
+        )
+
+        # ---- Create StagedBook record ----
+        staged = StagedBook(
+            original_filename=filename,
+            file_size=file_size,
+            file_hash=file_hash,
+            title=final_title,
+            author=final_author,
+            description=final_description,
+            language=final_language or "en",
+            publication_year=final_year,
+            isbn=final_isbn,
+            tags_text=final_subjects,
+            metadata_sources=metadata_sources_str,
+            cover_filename=cover_filename,
+            confidence=confidence,
+            status="pending",
+            duplicate_of_book_id=duplicate_of_book_id,
+            duplicate_type=duplicate_type,
+            scan_batch_id=batch_id,
+            scanned_at=datetime.now(timezone.utc),
+        )
+
+        db.session.add(staged)
+        db.session.commit()
+
+        logger.info("Staged %s (confidence=%s, sources=%s)",
+                     filename, confidence, metadata_sources_str)
+        return True
+
+    except Exception as exc:
+        db.session.rollback()
+        logger.error("Error scanning %s: %s", filename, exc, exc_info=True)
+
+        # Attempt to record the error in a StagedBook row so it is visible
+        # in the admin panel.
+        try:
+            staged = StagedBook(
+                original_filename=filename,
+                file_size=os.path.getsize(filepath) if os.path.exists(filepath) else 0,
+                file_hash=file_hash if "file_hash" in dir() else "",
+                status="error",
+                error_message=str(exc)[:2000],
+                scan_batch_id=batch_id,
+                scanned_at=datetime.now(timezone.utc),
+            )
+            db.session.add(staged)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Background scan worker
+# ---------------------------------------------------------------------------
+
+def _scan_worker(staging_dir, batch_id, app):
+    """Background thread target that processes all PDFs in the staging dir."""
+    with app.app_context():
+        pdf_files = sorted(
+            p for p in Path(staging_dir).iterdir()
+            if p.is_file() and p.suffix.lower() == ".pdf"
+        )
+
+        with _progress_lock:
+            _scan_progress["total"] = len(pdf_files)
+
+        logger.info("Scan batch %s started: %d PDF(s) in %s",
+                     batch_id, len(pdf_files), staging_dir)
+
+        for filepath in pdf_files:
+            with _progress_lock:
+                _scan_progress["current_file"] = filepath.name
+
+            success = _scan_single_file(str(filepath), batch_id, app)
+
+            with _progress_lock:
+                _scan_progress["processed"] += 1
+                if not success:
+                    _scan_progress["errors"] += 1
+
+        with _progress_lock:
+            _scan_progress["finished_at"] = datetime.now(timezone.utc).isoformat()
+            _scan_progress["running"] = False
+            _scan_progress["current_file"] = ""
+
+        logger.info("Scan batch %s finished: %d processed, %d errors.",
+                     batch_id, _scan_progress["processed"], _scan_progress["errors"])
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+def start_scan(app):
+    """Kick off a background scan of the staging directory.
+
+    Returns the batch_id string on success, or False if a scan is already
+    running.
+    """
+    with _progress_lock:
+        if _scan_progress["running"]:
+            logger.warning("Scan already in progress (batch %s).",
+                           _scan_progress["batch_id"])
+            return False
+
+        batch_id = uuid4().hex
+
+        _scan_progress["running"] = True
+        _scan_progress["batch_id"] = batch_id
+        _scan_progress["total"] = 0
+        _scan_progress["processed"] = 0
+        _scan_progress["current_file"] = ""
+        _scan_progress["errors"] = 0
+        _scan_progress["started_at"] = datetime.now(timezone.utc).isoformat()
+        _scan_progress["finished_at"] = None
+
+    staging_dir = app.config.get("STAGING_STORAGE", "storage/staging")
+    os.makedirs(staging_dir, exist_ok=True)
+
+    thread = threading.Thread(
+        target=_scan_worker,
+        args=(staging_dir, batch_id, app),
+        daemon=True,
+        name=f"scan-{batch_id[:8]}",
+    )
+    thread.start()
+
+    logger.info("Launched scan thread for batch %s (staging: %s).",
+                batch_id, staging_dir)
+    return batch_id

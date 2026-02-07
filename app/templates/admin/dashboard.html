@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}" class="active">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>Dashboard</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">{{ total_books }}</div>
+        <div class="stat-label">Total Books</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ total_patrons }}</div>
+        <div class="stat-label">Registered Patrons</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ active_loans }}</div>
+        <div class="stat-label">Active Loans</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ loans_this_month }}</div>
+        <div class="stat-label">Loans This Month</div>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h2>Most Borrowed Titles</h2>
+      {% if top_borrowed %}
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Title</th>
+              <th>Total Loans</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for title, loan_count in top_borrowed %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ title }}</td>
+                <td>{{ loan_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No loan data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

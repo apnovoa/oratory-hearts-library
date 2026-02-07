@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}" class="active">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>Reports</h1>
+
+    <div class="admin-section">
+      <h2>Active Loans Summary</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">{{ active_loans_count }}</div>
+          <div class="stat-label">Active Loans</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ overdue_count }}</div>
+          <div class="stat-label">Overdue</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h2>Loans Per Month (Last 12 Months)</h2>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Loans</th>
+            <th>Chart</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set max_count = loans_per_month | map(attribute='count') | max %}
+          {% for entry in loans_per_month %}
+            <tr>
+              <td>{{ entry.month }}</td>
+              <td>{{ entry.count }}</td>
+              <td>
+                {% if max_count > 0 %}
+                  <div class="bar-chart" style="width: {{ (entry.count / max_count * 200) | int }}px; min-width: 2px; height: 16px; background: #2c5282; display: inline-block;"></div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="admin-section">
+      <h2>Most Borrowed Titles &mdash; All Time</h2>
+      {% if most_borrowed_all %}
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Total Loans</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for title, author, loan_count in most_borrowed_all %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ title }}</td>
+                <td>{{ author }}</td>
+                <td>{{ loan_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No loan data available.</p>
+      {% endif %}
+    </div>
+
+    <div class="admin-section">
+      <h2>Most Borrowed Titles &mdash; This Month</h2>
+      {% if most_borrowed_month %}
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Loans</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for title, author, loan_count in most_borrowed_month %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ title }}</td>
+                <td>{{ author }}</td>
+                <td>{{ loan_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No loans this month yet.</p>
+      {% endif %}
+    </div>
+
+    <div class="admin-section">
+      <h2>Most Active Patrons</h2>
+      {% if patron_activity %}
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Total Loans</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for name, email, loan_count in patron_activity %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ name }}</td>
+                <td>{{ email }}</td>
+                <td>{{ loan_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No patron activity data.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

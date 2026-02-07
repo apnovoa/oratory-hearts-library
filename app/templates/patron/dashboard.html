@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard - {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Patron Dashboard</h1>
+<p class="page-subtitle">Welcome, {{ current_user.display_name }}.</p>
+
+{% include "patron/_nav.html" %}
+
+{% if not show_all_loans|default(false) %}
+{# ── Active Loans ──────────────────────────────────────────────── #}
+<div class="section">
+    <h2 class="section-title">Active Loans</h2>
+
+    {% if active_loans %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Borrowed</th>
+                    <th>Due Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in active_loans %}
+                <tr>
+                    <td>
+                        <strong>{{ loan.book_title_snapshot or loan.book.title }}</strong>
+                    </td>
+                    <td>{{ loan.book_author_snapshot or loan.book.author }}</td>
+                    <td class="text-sans text-small">{{ loan.borrowed_at.strftime('%d %b %Y') }}</td>
+                    <td class="text-sans text-small">
+                        {{ loan.due_at.strftime('%d %b %Y, %H:%M UTC') }}
+                        {% if loan.is_expired %}
+                            <span class="badge badge--expired">Expired</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            {% if loan.is_accessible %}
+                            <a href="{{ url_for('lending.reader', access_token=loan.access_token) }}" class="btn btn-primary btn-sm">Read</a>
+                            <a href="{{ url_for('lending.download', access_token=loan.access_token) }}" class="btn btn-outline btn-sm">Download</a>
+                            {% endif %}
+                            {% if loan.is_active and loan.renewal_count < loan.max_renewals %}
+                            <form method="post" action="{{ url_for('patron.renew_loan', loan_public_id=loan.public_id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline btn-sm" title="{{ loan.renewal_count }} of {{ loan.max_renewals }} renewals used">Renew</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="{{ url_for('patron.patron_return_loan', loan_public_id=loan.public_id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Return this book early?');">Return</button>
+                            </form>
+                        </div>
+                        {% if loan.max_renewals > 0 %}
+                        <div class="text-sans text-small" style="margin-top: 0.25rem; color: #8a8078;">
+                            {{ loan.renewal_count }} of {{ loan.max_renewals }} renewal{{ 's' if loan.max_renewals != 1 else '' }} used
+                            {% if loan.renewal_count >= loan.max_renewals %}
+                                <span style="color: #6b1d2a; font-weight: 500;">(max reached)</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">&#128218;</div>
+        <p class="empty-state-title">No Active Loans</p>
+        <p class="empty-state-text">Browse the catalog to borrow a book.</p>
+        <a href="{{ url_for('catalog.index') }}" class="btn btn-primary">Browse Catalog</a>
+    </div>
+    {% endif %}
+</div>
+
+<hr class="divider">
+{% endif %}
+
+{# ── Past / All Loans ─────────────────────────────────────────── #}
+<div class="section">
+    <h2 class="section-title">
+        {% if show_all_loans|default(false) %}Loan History{% else %}Recent Returns{% endif %}
+    </h2>
+
+    {% if past_loans %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Borrowed</th>
+                    <th>Returned / Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loan in past_loans %}
+                <tr>
+                    <td>{{ loan.book_title_snapshot or loan.book.title }}</td>
+                    <td>{{ loan.book_author_snapshot or loan.book.author }}</td>
+                    <td class="text-sans text-small">{{ loan.borrowed_at.strftime('%d %b %Y') }}</td>
+                    <td class="text-sans text-small">
+                        {% if loan.returned_at %}
+                            {{ loan.returned_at.strftime('%d %b %Y') }}
+                            <span class="badge badge--returned">Returned</span>
+                        {% elif loan.invalidated %}
+                            <span class="badge badge--expired">Invalidated</span>
+                        {% elif loan.is_active %}
+                            <span class="badge badge--active">Active</span>
+                        {% else %}
+                            <span class="badge badge--expired">Expired</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pagination is defined and pagination %}
+    <nav aria-label="Loan history pagination">
+        <ul class="pagination">
+            {% if pagination.has_prev %}
+            <li class="pagination-item">
+                <a href="{{ url_for('patron.loans', page=pagination.prev_num) }}" class="pagination-link">&laquo; Prev</a>
+            </li>
+            {% else %}
+            <li class="pagination-item">
+                <span class="pagination-link pagination-link--disabled">&laquo; Prev</span>
+            </li>
+            {% endif %}
+
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                <li class="pagination-item">
+                    <a href="{{ url_for('patron.loans', page=page_num) }}"
+                       class="pagination-link {% if page_num == pagination.page %}pagination-link--active{% endif %}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="pagination-item">
+                    <span class="pagination-ellipsis">&hellip;</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+            <li class="pagination-item">
+                <a href="{{ url_for('patron.loans', page=pagination.next_num) }}" class="pagination-link">Next &raquo;</a>
+            </li>
+            {% else %}
+            <li class="pagination-item">
+                <span class="pagination-link pagination-link--disabled">Next &raquo;</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <p class="text-muted text-sans text-small">No past loans to display.</p>
+    {% endif %}
+
+    {% if not show_all_loans|default(false) and past_loans %}
+    <div class="mt-md">
+        <a href="{{ url_for('patron.loans') }}" class="btn btn-outline btn-sm">View Full Loan History</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

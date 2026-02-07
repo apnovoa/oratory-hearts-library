@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}PDF Import{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}" class="active">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>PDF Import</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Staging Stats -->
+    <div class="stats-grid" style="margin-bottom: 2rem;">
+      <div class="stat-card">
+        <div class="stat-value">{{ staging_file_count }}</div>
+        <div class="stat-label">PDFs in Staging</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ "%.1f"|format(staging_size_gb) }} GB</div>
+        <div class="stat-label">Staging Size</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ pending_count }}</div>
+        <div class="stat-label">Pending Review</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ approved_count }}</div>
+        <div class="stat-label">Approved</div>
+      </div>
+    </div>
+
+    <!-- Scan Controls -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-body">
+        <h3>Scan Staging Directory</h3>
+        <p style="color: #8a8078; font-size: 0.9rem; margin-bottom: 1rem;">
+          Upload PDFs to <code>storage/staging/</code> on the server via SCP or rsync, then click "Start Scan"
+          to extract metadata and queue them for review.
+        </p>
+
+        <div id="scan-controls">
+          <form method="POST" action="{{ url_for('admin.import_pdf_scan') }}" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary" id="scan-btn" {% if scan_progress.running %}disabled{% endif %}>
+              {% if scan_progress.running %}Scanning...{% else %}Start Scan{% endif %}
+            </button>
+          </form>
+          {% if pending_count > 0 %}
+            <a href="{{ url_for('admin.import_pdf_review') }}" class="btn btn-secondary" style="margin-left: 0.5rem;">
+              Review Queue ({{ pending_count }})
+            </a>
+          {% endif %}
+        </div>
+
+        <!-- Progress Bar (shown during scan) -->
+        <div id="scan-progress" style="margin-top: 1.5rem; {% if not scan_progress.running %}display: none;{% endif %}">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem; color: #5c534d;">
+            <span id="progress-label">Processing...</span>
+            <span id="progress-count">0 / 0</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
+          </div>
+          <p id="progress-current" style="margin-top: 0.5rem; font-size: 0.8rem; color: #8a8078; word-break: break-all;"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="card">
+      <div class="card-body">
+        <h3>How It Works</h3>
+        <ol style="line-height: 2; color: #5c534d;">
+          <li><strong>Stage</strong> — Upload PDFs to <code>storage/staging/</code> via SCP/rsync</li>
+          <li><strong>Scan</strong> — Click "Start Scan" to extract metadata from each PDF</li>
+          <li><strong>Review</strong> — Check extracted metadata, edit as needed, flag duplicates</li>
+          <li><strong>Import</strong> — Approve individually or in bulk to add to the library catalog</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var running = {{ 'true' if scan_progress.running else 'false' }};
+  if (!running) return;
+
+  var progressDiv = document.getElementById('scan-progress');
+  var progressLabel = document.getElementById('progress-label');
+  var progressCount = document.getElementById('progress-count');
+  var progressFill = document.getElementById('progress-fill');
+  var progressCurrent = document.getElementById('progress-current');
+  var scanBtn = document.getElementById('scan-btn');
+
+  progressDiv.style.display = 'block';
+
+  function poll() {
+    fetch('{{ url_for("admin.import_pdf_scan_status") }}')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var pct = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
+        progressFill.style.width = pct + '%';
+        progressCount.textContent = data.processed + ' / ' + data.total;
+        progressCurrent.textContent = data.current_file || '';
+
+        if (data.running) {
+          progressLabel.textContent = 'Scanning... (' + pct + '%)';
+          setTimeout(poll, 1500);
+        } else {
+          progressLabel.textContent = 'Scan complete!';
+          scanBtn.disabled = false;
+          scanBtn.textContent = 'Start Scan';
+          if (data.processed > 0) {
+            setTimeout(function() { location.reload(); }, 1500);
+          }
+        }
+      })
+      .catch(function() {
+        setTimeout(poll, 3000);
+      });
+  }
+
+  poll();
+})();
+</script>
+{% endblock %}

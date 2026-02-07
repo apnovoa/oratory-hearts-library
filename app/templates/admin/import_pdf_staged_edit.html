@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Staged Book{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}" class="active">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <div class="admin-header">
+      <h1>Edit Staged Book</h1>
+      <a href="{{ url_for('admin.import_pdf_review') }}" class="btn btn-secondary">Back to Review</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- File Info -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-body">
+        <h3>Source File</h3>
+        <table style="font-size: 0.9rem; color: #5c534d;">
+          <tr><td style="padding-right: 1rem; font-weight: 500;">Filename:</td><td style="word-break: break-all;">{{ staged.original_filename }}</td></tr>
+          <tr><td style="padding-right: 1rem; font-weight: 500;">Size:</td><td>{{ "%.1f"|format(staged.file_size / 1048576) }} MB</td></tr>
+          <tr><td style="padding-right: 1rem; font-weight: 500;">SHA-256:</td><td style="font-family: monospace; font-size: 0.8rem;">{{ staged.file_hash }}</td></tr>
+          <tr><td style="padding-right: 1rem; font-weight: 500;">Confidence:</td><td><span class="badge badge-confidence-{{ staged.confidence }}">{{ staged.confidence }}</span></td></tr>
+          <tr><td style="padding-right: 1rem; font-weight: 500;">Sources:</td><td>{{ staged.metadata_sources or 'none' }}</td></tr>
+          {% if staged.duplicate_of_book_id %}
+          <tr><td style="padding-right: 1rem; font-weight: 500;">Duplicate:</td><td><span class="badge badge-warning">{{ staged.duplicate_type }} match — Book #{{ staged.duplicate_of_book_id }}</span></td></tr>
+          {% endif %}
+          {% if staged.error_message %}
+          <tr><td style="padding-right: 1rem; font-weight: 500;">Error:</td><td style="color: #c0392b;">{{ staged.error_message }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+
+    <!-- Edit Form -->
+    <div class="card" style="max-width: 720px;">
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="form-group">
+            <label class="form-label" for="title">Title</label>
+            {{ form.title(class="form-control", id="title") }}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="author">Author</label>
+            {{ form.author(class="form-control", id="author") }}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="description">Description</label>
+            {{ form.description(class="form-control", id="description") }}
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="language">Language</label>
+              {{ form.language(class="form-control", id="language") }}
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="publication_year">Year</label>
+              {{ form.publication_year(class="form-control", id="publication_year") }}
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="isbn">ISBN</label>
+              {{ form.isbn(class="form-control", id="isbn") }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="tags_text">Tags</label>
+            {{ form.tags_text(class="form-control", id="tags_text") }}
+          </div>
+
+          <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+            {{ form.submit(class="btn btn-primary") }}
+            {% if staged.status == 'pending' %}
+            <form method="POST" action="{{ url_for('admin.import_pdf_staged_approve', staged_id=staged.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-primary">Save &amp; Approve</button>
+            </form>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

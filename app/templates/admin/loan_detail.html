@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Loan #{{ loan.id }}{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}" class="active">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>Loan #{{ loan.id }}</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="detail-card">
+      <dl>
+        <dt>Public ID</dt>
+        <dd>{{ loan.public_id }}</dd>
+
+        <dt>Patron</dt>
+        <dd>
+          <a href="{{ url_for('admin.user_detail', user_id=loan.patron.id) }}">
+            {{ loan.patron.display_name }} ({{ loan.patron.email }})
+          </a>
+        </dd>
+
+        <dt>Book</dt>
+        <dd>
+          <a href="{{ url_for('admin.book_edit', book_id=loan.book.id) }}">
+            {{ loan.book_title_snapshot or loan.book.title }}
+          </a>
+          {% if loan.book_author_snapshot %}
+            by {{ loan.book_author_snapshot }}
+          {% endif %}
+        </dd>
+
+        <dt>Borrowed</dt>
+        <dd>{{ loan.borrowed_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+
+        <dt>Due</dt>
+        <dd>{{ loan.due_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+
+        <dt>Returned</dt>
+        <dd>{{ loan.returned_at.strftime('%Y-%m-%d %H:%M UTC') if loan.returned_at else "Not returned" }}</dd>
+
+        <dt>Status</dt>
+        <dd>
+          {% if loan.invalidated %}
+            <span class="badge badge-danger">Invalidated</span>
+            {% if loan.invalidated_reason %}
+              &mdash; {{ loan.invalidated_reason }}
+            {% endif %}
+          {% elif not loan.is_active %}
+            <span class="badge badge-secondary">Returned</span>
+          {% elif loan.is_expired %}
+            <span class="badge badge-warning">Overdue</span>
+          {% else %}
+            <span class="badge badge-success">Active</span>
+          {% endif %}
+        </dd>
+
+        <dt>Downloads</dt>
+        <dd>{{ loan.download_count }}</dd>
+
+        <dt>Circulation File</dt>
+        <dd>{{ loan.circulation_filename or "None" }}</dd>
+      </dl>
+    </div>
+
+    {% if loan.is_active %}
+      <div class="admin-actions">
+        <h2>Actions</h2>
+
+        <div class="action-group">
+          <h3>Extend Loan</h3>
+          <form method="POST" action="{{ url_for('admin.loan_extend', loan_id=loan.id) }}" class="inline-form">
+            {{ extend_form.hidden_tag() }}
+            <div class="form-group">
+              {{ extend_form.days(class="form-control", style="width: 120px; display: inline-block;") }}
+              <span>days</span>
+            </div>
+            {{ extend_form.submit(class="btn btn-primary") }}
+          </form>
+        </div>
+
+        <div class="action-group">
+          <h3>Terminate Loan</h3>
+          <p>Immediately end this loan and mark as returned.</p>
+          <form method="POST" action="{{ url_for('admin.loan_terminate', loan_id=loan.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-warning" onclick="return confirm('Terminate this loan?')">Terminate</button>
+          </form>
+        </div>
+
+        <div class="action-group">
+          <h3>Invalidate Loan</h3>
+          <form method="POST" action="{{ url_for('admin.loan_invalidate', loan_id=loan.id) }}">
+            {{ invalidate_form.hidden_tag() }}
+            <div class="form-group">
+              {{ invalidate_form.reason(class="form-control") }}
+              {% for error in invalidate_form.reason.errors %}
+                <span class="form-error">{{ error }}</span>
+              {% endfor %}
+            </div>
+            {{ invalidate_form.submit(class="btn btn-danger") }}
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+    <p><a href="{{ url_for('admin.loans') }}">&laquo; Back to Loans</a></p>
+  </div>
+</div>
+{% endblock %}

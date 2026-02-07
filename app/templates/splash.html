@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ library_name_latin }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+    <meta name="theme-color" content="#4a1018">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1a0a0e;
+            overflow: hidden;
+            font-family: 'Cormorant Garamond', 'Georgia', serif;
+        }
+
+        /* Radial vignette background */
+        .splash-bg {
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at center, #2d1018 0%, #1a0a0e 70%),
+                linear-gradient(180deg, #1a0a0e 0%, #2a1220 50%, #1a0a0e 100%);
+            z-index: 0;
+        }
+
+        /* Subtle texture overlay */
+        .splash-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c5993e' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+
+        .splash-container {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        /* Seal */
+        .splash-seal {
+            width: 180px;
+            height: 180px;
+            opacity: 0;
+            animation: sealReveal 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s forwards;
+            filter: drop-shadow(0 0 40px rgba(197, 153, 62, 0.15));
+            border-radius: 50%;
+            background: #faf7f2;
+            padding: 6px;
+        }
+
+        @keyframes sealReveal {
+            0% {
+                opacity: 0;
+                transform: scale(0.85);
+                filter: drop-shadow(0 0 0px rgba(197, 153, 62, 0));
+            }
+            60% {
+                opacity: 1;
+                transform: scale(1.02);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+                filter: drop-shadow(0 0 40px rgba(197, 153, 62, 0.15));
+            }
+        }
+
+        /* Gold decorative rule */
+        .splash-rule {
+            width: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #c5993e, transparent);
+            margin: 1.8rem 0;
+            animation: ruleExpand 1.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1.8s forwards;
+        }
+
+        @keyframes ruleExpand {
+            to {
+                width: 280px;
+            }
+        }
+
+        /* Latin name */
+        .splash-name-latin {
+            font-size: 2rem;
+            font-weight: 400;
+            color: #e8dcc8;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            line-height: 1.3;
+            opacity: 0;
+            animation: textDissolve 2s ease 2.2s forwards;
+            max-width: 600px;
+        }
+
+        /* English name */
+        .splash-name-english {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 300;
+            color: #a09488;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-top: 0.75rem;
+            opacity: 0;
+            animation: textDissolve 2s ease 2.8s forwards;
+            max-width: 500px;
+        }
+
+        /* Second decorative rule */
+        .splash-rule-2 {
+            width: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(197, 153, 62, 0.4), transparent);
+            margin: 1.8rem 0;
+            animation: ruleExpand2 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) 3.4s forwards;
+        }
+
+        @keyframes ruleExpand2 {
+            to {
+                width: 160px;
+            }
+        }
+
+        /* Scriptural tagline */
+        .splash-verse {
+            font-size: 1.35rem;
+            font-weight: 400;
+            color: #c5993e;
+            letter-spacing: 0.18em;
+            opacity: 0;
+            animation: textDissolve 2.2s ease 3.8s forwards;
+        }
+
+        /* Enter button */
+        .splash-enter {
+            display: inline-block;
+            margin-top: 2.5rem;
+            padding: 0.75rem 2.8rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            text-decoration: none;
+            color: #e8dcc8;
+            border: 1px solid rgba(197, 153, 62, 0.4);
+            border-radius: 2px;
+            background: transparent;
+            cursor: pointer;
+            opacity: 0;
+            animation: buttonReveal 2s ease 4.8s forwards;
+            transition: all 0.4s ease;
+        }
+
+        .splash-enter:hover {
+            background: rgba(197, 153, 62, 0.12);
+            border-color: #c5993e;
+            color: #c5993e;
+            box-shadow: 0 0 30px rgba(197, 153, 62, 0.08);
+        }
+
+        @keyframes textDissolve {
+            0% {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes buttonReveal {
+            0% {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .splash-seal {
+                width: 140px;
+                height: 140px;
+            }
+            .splash-name-latin {
+                font-size: 1.5rem;
+                letter-spacing: 0.08em;
+            }
+            .splash-name-english {
+                font-size: 0.75rem;
+            }
+            .splash-verse {
+                font-size: 1.15rem;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .splash-seal {
+                width: 210px;
+                height: 210px;
+            }
+            .splash-name-latin {
+                font-size: 2.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-bg"></div>
+
+    <div class="splash-container">
+        <img
+            src="{{ url_for('static', filename='img/logo.png') }}"
+            alt="Seal of the Library of the Oratory of the Most Sacred Hearts"
+            class="splash-seal"
+        >
+
+        <div class="splash-rule"></div>
+
+        <h1 class="splash-name-latin">Bibliotheca Oratorii<br>Sacratissimorum Cordium</h1>
+        <p class="splash-name-english">Library of the Oratory of the Most Sacred Hearts</p>
+
+        <div class="splash-rule-2"></div>
+
+        <p class="splash-verse">&ldquo;DABO VOBIS COR NOVUM&rdquo;</p>
+
+        <a href="{{ url_for('auth.login') }}" class="splash-enter" id="enter-btn">Enter the Library</a>
+    </div>
+
+    <script>
+        document.getElementById('enter-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            var dest = this.href;
+            document.body.style.transition = 'opacity 1.2s ease';
+            document.body.style.opacity = '0';
+            setTimeout(function() { window.location.href = dest; }, 1200);
+        });
+    </script>
+</body>
+</html>

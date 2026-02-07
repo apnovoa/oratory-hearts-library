@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Edit Reading List" if reading_list else "New Reading List" }}{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}" class="active">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>{{ "Edit Reading List" if reading_list else "New Reading List" }}</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" novalidate>
+      {{ form.hidden_tag() }}
+
+      <fieldset>
+        <legend>List Details</legend>
+
+        <div class="form-group">
+          {{ form.name.label }}
+          {{ form.name(class="form-control") }}
+          {% for error in form.name.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          {{ form.description.label }}
+          {{ form.description(class="form-control") }}
+          {% for error in form.description.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          {{ form.season.label }}
+          {{ form.season(class="form-control") }}
+          <small>Assign a liturgical season to highlight this list during that time of the year.</small>
+        </div>
+
+        <div class="form-group form-check">
+          {{ form.is_public(class="form-check-input") }}
+          {{ form.is_public.label }}
+        </div>
+        <div class="form-group form-check">
+          {{ form.is_featured(class="form-check-input") }}
+          {{ form.is_featured.label }}
+        </div>
+      </fieldset>
+
+      {# ── Book management (edit mode only) ──────────────────────── #}
+      {% if reading_list %}
+      <fieldset>
+        <legend>Books in this List</legend>
+
+        {% if reading_list.items %}
+        <table class="admin-table" style="margin-bottom:1.5rem;">
+          <thead>
+            <tr>
+              <th style="width:60px;">Order</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Note</th>
+              <th style="width:100px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in reading_list.items %}
+            <tr>
+              <td>
+                <input type="number" name="position_{{ item.id }}" value="{{ item.position }}" min="1" style="width:50px;" class="form-control">
+              </td>
+              <td>{{ item.book.title }}</td>
+              <td>{{ item.book.author }}</td>
+              <td>
+                <input type="text" name="note_{{ item.id }}" value="{{ item.note or '' }}" class="form-control" placeholder="Optional curator note" style="font-size:0.85rem;">
+              </td>
+              <td>
+                <label style="font-size:0.85rem; color:#6b1d2a; cursor:pointer;">
+                  <input type="checkbox" name="remove_{{ item.id }}" value="1"> Remove
+                </label>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p style="color:#8b7355; font-style:italic; margin-bottom:1rem;">No books added yet.</p>
+        {% endif %}
+
+        <div class="form-group">
+          <label for="add_book_id">Add a Book</label>
+          <select name="add_book_id" id="add_book_id" class="form-control">
+            <option value="">-- Select a book to add --</option>
+            {% for book in all_books %}
+              <option value="{{ book.id }}">{{ book.title }} &mdash; {{ book.author }}</option>
+            {% endfor %}
+          </select>
+          <small>Select a book and save to add it to the list.</small>
+        </div>
+      </fieldset>
+      {% endif %}
+
+      <div class="form-actions">
+        {{ form.submit(class="btn btn-primary") }}
+        <a href="{{ url_for('admin.reading_lists') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

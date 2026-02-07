@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Loan Expired{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 2rem auto;">
+  <div class="auth-card" style="max-width: 100%;">
+    <div class="auth-header">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library crest" class="auth-cross-logo">
+      <span class="auth-cross" aria-hidden="true" style="color: #9b2c2c;">&#10007;</span>
+      <h1 class="auth-title">Loan Expired</h1>
+    </div>
+
+    <table class="book-metadata" style="margin: 1.5rem 0;">
+      <tr><th>Title</th><td><strong>{{ loan.book_title_snapshot }}</strong></td></tr>
+      <tr><th>Author</th><td>{{ loan.book_author_snapshot }}</td></tr>
+      <tr><th>Borrowed</th><td>{{ loan.borrowed_at.strftime('%B %d, %Y') }}</td></tr>
+      <tr><th>Expired</th><td>{{ loan.due_at.strftime('%B %d, %Y at %H:%M UTC') }}</td></tr>
+    </table>
+
+    <p style="color: #5c534d; line-height: 1.6;">
+      This loan has expired and is no longer accessible. The book has been returned
+      to the library's available inventory. If you would like to borrow it again,
+      you may do so from the catalog (subject to availability).
+    </p>
+
+    <div style="display: flex; gap: 1rem; margin: 1.5rem 0;">
+      {% if loan.book %}
+      <a href="{{ url_for('catalog.detail', public_id=loan.book.public_id) }}" class="btn btn-primary">
+        View in Catalog
+      </a>
+      {% endif %}
+      <a href="{{ url_for('patron.dashboard') }}" class="btn btn-secondary">
+        My Dashboard
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

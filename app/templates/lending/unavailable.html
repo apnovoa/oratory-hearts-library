@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Book Unavailable{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 2rem auto;">
+  <div class="auth-card" style="max-width: 100%;">
+    <div class="auth-header">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library crest" class="auth-cross-logo">
+      <h1 class="auth-title" style="font-size: 1.6rem;">{{ book.title }}</h1>
+      <p class="auth-subtitle">by {{ book.author }}</p>
+    </div>
+
+    <div style="background: #fdf6e3; border: 1px solid #e8e0d6; border-radius: 6px; padding: 1.25rem; margin: 1.5rem 0; text-align: center;">
+      <p style="margin: 0; color: #5c534d;">
+        All {{ book.owned_copies }} {% if book.owned_copies == 1 %}copy is{% else %}copies are{% endif %}
+        currently on loan.
+        {% if waitlist_position > 0 %}
+        There {% if waitlist_position == 1 %}is 1 patron{% else %}are {{ waitlist_position }} patrons{% endif %} on the waitlist.
+        {% endif %}
+      </p>
+    </div>
+
+    <p style="color: #5c534d; line-height: 1.6;">
+      Join the waitlist to be notified when a copy becomes available.
+      Patrons are notified in the order they joined.
+    </p>
+
+    <form method="post" action="{{ url_for('lending.join_waitlist', book_public_id=book.public_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-secondary btn-full" style="margin: 1rem 0;">
+        Join Waitlist
+      </button>
+    </form>
+
+    <div class="ornament-divider" style="margin: 1.5rem 0;"></div>
+
+    <p>
+      <a href="{{ url_for('catalog.detail', public_id=book.public_id) }}">&larr; Back to book details</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

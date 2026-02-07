@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}User: {{ user.display_name }}{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}" class="active">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>{{ user.display_name }}</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="detail-card">
+      <dl>
+        <dt>Email</dt>
+        <dd>{{ user.email }}</dd>
+
+        <dt>Role</dt>
+        <dd>{{ user.role }}</dd>
+
+        <dt>Active</dt>
+        <dd>{{ "Yes" if user.is_active_account else "No" }}</dd>
+
+        <dt>Blocked</dt>
+        <dd>
+          {{ "Yes" if user.is_blocked else "No" }}
+          {% if user.block_reason %}
+            &mdash; {{ user.block_reason }}
+          {% endif %}
+        </dd>
+
+        <dt>Joined</dt>
+        <dd>{{ user.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+
+        <dt>Last Login</dt>
+        <dd>{{ user.last_login_at.strftime('%Y-%m-%d %H:%M UTC') if user.last_login_at else "Never" }}</dd>
+
+        <dt>Public ID</dt>
+        <dd>{{ user.public_id }}</dd>
+      </dl>
+    </div>
+
+    {% if not user.is_admin %}
+      <div class="admin-actions">
+        <h2>Actions</h2>
+
+        <div class="action-row">
+          {% if user.is_blocked %}
+            <form method="POST" action="{{ url_for('admin.user_unblock', user_id=user.id) }}" class="inline-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-primary">Unblock</button>
+            </form>
+          {% else %}
+            <form method="POST" action="{{ url_for('admin.user_block', user_id=user.id) }}" class="inline-form">
+              {{ block_form.hidden_tag() }}
+              <div class="form-group">
+                {{ block_form.reason(class="form-control") }}
+                {% for error in block_form.reason.errors %}
+                  <span class="form-error">{{ error }}</span>
+                {% endfor %}
+              </div>
+              {{ block_form.submit(class="btn btn-danger") }}
+            </form>
+          {% endif %}
+        </div>
+
+        <div class="action-row">
+          {% if user.is_active_account %}
+            <form method="POST" action="{{ url_for('admin.user_deactivate', user_id=user.id) }}" class="inline-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-warning" onclick="return confirm('Deactivate this account?')">Deactivate Account</button>
+            </form>
+          {% else %}
+            <form method="POST" action="{{ url_for('admin.user_activate', user_id=user.id) }}" class="inline-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-primary">Activate Account</button>
+            </form>
+          {% endif %}
+        </div>
+
+        <div class="action-row">
+          <form method="POST" action="{{ url_for('admin.user_force_logout', user_id=user.id) }}" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary">Force Logout</button>
+          </form>
+        </div>
+
+        <div class="action-row">
+          <form method="POST" action="{{ url_for('admin.user_change_role', user_id=user.id) }}" class="inline-form">
+            {{ role_form.hidden_tag() }}
+            <div class="form-group">
+              {{ role_form.role(class="form-control", style="width: 180px; display: inline-block;") }}
+            </div>
+            {{ role_form.submit(class="btn btn-secondary") }}
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="admin-section">
+      <h2>Loan History</h2>
+      {% if loans %}
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Book</th>
+              <th>Borrowed</th>
+              <th>Due</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for loan in loans %}
+              <tr>
+                <td>{{ loan.id }}</td>
+                <td>{{ loan.book_title_snapshot or loan.book.title }}</td>
+                <td>{{ loan.borrowed_at.strftime('%Y-%m-%d') }}</td>
+                <td>{{ loan.due_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                  {% if loan.invalidated %}
+                    <span class="badge badge-danger">Invalidated</span>
+                  {% elif not loan.is_active %}
+                    <span class="badge badge-secondary">Returned</span>
+                  {% elif loan.is_expired %}
+                    <span class="badge badge-warning">Overdue</span>
+                  {% else %}
+                    <span class="badge badge-success">Active</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{{ url_for('admin.loan_detail', loan_id=loan.id) }}" class="btn btn-sm">Details</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        {% if pagination.pages > 1 %}
+          <nav class="pagination">
+            {% if pagination.has_prev %}
+              <a href="{{ url_for('admin.user_detail', user_id=user.id, page=pagination.prev_num) }}">&laquo; Previous</a>
+            {% endif %}
+            <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+            {% if pagination.has_next %}
+              <a href="{{ url_for('admin.user_detail', user_id=user.id, page=pagination.next_num) }}">Next &raquo;</a>
+            {% endif %}
+          </nav>
+        {% endif %}
+      {% else %}
+        <p>No loans found for this user.</p>
+      {% endif %}
+    </div>
+
+    <p><a href="{{ url_for('admin.users') }}">&laquo; Back to Users</a></p>
+  </div>
+</div>
+{% endblock %}

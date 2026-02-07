@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Loan Confirmed — {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 2rem auto;">
+  <div class="auth-card" style="max-width: 100%;">
+    <div class="auth-header">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library crest" class="auth-cross-logo">
+      <span class="auth-cross" aria-hidden="true" style="color: #2d6a4f;">&#10003;</span>
+      <h1 class="auth-title">Loan Confirmed</h1>
+    </div>
+
+    <table class="book-metadata" style="margin: 1.5rem 0;">
+      <tr><th>Title</th><td><strong>{{ loan.book_title_snapshot }}</strong></td></tr>
+      <tr><th>Author</th><td>{{ loan.book_author_snapshot }}</td></tr>
+      <tr><th>Borrowed</th><td>{{ loan.borrowed_at.strftime('%B %d, %Y at %H:%M UTC') }}</td></tr>
+      <tr><th>Due Date</th><td>{{ loan.due_at.strftime('%B %d, %Y at %H:%M UTC') }}</td></tr>
+    </table>
+
+    <p style="color: #5c534d; line-height: 1.6;">
+      Your personal circulation copy has been generated. It is watermarked and
+      licensed exclusively to you under the one-copy-one-loan principle.
+    </p>
+
+    <a href="{{ url_for('lending.download', access_token=loan.access_token) }}" class="btn btn-primary btn-full" style="margin: 1.5rem 0;">
+      Download Your Copy
+    </a>
+
+    <p style="color: #8a8078; font-size: 0.875rem;">
+      A confirmation has also been sent to your email. You can access your loan
+      at any time from your <a href="{{ url_for('patron.dashboard') }}">patron dashboard</a>.
+    </p>
+
+    <div class="ornament-divider" style="margin: 1.5rem 0;"></div>
+
+    <p>
+      <a href="{{ url_for('catalog.detail', public_id=book.public_id) }}">&larr; Back to book details</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-code">500</div>
+    <h2 class="error-title">Internal Server Error</h2>
+    <p class="error-text">
+        Something went wrong on our end. The error has been logged. Please try again later or contact the librarian if the problem persists.
+    </p>
+    <a href="{{ url_for('catalog.index') }}" class="btn btn-primary">Return to Catalog</a>
+</div>
+{% endblock %}

@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block title %}Reading: {{ loan.book_title_snapshot }} - {{ library_name_latin }}{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* Override base layout for full-screen reader */
+    .site-header, .site-footer { display: none; }
+    .main-content { padding: 0; }
+    .main-content > .container {
+        max-width: 100%;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+    }
+    body {
+        overflow: hidden;
+        margin: 0;
+        background: #2a2a2a;
+    }
+
+    /* Reader toolbar */
+    .reader-toolbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #6b1d2a;
+        color: #faf7f2;
+        padding: 0 1rem;
+        height: 48px;
+        font-family: 'Inter', sans-serif;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .reader-toolbar-left,
+    .reader-toolbar-center,
+    .reader-toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .reader-toolbar-left {
+        flex: 1;
+        min-width: 0;
+    }
+    .reader-toolbar-center {
+        flex: 0 0 auto;
+    }
+    .reader-toolbar-right {
+        flex: 1;
+        justify-content: flex-end;
+    }
+    .reader-back-link {
+        color: #c5993e;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        transition: color 0.2s;
+    }
+    .reader-back-link:hover {
+        color: #faf7f2;
+    }
+    .reader-book-title {
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #faf7f2;
+        margin-left: 1rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .reader-toolbar button {
+        background: transparent;
+        border: 1px solid rgba(250,247,242,0.3);
+        color: #faf7f2;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-family: 'Inter', sans-serif;
+        transition: background 0.2s, border-color 0.2s;
+    }
+    .reader-toolbar button:hover {
+        background: rgba(250,247,242,0.15);
+        border-color: rgba(250,247,242,0.5);
+    }
+    .reader-toolbar button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .reader-page-info {
+        font-size: 0.85rem;
+        color: rgba(250,247,242,0.85);
+        white-space: nowrap;
+        min-width: 80px;
+        text-align: center;
+    }
+    .reader-page-input {
+        width: 48px;
+        text-align: center;
+        background: rgba(250,247,242,0.1);
+        border: 1px solid rgba(250,247,242,0.3);
+        color: #faf7f2;
+        border-radius: 4px;
+        padding: 0.25rem;
+        font-size: 0.85rem;
+        font-family: 'Inter', sans-serif;
+    }
+    .reader-page-input:focus {
+        outline: none;
+        border-color: #c5993e;
+        background: rgba(250,247,242,0.15);
+    }
+    .reader-zoom-label {
+        font-size: 0.8rem;
+        color: rgba(250,247,242,0.7);
+        min-width: 40px;
+        text-align: center;
+    }
+    .reader-download-btn {
+        background: #c5993e !important;
+        border-color: #c5993e !important;
+        color: #fff !important;
+        font-weight: 500;
+    }
+    .reader-download-btn:hover {
+        background: #d4a94e !important;
+        border-color: #d4a94e !important;
+    }
+
+    /* PDF canvas container */
+    .reader-viewport {
+        position: fixed;
+        top: 48px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: auto;
+        background: #2a2a2a;
+        display: flex;
+        justify-content: center;
+    }
+    .reader-pages {
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .reader-page-wrapper {
+        box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+        background: #fff;
+        line-height: 0;
+    }
+    .reader-page-wrapper canvas {
+        display: block;
+    }
+
+    /* Loading state */
+    .reader-loading {
+        position: fixed;
+        top: 48px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1rem;
+        background: #2a2a2a;
+        color: #faf7f2;
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 1.2rem;
+        z-index: 500;
+    }
+    .reader-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(250,247,242,0.2);
+        border-top: 3px solid #c5993e;
+        border-radius: 50%;
+        animation: reader-spin 0.8s linear infinite;
+    }
+    @keyframes reader-spin {
+        to { transform: rotate(360deg); }
+    }
+    .reader-error {
+        color: #e8a0a0;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+        .reader-book-title { display: none; }
+        .reader-zoom-label { display: none; }
+        .reader-toolbar { padding: 0 0.5rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Toolbar -->
+<div class="reader-toolbar">
+    <div class="reader-toolbar-left">
+        <a href="{{ url_for('patron.dashboard') }}" class="reader-back-link">
+            &larr; Dashboard
+        </a>
+        <span class="reader-book-title">{{ loan.book_title_snapshot }}</span>
+    </div>
+    <div class="reader-toolbar-center">
+        <button id="prevPage" title="Previous page" disabled>&lsaquo;</button>
+        <div class="reader-page-info">
+            <input type="number" id="pageInput" class="reader-page-input" value="1" min="1">
+            / <span id="pageCount">--</span>
+        </div>
+        <button id="nextPage" title="Next page" disabled>&rsaquo;</button>
+        <button id="zoomOut" title="Zoom out">&minus;</button>
+        <span class="reader-zoom-label" id="zoomLevel">100%</span>
+        <button id="zoomIn" title="Zoom in">+</button>
+        <button id="fitWidth" title="Fit to width">Fit</button>
+    </div>
+    <div class="reader-toolbar-right">
+        <a href="{{ url_for('lending.download', access_token=loan.access_token, file=1) }}"
+           class="reader-download-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem; padding:0.3rem 0.75rem; border-radius:4px; font-size:0.85rem; font-family:'Inter',sans-serif; font-weight:500;">
+            Download
+        </a>
+    </div>
+</div>
+
+<!-- Loading indicator -->
+<div class="reader-loading" id="loadingOverlay">
+    <div class="reader-spinner"></div>
+    <span>Loading document...</span>
+</div>
+
+<!-- PDF viewport -->
+<div class="reader-viewport" id="viewerContainer">
+    <div class="reader-pages" id="pagesContainer"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+
+    const PDF_URL = "{{ url_for('lending.download', access_token=loan.access_token, file=1) }}";
+
+    // State
+    let pdfDoc = null;
+    let currentScale = 1.0;
+    let currentPage = 1;
+    let totalPages = 0;
+    let rendering = false;
+    let fitMode = false;
+
+    // DOM references
+    const pagesContainer = document.getElementById('pagesContainer');
+    const viewerContainer = document.getElementById('viewerContainer');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const pageInput = document.getElementById('pageInput');
+    const pageCount = document.getElementById('pageCount');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
+    const fitWidthBtn = document.getElementById('fitWidth');
+    const zoomLabel = document.getElementById('zoomLevel');
+
+    async function loadPDF() {
+        try {
+            const loadingTask = pdfjsLib.getDocument(PDF_URL);
+            pdfDoc = await loadingTask.promise;
+            totalPages = pdfDoc.numPages;
+            pageCount.textContent = totalPages;
+            pageInput.max = totalPages;
+            loadingOverlay.style.display = 'none';
+            await renderAllPages();
+            updateNavButtons();
+        } catch (err) {
+            console.error('PDF load error:', err);
+            loadingOverlay.innerHTML = '<div class="reader-error"><p>Unable to load document.</p><p style="font-size:0.9rem;margin-top:0.5rem;">The loan may have expired, or the file is not yet available.</p><a href="{{ url_for("patron.dashboard") }}" style="color:#c5993e;margin-top:1rem;display:inline-block;">Return to Dashboard</a></div>';
+        }
+    }
+
+    async function renderPage(pageNum) {
+        const page = await pdfDoc.getPage(pageNum);
+        let scale = currentScale;
+
+        if (fitMode) {
+            const containerWidth = viewerContainer.clientWidth - 32; // padding
+            const unscaledViewport = page.getViewport({ scale: 1.0 });
+            scale = containerWidth / unscaledViewport.width;
+            if (pageNum === 1) {
+                currentScale = scale;
+                zoomLabel.textContent = Math.round(scale * 100) + '%';
+            }
+        }
+
+        const viewport = page.getViewport({ scale: scale });
+
+        // Create wrapper and canvas
+        const wrapper = document.createElement('div');
+        wrapper.className = 'reader-page-wrapper';
+        wrapper.dataset.pageNum = pageNum;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = Math.floor(viewport.width * window.devicePixelRatio);
+        canvas.height = Math.floor(viewport.height * window.devicePixelRatio);
+        canvas.style.width = Math.floor(viewport.width) + 'px';
+        canvas.style.height = Math.floor(viewport.height) + 'px';
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        wrapper.appendChild(canvas);
+        pagesContainer.appendChild(wrapper);
+
+        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    }
+
+    async function renderAllPages() {
+        rendering = true;
+        pagesContainer.innerHTML = '';
+        for (let i = 1; i <= totalPages; i++) {
+            await renderPage(i);
+        }
+        rendering = false;
+    }
+
+    function updateNavButtons() {
+        prevBtn.disabled = currentPage <= 1;
+        nextBtn.disabled = currentPage >= totalPages;
+    }
+
+    function scrollToPage(num) {
+        const wrappers = pagesContainer.querySelectorAll('.reader-page-wrapper');
+        if (wrappers[num - 1]) {
+            wrappers[num - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        currentPage = num;
+        pageInput.value = num;
+        updateNavButtons();
+    }
+
+    // Detect current page from scroll position
+    viewerContainer.addEventListener('scroll', () => {
+        const wrappers = pagesContainer.querySelectorAll('.reader-page-wrapper');
+        const containerTop = viewerContainer.scrollTop + 60;
+        for (let i = wrappers.length - 1; i >= 0; i--) {
+            if (wrappers[i].offsetTop <= containerTop) {
+                currentPage = i + 1;
+                pageInput.value = currentPage;
+                updateNavButtons();
+                break;
+            }
+        }
+    });
+
+    // Navigation
+    prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) scrollToPage(currentPage - 1);
+    });
+    nextBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) scrollToPage(currentPage + 1);
+    });
+    pageInput.addEventListener('change', () => {
+        let val = parseInt(pageInput.value);
+        if (val >= 1 && val <= totalPages) {
+            scrollToPage(val);
+        } else {
+            pageInput.value = currentPage;
+        }
+    });
+    pageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            pageInput.dispatchEvent(new Event('change'));
+        }
+    });
+
+    // Zoom
+    const ZOOM_STEP = 0.15;
+    const MIN_ZOOM = 0.25;
+    const MAX_ZOOM = 4.0;
+
+    function setZoom(newScale) {
+        fitMode = false;
+        currentScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+        zoomLabel.textContent = Math.round(currentScale * 100) + '%';
+        renderAllPages().then(() => scrollToPage(currentPage));
+    }
+
+    zoomInBtn.addEventListener('click', () => setZoom(currentScale + ZOOM_STEP));
+    zoomOutBtn.addEventListener('click', () => setZoom(currentScale - ZOOM_STEP));
+
+    fitWidthBtn.addEventListener('click', () => {
+        fitMode = true;
+        renderAllPages().then(() => scrollToPage(currentPage));
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        switch (e.key) {
+            case 'ArrowLeft':
+            case 'PageUp':
+                e.preventDefault();
+                if (currentPage > 1) scrollToPage(currentPage - 1);
+                break;
+            case 'ArrowRight':
+            case 'PageDown':
+                e.preventDefault();
+                if (currentPage < totalPages) scrollToPage(currentPage + 1);
+                break;
+            case '+':
+            case '=':
+                e.preventDefault();
+                setZoom(currentScale + ZOOM_STEP);
+                break;
+            case '-':
+                e.preventDefault();
+                setZoom(currentScale - ZOOM_STEP);
+                break;
+        }
+    });
+
+    // Initial fit-to-width render
+    fitMode = true;
+    loadPDF();
+</script>
+{% endblock %}

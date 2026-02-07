@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Reading History - {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Reading History</h1>
+<p class="page-subtitle">Your past borrowing history.</p>
+
+{% include "patron/_nav.html" %}
+
+{% if loans %}
+<div class="table-responsive">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Author</th>
+        <th>Borrowed</th>
+        <th>Returned</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for loan in loans %}
+      <tr>
+        <td>
+          {% if loan.book %}
+          <a href="{{ url_for('catalog.detail', public_id=loan.book.public_id) }}" style="color:#6b1d2a; font-weight:600; text-decoration:none;">
+            {{ loan.book_title_snapshot or loan.book.title }}
+          </a>
+          {% else %}
+          <strong>{{ loan.book_title_snapshot or 'Unknown Title' }}</strong>
+          {% endif %}
+        </td>
+        <td>{{ loan.book_author_snapshot or (loan.book.author if loan.book else '&mdash;'|safe) }}</td>
+        <td class="text-sans text-small">{{ loan.borrowed_at.strftime('%d %b %Y') }}</td>
+        <td class="text-sans text-small">
+          {% if loan.returned_at %}
+            {{ loan.returned_at.strftime('%d %b %Y') }}
+            <span class="badge badge--returned">Returned</span>
+          {% elif loan.invalidated %}
+            <span class="badge badge--expired">Invalidated</span>
+          {% else %}
+            <span class="badge badge--expired">Expired</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pagination.pages > 1 %}
+<nav aria-label="Reading history pagination">
+  <ul class="pagination">
+    {% if pagination.has_prev %}
+    <li class="pagination-item">
+      <a href="{{ url_for('patron.history', page=pagination.prev_num) }}" class="pagination-link">&laquo; Prev</a>
+    </li>
+    {% else %}
+    <li class="pagination-item">
+      <span class="pagination-link pagination-link--disabled">&laquo; Prev</span>
+    </li>
+    {% endif %}
+
+    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+      {% if page_num %}
+      <li class="pagination-item">
+        <a href="{{ url_for('patron.history', page=page_num) }}"
+           class="pagination-link {% if page_num == pagination.page %}pagination-link--active{% endif %}">{{ page_num }}</a>
+      </li>
+      {% else %}
+      <li class="pagination-item">
+        <span class="pagination-ellipsis">&hellip;</span>
+      </li>
+      {% endif %}
+    {% endfor %}
+
+    {% if pagination.has_next %}
+    <li class="pagination-item">
+      <a href="{{ url_for('patron.history', page=pagination.next_num) }}" class="pagination-link">Next &raquo;</a>
+    </li>
+    {% else %}
+    <li class="pagination-item">
+      <span class="pagination-link pagination-link--disabled">Next &raquo;</span>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">&#128218;</div>
+  <p class="empty-state-title">No Reading History Yet</p>
+  <p class="empty-state-text">Once you return or finish borrowing books, they will appear here.</p>
+  <a href="{{ url_for('catalog.browse') }}" class="btn btn-primary">Browse Catalog</a>
+</div>
+{% endif %}
+
+{% endblock %}

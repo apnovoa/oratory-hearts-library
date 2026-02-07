@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "Edit Book" if book else "Add Book" }}{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}" class="active">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <h1>{{ "Edit Book" if book else "Add Book" }}</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" enctype="multipart/form-data" novalidate>
+      {{ form.hidden_tag() }}
+
+      <fieldset>
+        <legend>Basic Information</legend>
+
+        <div class="form-group">
+          {{ form.title.label }}
+          {{ form.title(class="form-control") }}
+          {% for error in form.title.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          {{ form.author.label }}
+          {{ form.author(class="form-control") }}
+          {% for error in form.author.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          {{ form.description.label }}
+          {{ form.description(class="form-control") }}
+          {% for error in form.description.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            {{ form.language.label }}
+            {{ form.language(class="form-control") }}
+          </div>
+          <div class="form-group">
+            {{ form.publication_year.label }}
+            {{ form.publication_year(class="form-control") }}
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Identifiers</legend>
+
+        <div class="form-row">
+          <div class="form-group">
+            {{ form.isbn.label }}
+            {{ form.isbn(class="form-control") }}
+          </div>
+          <div class="form-group">
+            {{ form.other_identifier.label }}
+            {{ form.other_identifier(class="form-control") }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            {{ form.dewey_decimal.label }}
+            {{ form.dewey_decimal(class="form-control") }}
+          </div>
+          <div class="form-group">
+            {{ form.loc_classification.label }}
+            {{ form.loc_classification(class="form-control") }}
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Lending Settings</legend>
+
+        <div class="form-row">
+          <div class="form-group">
+            {{ form.owned_copies.label }}
+            {{ form.owned_copies(class="form-control") }}
+            {% for error in form.owned_copies.errors %}
+              <span class="form-error">{{ error }}</span>
+            {% endfor %}
+          </div>
+          <div class="form-group">
+            {{ form.watermark_mode.label }}
+            {{ form.watermark_mode(class="form-control") }}
+          </div>
+          <div class="form-group">
+            {{ form.loan_duration_override.label }}
+            {{ form.loan_duration_override(class="form-control") }}
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Visibility &amp; Access</legend>
+
+        <div class="form-group form-check">
+          {{ form.is_visible(class="form-check-input") }}
+          {{ form.is_visible.label }}
+        </div>
+        <div class="form-group form-check">
+          {{ form.is_disabled(class="form-check-input") }}
+          {{ form.is_disabled.label }}
+        </div>
+        <div class="form-group form-check">
+          {{ form.restricted_access(class="form-check-input") }}
+          {{ form.restricted_access.label }}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Ecclesiastical Approval</legend>
+
+        <div class="form-group">
+          {{ form.nihil_obstat.label }}
+          {{ form.nihil_obstat(class="form-control") }}
+          <small>The censor librorum who granted the Nihil Obstat.</small>
+        </div>
+
+        <div class="form-group">
+          {{ form.imprimatur.label }}
+          {{ form.imprimatur(class="form-control") }}
+          <small>The bishop or ordinary who granted the Imprimatur.</small>
+        </div>
+
+        <div class="form-group">
+          {{ form.ecclesiastical_approval_date.label }}
+          {{ form.ecclesiastical_approval_date(class="form-control") }}
+          <small>Date the approval was granted.</small>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Tags</legend>
+
+        <div class="form-group">
+          {{ form.tags_text.label }}
+          {{ form.tags_text(class="form-control") }}
+          <small>Separate tags with commas.</small>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Files</legend>
+
+        <div class="form-group">
+          {{ form.master_file.label }}
+          {{ form.master_file(class="form-control") }}
+          {% if book and book.master_filename %}
+            <small>Current: {{ book.master_filename }}</small>
+          {% endif %}
+          {% for error in form.master_file.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          {{ form.cover_file.label }}
+          {{ form.cover_file(class="form-control") }}
+          {% if book and book.cover_filename %}
+            <small>Current: {{ book.cover_filename }}</small>
+          {% endif %}
+          {% for error in form.cover_file.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+
+        {% if book %}
+        <div class="form-group">
+          <form method="POST" action="{{ url_for('admin.book_fetch_cover', book_id=book.id) }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary" title="Fetch cover image from Open Library using the book's ISBN or title/author">
+              Auto-fetch cover from Open Library
+            </button>
+          </form>
+          <small>Searches Open Library by ISBN (or title/author as fallback) and downloads the cover image automatically.</small>
+        </div>
+        {% endif %}
+      </fieldset>
+
+      <div class="form-actions">
+        {{ form.submit(class="btn btn-primary") }}
+        <a href="{{ url_for('admin.books') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

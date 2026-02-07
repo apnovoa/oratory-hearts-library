@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}My Favorites - {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">My Favorites</h1>
+<p class="page-subtitle">Books you have marked as favorites.</p>
+
+{% include "patron/_nav.html" %}
+
+{% if books %}
+<div class="book-grid">
+  {% for book in books %}
+  <div class="book-card">
+    <a href="{{ url_for('catalog.detail', public_id=book.public_id) }}" class="book-card-link">
+      <div class="book-cover">
+        {% if book.cover_filename %}
+        <img src="{{ url_for('catalog.serve_cover', filename=book.cover_filename) }}" alt="Cover of {{ book.title }}">
+        {% else %}
+        <div class="cover-placeholder">
+          <span>{{ book.title[:1] }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="book-card-info">
+        <h3 class="book-card-title">{{ book.title }}</h3>
+        <p class="book-card-author">{{ book.author }}</p>
+        {% if book.is_available %}
+        <span class="badge badge-available">Available</span>
+        {% else %}
+        <span class="badge badge-unavailable">Checked Out</span>
+        {% endif %}
+      </div>
+    </a>
+    <div style="padding:0 1rem 0.75rem; text-align:right;">
+      <form method="post" action="{{ url_for('patron.toggle_favorite', book_public_id=book.public_id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:#6b1d2a;" title="Remove from favorites">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#c5993e" stroke="#c5993e" stroke-width="1.5" style="vertical-align:middle; margin-right:0.25rem;"><path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z"/></svg>
+          Remove
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon" style="font-size:3rem;">&#9825;</div>
+  <p class="empty-state-title">No Favorites Yet</p>
+  <p class="empty-state-text">Browse the catalog and tap the heart icon on any book to add it to your favorites.</p>
+  <a href="{{ url_for('catalog.browse') }}" class="btn btn-primary">Browse Catalog</a>
+</div>
+{% endif %}
+{% endblock %}

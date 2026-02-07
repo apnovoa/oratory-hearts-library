@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Library Policy — {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div class="policy-page">
+
+  {# ── Policy Header ───────────────────────────────────────────── #}
+  <div class="policy-header">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library seal" class="policy-header-seal">
+    <h1 class="policy-header-title">Library Policy &amp; Takedown Requests</h1>
+    <p class="policy-header-subtitle">{{ library_name_latin }}</p>
+    <p class="policy-header-english">{{ library_name_english }}</p>
+    <div class="policy-header-ornament" aria-hidden="true">&#x2726;</div>
+  </div>
+
+  {# ── Purpose ─────────────────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">Purpose</h2>
+    <p>
+      This digital lending library is operated exclusively for the religious and educational
+      purposes of the Oratory and its faithful. It exists to provide members with access to
+      Catholic theological, spiritual, liturgical, and educational materials in support of
+      the mission of the Church.
+    </p>
+  </section>
+
+  {# ── One-Copy, One-Loan ──────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">One-Copy, One-Loan Lending Model</h2>
+    <p>
+      This library follows a controlled digital lending model. For each physical or licensed
+      copy of a work owned by the Oratory, only one digital loan may be active at any given
+      time. When a copy is on loan to a patron, it is unavailable to other patrons until it
+      is returned or the loan period expires. This mirrors the traditional lending practices
+      of a physical library.
+    </p>
+    <p>
+      Each loaned copy is individually watermarked and time-limited. Upon expiration or
+      return, the patron's access to the digital copy is revoked.
+    </p>
+  </section>
+
+  {# ── Restricted Access ───────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">Restricted Access</h2>
+    <p>
+      Access to this library is restricted to registered and approved patrons of the Oratory.
+      The catalog and all digital materials are available only to authenticated members. No
+      materials are made available to the general public. Registration requires approval by a
+      librarian or administrator.
+    </p>
+  </section>
+
+  {# ── Takedown Requests ──────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">Takedown Requests</h2>
+    <p>
+      If you are a rights holder and believe that a work in this collection infringes on your
+      rights, please contact us at
+      <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>.
+      We take all such requests seriously and will respond promptly.
+    </p>
+    <p>
+      Please include the title of the work in question, your relationship to the rights holder,
+      and any supporting documentation.
+    </p>
+  </section>
+
+  {# ── Footer ornament ────────────────────────────────────────── #}
+  <div class="policy-footer-ornament" aria-hidden="true">
+    <span>&#x271D;</span>
+  </div>
+
+</div>
+{% endblock %}

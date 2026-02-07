@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Reading Lists{% endblock %}
+
+{% block content %}
+<div class="admin-layout">
+  <nav class="admin-nav">
+    <h3>Administration</h3>
+    <ul>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('admin.books') }}">Books</a></li>
+      <li><a href="{{ url_for('admin.import_pdf_dashboard') }}">PDF Import</a></li>
+      <li><a href="{{ url_for('admin.loans') }}">Loans</a></li>
+      <li><a href="{{ url_for('admin.users') }}">Users</a></li>
+      <li><a href="{{ url_for('admin.reading_lists') }}" class="active">Reading Lists</a></li>
+      <li><a href="{{ url_for('admin.book_requests') }}">Requests</a></li>
+      <li><a href="{{ url_for('admin.audit') }}">Audit Log</a></li>
+      <li><a href="{{ url_for('admin.reports') }}">Reports</a></li>
+      <li><a href="{{ url_for('admin.change_password') }}">Change Password</a></li>
+    </ul>
+  </nav>
+
+  <div class="admin-content">
+    <div class="admin-header">
+      <h1>Reading Lists</h1>
+      <a href="{{ url_for('admin.reading_list_new') }}" class="btn btn-primary">New Reading List</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Books</th>
+          <th>Season</th>
+          <th>Public</th>
+          <th>Featured</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rl in reading_lists %}
+          <tr>
+            <td>{{ rl.id }}</td>
+            <td>{{ rl.name }}</td>
+            <td>{{ rl.items|length }}</td>
+            <td>{{ rl.season or "---" }}</td>
+            <td>{{ "Yes" if rl.is_public else "No" }}</td>
+            <td>{{ "Yes" if rl.is_featured else "No" }}</td>
+            <td>{{ rl.created_at.strftime('%Y-%m-%d') }}</td>
+            <td class="action-cell">
+              <a href="{{ url_for('admin.reading_list_edit', list_id=rl.id) }}" class="btn btn-sm">Edit</a>
+              <form method="POST" action="{{ url_for('admin.reading_list_delete', list_id=rl.id) }}" class="inline-form" onsubmit="return confirm('Delete this reading list?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8">No reading lists yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

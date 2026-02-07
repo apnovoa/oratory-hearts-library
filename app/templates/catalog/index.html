@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Catalog — {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div class="catalog-page">
+
+  {# ── Hero Section ─────────────────────────────────────────────── #}
+  <div class="catalog-hero">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library seal" class="catalog-hero-seal">
+    <h1 class="catalog-hero-title">The Catalog</h1>
+    <p class="catalog-hero-subtitle">Browse our collection of Catholic theological, spiritual, and liturgical works</p>
+    <div class="catalog-hero-ornament" aria-hidden="true">&#x2726;</div>
+  </div>
+
+  {# ── New Arrivals Shelf ──────────────────────────────────────── #}
+  {% if not has_active_search and new_arrivals %}
+  <section class="catalog-shelf">
+    <div class="shelf-header">
+      <h2 class="shelf-title">New Arrivals</h2>
+      <div class="shelf-ornament" aria-hidden="true">&#x2726;</div>
+    </div>
+    <div class="shelf-grid">
+      {% for sbook in new_arrivals %}
+      <a href="{{ url_for('catalog.detail', public_id=sbook.public_id) }}" class="shelf-card">
+        <div class="shelf-card-cover">
+          {% if sbook.cover_filename %}
+          <img src="{{ url_for('catalog.serve_cover', filename=sbook.cover_filename) }}" alt="Cover of {{ sbook.title }}">
+          {% else %}
+          <div class="shelf-card-placeholder">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+            </svg>
+            <span class="shelf-card-placeholder-title">{{ sbook.title }}</span>
+          </div>
+          {% endif %}
+        </div>
+        <div class="shelf-card-info">
+          <h3 class="shelf-card-title">{{ sbook.title }}</h3>
+          <p class="shelf-card-author">{{ sbook.author }}</p>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Staff Picks Shelf ─────────────────────────────────────── #}
+  {% if not has_active_search and featured_books %}
+  <section class="catalog-shelf catalog-shelf--featured">
+    <div class="shelf-header">
+      <h2 class="shelf-title">Staff Picks</h2>
+      <div class="shelf-ornament" aria-hidden="true">&#x2767;</div>
+    </div>
+    <div class="shelf-grid">
+      {% for sbook in featured_books %}
+      <a href="{{ url_for('catalog.detail', public_id=sbook.public_id) }}" class="shelf-card">
+        <div class="shelf-card-cover">
+          {% if sbook.cover_filename %}
+          <img src="{{ url_for('catalog.serve_cover', filename=sbook.cover_filename) }}" alt="Cover of {{ sbook.title }}">
+          {% else %}
+          <div class="shelf-card-placeholder">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+            </svg>
+            <span class="shelf-card-placeholder-title">{{ sbook.title }}</span>
+          </div>
+          {% endif %}
+        </div>
+        <div class="shelf-card-info">
+          <h3 class="shelf-card-title">{{ sbook.title }}</h3>
+          <p class="shelf-card-author">{{ sbook.author }}</p>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Search & Filter Form ────────────────────────────────────── #}
+  <form method="get" action="{{ url_for('catalog.browse') }}" class="catalog-search-form">
+    <div class="search-row">
+      <div class="search-field">
+        <label for="catalog-search-q" class="sr-only">Search</label>
+        <input type="text" id="catalog-search-q" name="q" value="{{ form.q.data or '' }}" placeholder="Search by title or author..." class="form-control">
+      </div>
+      <div class="filter-field">
+        <label for="catalog-filter-tag" class="sr-only">Tag</label>
+        <select id="catalog-filter-tag" name="tag" class="form-control">
+          {% for value, label in form.tag.choices %}
+          <option value="{{ value }}" {% if form.tag.data == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="catalog-filter-language" class="sr-only">Language</label>
+        <select id="catalog-filter-language" name="language" class="form-control">
+          {% for value, label in form.language.choices %}
+          <option value="{{ value }}" {% if form.language.data == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="catalog-filter-availability" class="sr-only">Availability</label>
+        <select id="catalog-filter-availability" name="availability" class="form-control">
+          {% for value, label in form.availability.choices %}
+          <option value="{{ value }}" {% if form.availability.data == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="search-actions">
+        <button type="submit" class="btn btn-primary">Search</button>
+        <a href="{{ url_for('catalog.browse') }}" class="btn btn-outline btn-sm">Clear</a>
+      </div>
+    </div>
+  </form>
+
+  {# ── Results Bar: count + sort ───────────────────────────────── #}
+  <div class="catalog-results-bar">
+    <p class="catalog-count">
+      <span class="catalog-count-number">{{ pagination.total }}</span>
+      title{{ 's' if pagination.total != 1 else '' }} found
+    </p>
+    <form class="catalog-sort" method="get" action="{{ url_for('catalog.browse') }}">
+      <input type="hidden" name="q" value="{{ form.q.data or '' }}">
+      <input type="hidden" name="tag" value="{{ form.tag.data or '' }}">
+      <input type="hidden" name="language" value="{{ form.language.data or '' }}">
+      <input type="hidden" name="availability" value="{{ form.availability.data or '' }}">
+      <label for="catalog-sort-select" class="catalog-sort-label">Sort by</label>
+      <select id="catalog-sort-select" name="sort" class="form-control catalog-sort-select" onchange="this.form.submit();" aria-label="Sort results">
+        {% for value, label in form.sort.choices %}
+        <option value="{{ value }}" {% if current_sort == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  {# ── Book Grid ───────────────────────────────────────────────── #}
+  {% if books %}
+  <div class="book-grid">
+    {% for book in books %}
+    {% include "catalog/_book_card.html" %}
+    {% endfor %}
+  </div>
+
+  {# ── Pagination ──────────────────────────────────────────────── #}
+  {% if pagination.pages > 1 %}
+  <nav class="pagination-nav" aria-label="Catalog pages">
+    <ul class="pagination">
+      {# Previous #}
+      <li class="pagination-item">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('catalog.browse', page=pagination.prev_num, q=form.q.data, tag=form.tag.data, language=form.language.data, availability=form.availability.data, sort=current_sort) }}" class="pagination-link" aria-label="Previous page">&lsaquo; Prev</a>
+        {% else %}
+        <span class="pagination-link pagination-link--disabled" aria-disabled="true">&lsaquo; Prev</span>
+        {% endif %}
+      </li>
+
+      {# Page numbers #}
+      {% for page_num in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+        {% if page_num %}
+          <li class="pagination-item">
+            {% if page_num == pagination.page %}
+            <span class="pagination-link pagination-link--active" aria-current="page">{{ page_num }}</span>
+            {% else %}
+            <a href="{{ url_for('catalog.browse', page=page_num, q=form.q.data, tag=form.tag.data, language=form.language.data, availability=form.availability.data, sort=current_sort) }}" class="pagination-link">{{ page_num }}</a>
+            {% endif %}
+          </li>
+        {% else %}
+          <li class="pagination-item">
+            <span class="pagination-ellipsis">&hellip;</span>
+          </li>
+        {% endif %}
+      {% endfor %}
+
+      {# Next #}
+      <li class="pagination-item">
+        {% if pagination.has_next %}
+        <a href="{{ url_for('catalog.browse', page=pagination.next_num, q=form.q.data, tag=form.tag.data, language=form.language.data, availability=form.availability.data, sort=current_sort) }}" class="pagination-link" aria-label="Next page">Next &rsaquo;</a>
+        {% else %}
+        <span class="pagination-link pagination-link--disabled" aria-disabled="true">Next &rsaquo;</span>
+        {% endif %}
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% else %}
+  {# ── Empty State ─────────────────────────────────────────────── #}
+  <div class="empty-state catalog-empty-state">
+    <div class="empty-state-icon" aria-hidden="true">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+        <path d="M9 10h6M12 7v6"/>
+      </svg>
+    </div>
+    <h3 class="empty-state-title">
+      No titles found{% if form.q.data %} for &ldquo;{{ form.q.data }}&rdquo;{% endif %}
+    </h3>
+    <p class="empty-state-text">
+      {% if form.q.data or form.tag.data or form.language.data or form.availability.data %}
+      Try adjusting your search terms or clearing the filters to see the full collection.
+      {% else %}
+      The catalog is being prepared. Please check back soon.
+      {% endif %}
+    </p>
+    {% if form.q.data or form.tag.data or form.language.data or form.availability.data %}
+    <a href="{{ url_for('catalog.browse') }}" class="btn btn-primary">View Full Catalog</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

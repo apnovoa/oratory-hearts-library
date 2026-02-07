@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Not Found - {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-code">404</div>
+    <h2 class="error-title">Page Not Found</h2>
+    <p class="error-text">
+        The page you are looking for does not exist or has been moved. Please check the address or return to the catalog.
+    </p>
+    <a href="{{ url_for('catalog.index') }}" class="btn btn-primary">Return to Catalog</a>
+</div>
+{% endblock %}

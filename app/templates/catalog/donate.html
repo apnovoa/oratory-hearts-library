@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Support the Library — {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div class="policy-page">
+
+  {# ── Header ────────────────────────────────────────────────────── #}
+  <div class="policy-header">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library seal" class="policy-header-seal">
+    <h1 class="policy-header-title">Support the Library</h1>
+    <p class="policy-header-subtitle">{{ library_name_latin }}</p>
+    <p class="policy-header-english">{{ library_name_english }}</p>
+    <div class="policy-header-ornament" aria-hidden="true">&#x2726;</div>
+  </div>
+
+  {# ── Introduction ──────────────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">A Living Collection, Sustained by Generosity</h2>
+    <p>
+      The library of the Oratory exists for the spiritual and intellectual
+      enrichment of its faithful. Every volume on our shelves&mdash;whether a
+      patristic commentary, a manual of ascetical theology, or a children's
+      catechism&mdash;is placed there so that it might form souls in the truth
+      and beauty of the Catholic Faith.
+    </p>
+    <p>
+      Maintaining and growing a collection of this kind is a work of charity.
+      Your generosity, whether through the gift of a book or a financial
+      contribution, directly sustains this apostolate and ensures that the
+      riches of Catholic thought remain accessible to every member of the
+      Oratory.
+    </p>
+  </section>
+
+  {# ── Donate Books ──────────────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">Donate Books</h2>
+    <p>
+      If you possess Catholic works that you believe would benefit the Oratory's
+      collection&mdash;works of theology, Sacred Scripture, spirituality,
+      Church history, canon law, liturgy, hagiography, or Catholic
+      letters&mdash;we warmly welcome your donations. Books in good condition
+      may be mailed to:
+    </p>
+    <div class="donate-address">
+      <strong>Library of the Oratory of the Most Sacred Hearts</strong><br>
+      PO Box 431521<br>
+      Miami, FL 33243-1521
+    </div>
+    <p>
+      We are particularly grateful for works bearing an imprimatur or nihil
+      obstat, editions of the Church Fathers, pre-conciliar manuals,
+      and titles that have been requested by our patrons. If you are unsure
+      whether a particular volume would be a good fit for the collection, please
+      do not hesitate to contact us at
+      <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
+      before sending.
+    </p>
+  </section>
+
+  {# ── Monetary Donations ────────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">Make a Financial Contribution</h2>
+    <p>
+      The digital library requires ongoing resources to operate: hosting costs,
+      software maintenance, the digitization of physical volumes, and above all
+      the acquisition of new titles to meet the needs of our patrons.
+      A financial gift of any amount helps to ensure the continuity and growth
+      of this work.
+    </p>
+    <p>
+      Monetary donations are used for:
+    </p>
+    <ul class="donate-list">
+      <li>Purchasing books requested by patrons of the Oratory</li>
+      <li>Acquiring new editions of essential Catholic texts</li>
+      <li>Covering the costs of digitization and preservation</li>
+      <li>Maintaining the infrastructure of the digital lending system</li>
+    </ul>
+    <p>
+      To make a financial contribution, please contact us at
+      <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
+      for instructions. We are deeply grateful for every act of generosity,
+      however modest.
+    </p>
+  </section>
+
+  {# ── Closing ───────────────────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">A Word of Thanks</h2>
+    <p>
+      Every book donated, every contribution made, is an investment in the
+      formation of Catholic souls. The Oratory remembers its benefactors in
+      prayer. May God reward your generosity and may the saints whose words fill
+      these pages intercede for you and your families.
+    </p>
+    <p class="donate-scripture">
+      <em>&ldquo;Each one must give as he has decided in his heart, not reluctantly
+      or under compulsion, for God loves a cheerful giver.&rdquo;</em><br>
+      <span class="donate-citation">&mdash; 2 Corinthians 9:7</span>
+    </p>
+  </section>
+
+  {# ── Footer ornament ──────────────────────────────────────────── #}
+  <div class="policy-footer-ornament" aria-hidden="true">
+    <span>&#x271D;</span>
+  </div>
+
+</div>
+{% endblock %}
