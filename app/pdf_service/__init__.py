@@ -33,9 +33,10 @@ def generate_circulation_copy(loan, book, user):
 
     Returns the filename of the saved circulation copy.
     """
-    master_path = os.path.join(
-        current_app.config["MASTER_STORAGE"], book.master_filename
-    )
+    master_dir = current_app.config["MASTER_STORAGE"]
+    master_path = os.path.realpath(os.path.join(master_dir, book.master_filename))
+    if not master_path.startswith(os.path.realpath(master_dir) + os.sep):
+        raise ValueError(f"Path traversal blocked: {book.master_filename}")
     if not os.path.isfile(master_path):
         raise FileNotFoundError(
             f"Master PDF not found: {book.master_filename}"

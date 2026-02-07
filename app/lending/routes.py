@@ -94,7 +94,9 @@ def download(access_token):
             return redirect(url_for("lending.download", access_token=access_token))
 
         circ_dir = current_app.config["CIRCULATION_STORAGE"]
-        file_path = os.path.join(circ_dir, loan.circulation_filename)
+        file_path = os.path.realpath(os.path.join(circ_dir, loan.circulation_filename))
+        if not file_path.startswith(os.path.realpath(circ_dir) + os.sep):
+            abort(403)
         if not os.path.isfile(file_path):
             flash("The circulation file could not be found. Please contact the librarian.", "danger")
             return redirect(url_for("lending.download", access_token=access_token))

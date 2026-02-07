@@ -1197,7 +1197,7 @@ def import_pdf_staged_approve(staged_id):
     src_path = (staging_dir / staged.original_filename).resolve()
     dst_path = master_dir / master_filename
 
-    if not src_path.is_file() or not str(src_path).startswith(str(staging_dir.resolve())):
+    if not src_path.is_file() or not str(src_path).startswith(str(staging_dir.resolve()) + os.sep):
         current_app.logger.error(f"Staging file not found or path traversal blocked: {src_path}")
         flash("Staging file not found. Cannot approve.", "danger")
         return redirect(url_for("admin.import_pdf_review"))
@@ -1218,12 +1218,12 @@ def import_pdf_staged_approve(staged_id):
     db.session.add(book)
     db.session.flush()
 
-    shutil.move(str(src_path), str(dst_path))
-
     staged.status = "approved"
     staged.approved_at = _utcnow()
     staged.imported_book_id = book.id
     db.session.commit()
+
+    shutil.move(str(src_path), str(dst_path))
 
     log_event("staged_book_approved", target_type="book", target_id=book.id,
               detail=f"Imported from staging: {staged.original_filename}")
@@ -1272,7 +1272,7 @@ def import_pdf_bulk_approve():
         src_path = (staging_dir / staged.original_filename).resolve()
         dst_path = master_dir / master_filename
 
-        if not src_path.is_file() or not str(src_path).startswith(str(staging_dir.resolve())):
+        if not src_path.is_file() or not str(src_path).startswith(str(staging_dir.resolve()) + os.sep):
             current_app.logger.error(f"Staging file not found or path traversal blocked: {src_path}")
             skipped_count += 1
             continue
@@ -1294,12 +1294,12 @@ def import_pdf_bulk_approve():
             db.session.add(book)
             db.session.flush()
 
-            shutil.move(str(src_path), str(dst_path))
-
             staged.status = "approved"
             staged.approved_at = _utcnow()
             staged.imported_book_id = book.id
             db.session.commit()
+
+            shutil.move(str(src_path), str(dst_path))
             approved_count += 1
 
             log_event("staged_book_approved", target_type="book", target_id=book.id,
