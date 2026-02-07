@@ -197,12 +197,9 @@
 
         {% if book %}
         <div class="form-group">
-          <form method="POST" action="{{ url_for('admin.book_fetch_cover', book_id=book.id) }}" style="display:inline;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-secondary" title="Fetch cover image from Open Library using the book's ISBN or title/author">
-              Auto-fetch cover from Open Library
-            </button>
-          </form>
+          <button type="submit" formaction="{{ url_for('admin.book_fetch_cover', book_id=book.id) }}" class="btn btn-secondary" title="Fetch cover image from Open Library using the book's ISBN or title/author">
+            Auto-fetch cover from Open Library
+          </button>
           <small>Searches Open Library by ISBN (or title/author as fallback) and downloads the cover image automatically.</small>
         </div>
         {% endif %}
