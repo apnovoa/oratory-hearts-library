@@ -1112,6 +1112,54 @@ def import_pdf_dashboard():
     )
 
 
+@admin_bp.route("/import-pdf/upload", methods=["POST"])
+@admin_required
+def import_pdf_upload():
+    files = request.files.getlist("pdf_files")
+    if not files or all(f.filename == "" for f in files):
+        flash("No files selected.", "warning")
+        return redirect(url_for("admin.import_pdf_dashboard"))
+
+    staging_dir = Path(current_app.config["STAGING_STORAGE"])
+    uploaded, skipped = 0, []
+
+    for f in files:
+        if not f.filename:
+            continue
+        # Validate PDF magic bytes
+        header = f.read(5)
+        f.seek(0)
+        if header != b"%PDF-":
+            skipped.append(f"{f.filename} (not a valid PDF)")
+            continue
+
+        # Preserve original filename (scanner uses it for metadata parsing)
+        safe_name = secure_filename(f.filename)
+        if not safe_name.lower().endswith(".pdf"):
+            safe_name += ".pdf"
+
+        # Handle filename collisions
+        dest = staging_dir / safe_name
+        if dest.exists():
+            stem = dest.stem
+            suffix = dest.suffix
+            counter = 2
+            while dest.exists():
+                dest = staging_dir / f"{stem}_{counter}{suffix}"
+                counter += 1
+
+        f.save(dest)
+        uploaded += 1
+
+    if uploaded:
+        flash(f"Uploaded {uploaded} PDF(s) to staging.", "success")
+        log_event("pdf_upload", detail=f"Uploaded {uploaded} file(s) via GUI")
+    if skipped:
+        flash(f"Skipped {len(skipped)} file(s): {'; '.join(skipped)}", "warning")
+
+    return redirect(url_for("admin.import_pdf_dashboard"))
+
+
 @admin_bp.route("/import-pdf/scan", methods=["POST"])
 @admin_required
 def import_pdf_scan():

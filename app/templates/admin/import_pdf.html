@@ -51,13 +51,43 @@
       </div>
     </div>
 
+    <!-- Upload PDFs -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <div class="card-body">
+        <h3>Upload PDFs</h3>
+        <p style="color: #8a8078; font-size: 0.9rem; margin-bottom: 1rem;">
+          Drag-and-drop PDF files or click the area below to select them. Files are placed in the staging directory for scanning.
+        </p>
+
+        <form id="upload-form" method="POST" action="{{ url_for('admin.import_pdf_upload') }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="file" id="pdf-file-input" name="pdf_files" multiple accept=".pdf" style="display: none;">
+
+          <div id="drop-zone" style="border: 2px dashed #c5b9a8; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background-color 0.2s;">
+            <p style="margin: 0; color: #8a8078; font-size: 0.95rem;">
+              <strong style="color: #5c534d;">Drop PDF files here</strong><br>
+              or click to browse
+            </p>
+            <p style="margin: 0.5rem 0 0; color: #b0a89e; font-size: 0.8rem;">
+              Max 100 MB per file &middot; PDF only
+            </p>
+          </div>
+
+          <div id="file-list" style="margin-top: 1rem; display: none;"></div>
+
+          <button type="submit" id="upload-btn" class="btn btn-primary" style="margin-top: 1rem; display: none;">
+            Upload
+          </button>
+        </form>
+      </div>
+    </div>
+
     <!-- Scan Controls -->
     <div class="card" style="margin-bottom: 2rem;">
       <div class="card-body">
         <h3>Scan Staging Directory</h3>
         <p style="color: #8a8078; font-size: 0.9rem; margin-bottom: 1rem;">
-          Upload PDFs to <code>storage/staging/</code> on the server via SCP or rsync, then click "Start Scan"
-          to extract metadata and queue them for review.
+          After uploading (or adding files via SCP/rsync), click "Start Scan" to extract metadata and queue them for review.
         </p>
 
         <div id="scan-controls">
@@ -126,7 +156,7 @@
       <div class="card-body">
         <h3>How It Works</h3>
         <ol style="line-height: 2; color: #5c534d;">
-          <li><strong>Stage</strong> — Upload PDFs to <code>storage/staging/</code> via SCP/rsync</li>
+          <li><strong>Stage</strong> — Upload PDFs using the form above, or transfer files via SCP/rsync</li>
           <li><strong>Scan</strong> — Click "Start Scan" to extract metadata from each PDF</li>
           <li><strong>Review</strong> — Check extracted metadata, edit as needed, flag duplicates</li>
           <li><strong>Import</strong> — Approve individually or in bulk to add to the library catalog</li>
@@ -135,6 +165,105 @@
     </div>
   </div>
 </div>
+
+<script>
+(function() {
+  var dropZone = document.getElementById('drop-zone');
+  var fileInput = document.getElementById('pdf-file-input');
+  var fileList = document.getElementById('file-list');
+  var uploadBtn = document.getElementById('upload-btn');
+  var uploadForm = document.getElementById('upload-form');
+  var selectedFiles = [];
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function renderFileList() {
+    if (selectedFiles.length === 0) {
+      fileList.style.display = 'none';
+      uploadBtn.style.display = 'none';
+      return;
+    }
+    fileList.style.display = 'block';
+    uploadBtn.style.display = 'inline-block';
+
+    var html = '';
+    for (var i = 0; i < selectedFiles.length; i++) {
+      var f = selectedFiles[i];
+      var valid = f.name.toLowerCase().endsWith('.pdf');
+      html += '<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; margin-bottom: 0.25rem; background: ' + (valid ? '#faf8f5' : '#fdf0ef') + '; border-radius: 4px; font-size: 0.85rem;">';
+      html += '<span style="color: ' + (valid ? '#5c534d' : '#b44a3e') + '; word-break: break-all;">' + f.name + ' <span style="color: #b0a89e;">(' + formatSize(f.size) + ')</span>';
+      if (!valid) html += ' <span style="color: #b44a3e;">&mdash; not a PDF</span>';
+      html += '</span>';
+      html += '<button type="button" data-index="' + i + '" style="background: none; border: none; cursor: pointer; color: #b44a3e; font-size: 1rem; padding: 0 0.3rem;" title="Remove">&times;</button>';
+      html += '</div>';
+    }
+    fileList.innerHTML = html;
+
+    var removeBtns = fileList.querySelectorAll('button[data-index]');
+    for (var j = 0; j < removeBtns.length; j++) {
+      removeBtns[j].addEventListener('click', function() {
+        selectedFiles.splice(parseInt(this.getAttribute('data-index')), 1);
+        syncInputFiles();
+        renderFileList();
+      });
+    }
+
+    uploadBtn.textContent = 'Upload ' + selectedFiles.length + ' file' + (selectedFiles.length > 1 ? 's' : '');
+  }
+
+  function syncInputFiles() {
+    var dt = new DataTransfer();
+    for (var i = 0; i < selectedFiles.length; i++) {
+      dt.items.add(selectedFiles[i]);
+    }
+    fileInput.files = dt.files;
+  }
+
+  function addFiles(files) {
+    for (var i = 0; i < files.length; i++) {
+      var dup = false;
+      for (var j = 0; j < selectedFiles.length; j++) {
+        if (selectedFiles[j].name === files[i].name && selectedFiles[j].size === files[i].size) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) selectedFiles.push(files[i]);
+    }
+    syncInputFiles();
+    renderFileList();
+  }
+
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files.length) addFiles(fileInput.files);
+  });
+
+  dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.style.borderColor = '#c5993e';
+    dropZone.style.backgroundColor = '#fdf8ef';
+  });
+
+  dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dropZone.style.borderColor = '#c5b9a8';
+    dropZone.style.backgroundColor = '';
+  });
+
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.style.borderColor = '#c5b9a8';
+    dropZone.style.backgroundColor = '';
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+})();
+</script>
 
 <script>
 (function() {
