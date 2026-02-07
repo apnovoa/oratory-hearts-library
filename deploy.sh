@@ -25,6 +25,6 @@ echo "==> Uploading to server..."
 scp -i "$KEY" /tmp/bibliotheca-deploy.tar.gz "$SERVER:/tmp/"
 
 echo "==> Deploying and restarting..."
-ssh -i "$KEY" "$SERVER" "cd $REMOTE_DIR && tar -xzf /tmp/bibliotheca-deploy.tar.gz && chown -R bib:bib $REMOTE_DIR && systemctl restart bibliotheca && echo 'Service restarted' && sleep 3 && systemctl is-active bibliotheca && curl -sf http://127.0.0.1:8000/ping >/dev/null && echo 'Health check passed' || echo 'WARNING: Health check failed'"
+ssh -i "$KEY" "$SERVER" "cd $REMOTE_DIR && tar -xzf /tmp/bibliotheca-deploy.tar.gz && chown -R bib:bib $REMOTE_DIR && systemctl restart bibliotheca && echo 'Service restarted' && sleep 3 && systemctl is-active bibliotheca && curl -sf http://127.0.0.1:8080/ping >/dev/null && echo 'Health check passed' || echo 'WARNING: Health check failed'"
 
 echo "==> Deploy complete!"
