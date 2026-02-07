@@ -144,10 +144,10 @@ def send_new_acquisitions_digest():
     Queries books created within the last 7 days and emails each
     active patron a summary of the new titles.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from ..models import Book, User
 
-    cutoff = datetime.utcnow() - timedelta(days=7)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     new_books = (
         Book.query
         .filter(

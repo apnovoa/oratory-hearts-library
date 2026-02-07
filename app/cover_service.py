@@ -6,6 +6,7 @@ online image is available.
 
 import logging
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -23,6 +24,7 @@ def _fetch_cover_by_isbn(isbn, dest_path):
 
     Returns True if a valid image was saved, False otherwise.
     """
+    time.sleep(0.5)  # Respect Open Library rate limits
     url = COVER_API_URL.format(isbn=isbn)
     try:
         resp = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)

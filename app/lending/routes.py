@@ -13,6 +13,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
+from .. import limiter
 from ..audit import log_event
 from ..models import Book, Loan, WaitlistEntry, db
 from .service import checkout_book, return_loan
@@ -22,6 +23,7 @@ lending_bp = Blueprint("lending", __name__)
 
 @lending_bp.route("/borrow/<book_public_id>", methods=["POST"])
 @login_required
+@limiter.limit("10 per minute")
 def borrow(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
 
@@ -70,6 +72,7 @@ def reader(access_token):
 
 @lending_bp.route("/loan/<access_token>/download")
 @login_required
+@limiter.limit("30 per hour")
 def download(access_token):
     loan = Loan.query.filter_by(access_token=access_token).first_or_404()
 
@@ -121,6 +124,7 @@ def download(access_token):
 
 @lending_bp.route("/waitlist/<book_public_id>", methods=["POST"])
 @login_required
+@limiter.limit("10 per minute")
 def join_waitlist(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
 

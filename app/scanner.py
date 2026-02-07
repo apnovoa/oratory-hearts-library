@@ -567,6 +567,16 @@ def _scan_single_file(filepath, batch_id, app):
 # Background scan worker
 # ---------------------------------------------------------------------------
 
+
+def _is_valid_pdf(path):
+    """Check that a file starts with the PDF magic bytes (%PDF-)."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(5) == b"%PDF-"
+    except OSError:
+        return False
+
+
 def _scan_worker(staging_dir, batch_id, app):
     """Background thread target that processes all PDFs in the staging dir."""
     with app.app_context():
@@ -574,7 +584,7 @@ def _scan_worker(staging_dir, batch_id, app):
 
         pdf_files = sorted(
             p for p in Path(staging_dir).iterdir()
-            if p.is_file() and p.suffix.lower() == ".pdf"
+            if p.is_file() and p.suffix.lower() == ".pdf" and _is_valid_pdf(p)
         )
 
         progress = _read_progress(progress_path)

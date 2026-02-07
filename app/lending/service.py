@@ -7,11 +7,14 @@ from flask import current_app
 from ..models import Book, Loan, User, WaitlistEntry, db
 from ..audit import log_event
 
+# IMPORTANT: This lock is process-local. When running multiple gunicorn workers,
+# it does NOT provide cross-process atomicity. For SQLite deployments, run
+# gunicorn with --workers 1 (or use the DB-level IMMEDIATE transaction below).
 _checkout_lock = threading.Lock()
 
 
 def _utcnow():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def checkout_book(user, book):

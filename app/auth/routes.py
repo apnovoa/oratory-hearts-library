@@ -50,7 +50,7 @@ def login():
         user = User.query.filter_by(email=email).first()
 
         # Check account lockout before anything else
-        if user and user.locked_until and user.locked_until > datetime.utcnow():
+        if user and user.locked_until and user.locked_until > datetime.now(timezone.utc):
             # Perform dummy check to prevent timing oracle
             bcrypt.checkpw(b"dummy-password", bcrypt.gensalt())
             log_event("login_locked", "user", user.id)
@@ -75,7 +75,7 @@ def login():
             max_failures = current_app.config.get("MAX_FAILED_LOGINS", 5)
             if user.failed_login_count >= max_failures:
                 lockout_minutes = current_app.config.get("ACCOUNT_LOCKOUT_MINUTES", 15)
-                user.locked_until = datetime.utcnow() + timedelta(minutes=lockout_minutes)
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=lockout_minutes)
                 db.session.commit()
                 log_event("account_locked", "user", user.id,
                           detail=f"Locked for {lockout_minutes} minutes after {user.failed_login_count} failed attempts")
@@ -98,9 +98,9 @@ def login():
         user.locked_until = None
 
         login_user(user, remember=form.remember_me.data)
-        session["login_time"] = datetime.utcnow().isoformat()
+        session["login_time"] = datetime.now(timezone.utc).isoformat()
 
-        user.last_login_at = datetime.utcnow()
+        user.last_login_at = datetime.now(timezone.utc)
         db.session.commit()
 
         log_event("login_success", "user", user.id)
@@ -333,8 +333,8 @@ def google_callback():
 
     # Log in
     login_user(user, remember=True)
-    session["login_time"] = datetime.utcnow().isoformat()
-    user.last_login_at = datetime.utcnow()
+    session["login_time"] = datetime.now(timezone.utc).isoformat()
+    user.last_login_at = datetime.now(timezone.utc)
     user.failed_login_count = 0
     user.locked_until = None
     db.session.commit()

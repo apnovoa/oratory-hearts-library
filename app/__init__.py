@@ -77,8 +77,16 @@ def create_app(config_name=None):
             from datetime import datetime, timezone
 
             login_time = session.get("login_time")
-            if login_time and datetime.fromisoformat(login_time) < user.force_logout_before:
-                return None
+            if login_time:
+                lt = datetime.fromisoformat(login_time)
+                flo = user.force_logout_before
+                # Ensure both are aware or both naive for comparison
+                if lt.tzinfo is None:
+                    lt = lt.replace(tzinfo=timezone.utc)
+                if flo.tzinfo is None:
+                    flo = flo.replace(tzinfo=timezone.utc)
+                if lt < flo:
+                    return None
         return user
 
     # Register blueprints
@@ -231,11 +239,13 @@ def _seed_admin_if_needed(app):
         if generated:
             app.logger.warning(
                 "ADMIN_PASSWORD not set -- a random password was generated. "
-                "Set ADMIN_PASSWORD env var to control this."
+                "Set ADMIN_PASSWORD env var before deploying."
             )
-            # Print to console only (not to file log) so the password is visible once
-            print(f"\n{'='*60}")
-            print(f"  GENERATED ADMIN PASSWORD (save this now!):")
-            print(f"  Email:    {admin_email}")
-            print(f"  Password: {admin_password}")
-            print(f"{'='*60}\n")
+            # Write to a temporary file instead of stdout
+            pw_file = Path(app.instance_path) / ".admin_password"
+            pw_file.parent.mkdir(parents=True, exist_ok=True)
+            pw_file.write_text(
+                f"Email:    {admin_email}\nPassword: {admin_password}\n"
+            )
+            pw_file.chmod(0o600)
+            app.logger.info("Generated admin credentials written to %s", pw_file)

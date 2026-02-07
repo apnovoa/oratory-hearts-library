@@ -43,6 +43,7 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get(
         "MAIL_DEFAULT_SENDER", "library@oratory.example.org"
     )
+    MAIL_TIMEOUT = int(os.environ.get("MAIL_TIMEOUT", "10"))
 
     # Library branding
     LIBRARY_NAME_LATIN = "Bibliotheca Oratorii Sacratissimorum Cordium"

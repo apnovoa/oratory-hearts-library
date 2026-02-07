@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-SERVER="root@104.131.189.253"
-KEY="$HOME/.ssh/oratory-lib"
-REMOTE_DIR="/opt/bibliotheca"
+SERVER="${DEPLOY_SERVER:?Set DEPLOY_SERVER env var (e.g. root@1.2.3.4)}"
+KEY="${DEPLOY_KEY:-$HOME/.ssh/oratory-lib}"
+REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/bibliotheca}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "==> Adding SSH key to agent (enter passphrase once)..."

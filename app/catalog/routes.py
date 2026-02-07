@@ -170,7 +170,7 @@ def browse():
         # Default: title A-Z
         query = query.order_by(Book.title.asc())
 
-    page = request.args.get("page", 1, type=int)
+    page = max(1, request.args.get("page", 1, type=int))
     pagination = query.paginate(page=page, per_page=ITEMS_PER_PAGE, error_out=False)
 
     if pagination.page > pagination.pages and pagination.pages > 0:

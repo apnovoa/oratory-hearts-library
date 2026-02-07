@@ -56,7 +56,7 @@ def admin_required(f):
 
 
 def _utcnow():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 # ── Dashboard ──────────────────────────────────────────────────────
@@ -723,7 +723,11 @@ def books_import_csv():
         return render_template("admin/import_csv.html")
 
     try:
-        stream = io.StringIO(file.stream.read().decode("utf-8-sig"))
+        raw = file.stream.read()
+        if len(raw) > 10 * 1024 * 1024:  # 10 MB limit for CSV
+            flash("CSV file is too large (max 10 MB).", "danger")
+            return render_template("admin/import_csv.html")
+        stream = io.StringIO(raw.decode("utf-8-sig"))
         reader = csv.DictReader(stream)
     except Exception:
         flash("Could not read the CSV file. Please check the encoding (UTF-8 expected).", "danger")
@@ -1190,11 +1194,11 @@ def import_pdf_staged_approve(staged_id):
 
     safe_name = secure_filename(staged.original_filename)
     master_filename = f"{uuid.uuid4().hex}_{safe_name}"
-    src_path = staging_dir / staged.original_filename
+    src_path = (staging_dir / staged.original_filename).resolve()
     dst_path = master_dir / master_filename
 
-    if not src_path.is_file():
-        current_app.logger.error(f"Staging file not found: {src_path}")
+    if not src_path.is_file() or not str(src_path).startswith(str(staging_dir.resolve())):
+        current_app.logger.error(f"Staging file not found or path traversal blocked: {src_path}")
         flash("Staging file not found. Cannot approve.", "danger")
         return redirect(url_for("admin.import_pdf_review"))
 
@@ -1257,47 +1261,57 @@ def import_pdf_bulk_approve():
         ).all()
 
     approved_count = 0
+    skipped_count = 0
     for staged in staged_books:
         if not staged.title or not staged.author:
+            skipped_count += 1
             continue
 
         safe_name = secure_filename(staged.original_filename)
         master_filename = f"{uuid.uuid4().hex}_{safe_name}"
-        src_path = staging_dir / staged.original_filename
+        src_path = (staging_dir / staged.original_filename).resolve()
         dst_path = master_dir / master_filename
 
-        if not src_path.is_file():
-            current_app.logger.error(f"Staging file not found during bulk approve: {src_path}")
+        if not src_path.is_file() or not str(src_path).startswith(str(staging_dir.resolve())):
+            current_app.logger.error(f"Staging file not found or path traversal blocked: {src_path}")
+            skipped_count += 1
             continue
 
-        book = Book(
-            title=staged.title,
-            author=staged.author,
-            description=staged.description,
-            language=staged.language or "en",
-            publication_year=staged.publication_year,
-            isbn=staged.isbn,
-            master_filename=master_filename,
-            cover_filename=staged.cover_filename,
-        )
+        try:
+            book = Book(
+                title=staged.title,
+                author=staged.author,
+                description=staged.description,
+                language=staged.language or "en",
+                publication_year=staged.publication_year,
+                isbn=staged.isbn,
+                master_filename=master_filename,
+                cover_filename=staged.cover_filename,
+            )
 
-        _sync_tags(book, staged.tags_text)
+            _sync_tags(book, staged.tags_text)
 
-        db.session.add(book)
-        db.session.flush()
+            db.session.add(book)
+            db.session.flush()
 
-        shutil.move(str(src_path), str(dst_path))
+            shutil.move(str(src_path), str(dst_path))
 
-        staged.status = "approved"
-        staged.approved_at = _utcnow()
-        staged.imported_book_id = book.id
-        approved_count += 1
+            staged.status = "approved"
+            staged.approved_at = _utcnow()
+            staged.imported_book_id = book.id
+            db.session.commit()
+            approved_count += 1
 
-        log_event("staged_book_approved", target_type="book", target_id=book.id,
-                  detail=f"Bulk imported from staging: {staged.original_filename}")
-
-    db.session.commit()
-    flash(f"Bulk approve complete: {approved_count} book(s) imported.", "success")
+            log_event("staged_book_approved", target_type="book", target_id=book.id,
+                      detail=f"Bulk imported from staging: {staged.original_filename}")
+        except Exception as exc:
+            db.session.rollback()
+            current_app.logger.error(f"Bulk approve failed for '{staged.original_filename}': {exc}")
+            skipped_count += 1
+    msg = f"Bulk approve complete: {approved_count} book(s) imported."
+    if skipped_count:
+        msg += f" {skipped_count} skipped."
+    flash(msg, "success" if approved_count else "warning")
     return redirect(url_for("admin.import_pdf_review"))
 
 

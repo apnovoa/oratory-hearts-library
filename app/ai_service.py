@@ -153,14 +153,19 @@ def extract_metadata_with_ai(filepath, app_config):
         logger.warning("AI API call failed for %s: %s", filepath, exc)
         return None
 
-    # Normalise the result
+    # Normalise and validate lengths to prevent oversized DB writes
+    def _safe_str(val, max_len):
+        if not val or not isinstance(val, str):
+            return None
+        return val[:max_len] or None
+
     normalised = {
-        "title": result.get("title") or None,
-        "author": result.get("author") or None,
-        "description": result.get("description") or None,
+        "title": _safe_str(result.get("title"), 500),
+        "author": _safe_str(result.get("author"), 500),
+        "description": _safe_str(result.get("description"), 5000),
         "publication_year": None,
-        "isbn": result.get("isbn") or None,
-        "language": result.get("language") or None,
+        "isbn": _safe_str(result.get("isbn"), 20),
+        "language": _safe_str(result.get("language"), 10),
         "tags": None,
     }
 
@@ -170,7 +175,8 @@ def extract_metadata_with_ai(filepath, app_config):
 
     tags = result.get("tags")
     if isinstance(tags, list):
-        normalised["tags"] = ", ".join(str(t) for t in tags if t)
+        joined = ", ".join(str(t)[:100] for t in tags[:15] if t)
+        normalised["tags"] = joined[:2000] or None
 
     logger.info("AI extracted metadata for %s: title=%r, author=%r",
                 filepath, normalised["title"], normalised["author"])

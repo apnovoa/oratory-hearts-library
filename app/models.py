@@ -9,7 +9,7 @@ db = SQLAlchemy()
 
 
 def _utcnow():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def _uuid():
@@ -58,7 +58,7 @@ class User(UserMixin, db.Model):
         self.password_hash = bcrypt.hashpw(
             password.encode("utf-8"), bcrypt.gensalt(rounds=13)
         ).decode("utf-8")
-        self.password_changed_at = datetime.utcnow()
+        self.password_changed_at = datetime.now(timezone.utc)
 
     def check_password(self, password):
         return bcrypt.checkpw(
