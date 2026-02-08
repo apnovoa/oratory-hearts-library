@@ -1526,3 +1526,56 @@ def import_pdf_ai_enrich():
         msg += f" Skipped {len(skip_reasons)}: {'; '.join(skip_reasons)}"
     flash(msg, "success" if enriched else "warning")
     return redirect(url_for("admin.import_pdf_review"))
+
+
+@admin_bp.route("/import-pdf/refresh-covers", methods=["POST"])
+@admin_required
+def import_pdf_refresh_covers():
+    staged_ids = request.form.getlist("staged_ids", type=int)
+    if not staged_ids:
+        flash("No books selected.", "warning")
+        return redirect(url_for("admin.import_pdf_review"))
+
+    cover_dir = current_app.config["COVER_STORAGE"]
+    refreshed = 0
+    failed = 0
+
+    staged_books = StagedBook.query.filter(
+        StagedBook.id.in_(staged_ids),
+    ).all()
+
+    for staged in staged_books:
+        if not staged.title:
+            failed += 1
+            continue
+
+        cover_public_id = (
+            staged.cover_filename.rsplit(".", 1)[0]
+            if staged.cover_filename else uuid.uuid4().hex
+        )
+
+        try:
+            new_cover = fetch_cover(
+                isbn=staged.isbn,
+                title=staged.title,
+                author=staged.author,
+                public_id=cover_public_id,
+                cover_storage_dir=cover_dir,
+            )
+            if new_cover:
+                staged.cover_filename = new_cover
+                refreshed += 1
+            else:
+                failed += 1
+        except Exception as exc:
+            current_app.logger.debug(
+                "Cover refresh failed for '%s': %s", staged.original_filename, exc)
+            failed += 1
+
+    db.session.commit()
+
+    msg = f"Refreshed {refreshed} cover(s)."
+    if failed:
+        msg += f" {failed} failed."
+    flash(msg, "success" if refreshed else "warning")
+    return redirect(url_for("admin.import_pdf_review"))
