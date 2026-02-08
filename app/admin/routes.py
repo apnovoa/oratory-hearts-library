@@ -1496,6 +1496,28 @@ def import_pdf_ai_enrich():
             bool(staged.author),
             bool(staged.isbn),
         )
+
+        # Regenerate cover with updated title/author/isbn
+        try:
+            cover_dir = current_app.config["COVER_STORAGE"]
+            # Reuse existing cover public_id stem, or generate a new one
+            cover_public_id = (
+                staged.cover_filename.rsplit(".", 1)[0]
+                if staged.cover_filename else uuid.uuid4().hex
+            )
+            new_cover = fetch_cover(
+                isbn=staged.isbn,
+                title=staged.title,
+                author=staged.author,
+                public_id=cover_public_id,
+                cover_storage_dir=cover_dir,
+            )
+            if new_cover:
+                staged.cover_filename = new_cover
+        except Exception as exc:
+            current_app.logger.debug(
+                "Cover refresh failed for '%s': %s", staged.original_filename, exc)
+
         db.session.commit()
         enriched += 1
 
