@@ -19,12 +19,18 @@ def _validate_password_strength(form, field):
         return  # Length validator handles this
     if password.lower() in _COMMON_PASSWORDS:
         raise ValidationError("This password is too common. Please choose a stronger password.")
+    # Reject passwords that are mostly non-alphanumeric (SQL injection, code, etc.)
+    alnum_count = sum(1 for c in password if c.isalnum())
+    if alnum_count < len(password) * 0.5:
+        raise ValidationError("Password must be at least half letters or numbers.")
     if not re.search(r'[A-Z]', password):
         raise ValidationError("Password must contain at least one uppercase letter.")
     if not re.search(r'[a-z]', password):
         raise ValidationError("Password must contain at least one lowercase letter.")
     if not re.search(r'[0-9]', password):
         raise ValidationError("Password must contain at least one number.")
+    if not password.isprintable():
+        raise ValidationError("Password contains invalid characters.")
 
 
 class LoginForm(FlaskForm):
