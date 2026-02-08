@@ -59,7 +59,7 @@ def login():
 
         if user is None:
             # Equalize timing — perform a dummy bcrypt check
-            bcrypt.checkpw(b"dummy", b"$2b$13$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            bcrypt.checkpw(b"dummy", bcrypt.gensalt(rounds=13))
             log_event("login_failed", detail=f"email={email}")
             flash("Invalid email or password.", "danger")
             return render_template("auth/login.html", form=form)

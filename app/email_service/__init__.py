@@ -10,6 +10,10 @@ _BULK_SEND_DELAY = 0.2
 def _send_email(subject, recipient, html_body):
     from app import mail
 
+    if not current_app.config.get("MAIL_USERNAME"):
+        current_app.logger.debug("Email skipped (MAIL_USERNAME not configured): %s", subject)
+        return
+
     msg = Message(subject=subject, recipients=[recipient])
     msg.html = html_body
     try:
