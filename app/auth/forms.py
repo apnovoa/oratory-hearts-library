@@ -66,8 +66,8 @@ class RegistrationForm(FlaskForm):
     )
     password = PasswordField(
         "Password",
-        validators=[DataRequired(), Length(min=8, max=40), _validate_password_strength],
-        render_kw={"placeholder": "Password (8–40 characters)"},
+        validators=[DataRequired(), Length(min=8, max=32), _validate_password_strength],
+        render_kw={"placeholder": "Password (8–32 characters)"},
     )
     password_confirm = PasswordField(
         "Confirm Password",
@@ -88,8 +88,8 @@ class RequestPasswordResetForm(FlaskForm):
 class ResetPasswordForm(FlaskForm):
     password = PasswordField(
         "New Password",
-        validators=[DataRequired(), Length(min=8, max=40), _validate_password_strength],
-        render_kw={"placeholder": "New password (8–40 characters)"},
+        validators=[DataRequired(), Length(min=8, max=32), _validate_password_strength],
+        render_kw={"placeholder": "New password (8–32 characters)"},
     )
     password_confirm = PasswordField(
         "Confirm New Password",

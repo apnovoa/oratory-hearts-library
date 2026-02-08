@@ -34,7 +34,7 @@ class ProfileForm(FlaskForm):
     )
     new_password = PasswordField(
         "New Password",
-        validators=[Optional(), Length(min=8, max=40), _validate_password_strength],
+        validators=[Optional(), Length(min=8, max=32), _validate_password_strength],
     )
     confirm_password = PasswordField(
         "Confirm New Password",
