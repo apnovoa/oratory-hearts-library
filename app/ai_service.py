@@ -15,11 +15,15 @@ logger = logging.getLogger(__name__)
 _API_DELAY = 0.5
 
 
+_MAX_TEXT_CHARS = 80_000  # ~20K tokens — safe for all Claude models
+
+
 def _extract_text_from_pdf(filepath, max_pages=3):
     """Extract plain text from the first *max_pages* pages of a PDF.
 
     Uses PyMuPDF (imported as ``fitz``).  Returns an empty string if the
     library is unavailable or the PDF contains only scanned images.
+    Text is capped at ``_MAX_TEXT_CHARS`` to stay within API token limits.
     """
     try:
         import fitz  # PyMuPDF
@@ -28,17 +32,24 @@ def _extract_text_from_pdf(filepath, max_pages=3):
         return ""
 
     text_parts = []
+    total_len = 0
     try:
         with fitz.open(filepath) as doc:
             for page_num in range(min(max_pages, len(doc))):
                 page_text = doc[page_num].get_text()
                 if page_text:
                     text_parts.append(page_text)
+                    total_len += len(page_text)
+                    if total_len >= _MAX_TEXT_CHARS:
+                        break
     except Exception as exc:
         logger.warning("PyMuPDF failed to read %s: %s", filepath, exc)
         return ""
 
-    return "\n\n".join(text_parts).strip()
+    full_text = "\n\n".join(text_parts).strip()
+    if len(full_text) > _MAX_TEXT_CHARS:
+        full_text = full_text[:_MAX_TEXT_CHARS]
+    return full_text
 
 
 def _build_metadata_prompt(text, include_description=True):

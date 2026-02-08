@@ -1422,3 +1422,85 @@ def import_pdf_bulk_dismiss():
     db.session.commit()
     flash(f"Dismissed {count} staged book(s).", "success")
     return redirect(url_for("admin.import_pdf_review"))
+
+
+@admin_bp.route("/import-pdf/ai-enrich", methods=["POST"])
+@admin_required
+def import_pdf_ai_enrich():
+    if not current_app.config.get("AI_EXTRACTION_ENABLED"):
+        flash("AI extraction is disabled. Enable AI_EXTRACTION_ENABLED first.", "warning")
+        return redirect(url_for("admin.import_pdf_review"))
+
+    staged_ids = request.form.getlist("staged_ids", type=int)
+    if not staged_ids:
+        flash("No books selected.", "warning")
+        return redirect(url_for("admin.import_pdf_review"))
+
+    from ..ai_service import extract_metadata_with_ai
+    from ..scanner import _compute_confidence
+
+    staging_dir = Path(current_app.config["STAGING_STORAGE"])
+    enriched = 0
+    skip_reasons = []
+
+    staged_books = StagedBook.query.filter(
+        StagedBook.id.in_(staged_ids),
+        StagedBook.status == "pending",
+    ).all()
+
+    for staged in staged_books:
+        # Skip if already enriched with AI
+        sources = [s.strip() for s in (staged.metadata_sources or "").split(",") if s.strip()]
+        if "ai_claude" in sources:
+            skip_reasons.append(f"{staged.original_filename}: already AI-enriched")
+            continue
+
+        # Find the PDF file
+        src_path = (staging_dir / staged.original_filename).resolve()
+        if not src_path.is_file() or not str(src_path).startswith(str(staging_dir.resolve()) + os.sep):
+            skip_reasons.append(f"{staged.original_filename}: staging file not found")
+            continue
+
+        try:
+            ai_meta = extract_metadata_with_ai(src_path, current_app.config)
+        except Exception as exc:
+            current_app.logger.error(f"AI enrichment failed for '{staged.original_filename}': {exc}")
+            skip_reasons.append(f"{staged.original_filename}: API error")
+            continue
+
+        if not ai_meta or not any(v for v in ai_meta.values()):
+            skip_reasons.append(f"{staged.original_filename}: no extractable text")
+            continue
+
+        # Merge: AI values override existing where AI provides non-null data
+        if ai_meta.get("title"):
+            staged.title = ai_meta["title"]
+        if ai_meta.get("author"):
+            staged.author = ai_meta["author"]
+        if ai_meta.get("description"):
+            staged.description = ai_meta["description"]
+        if ai_meta.get("publication_year"):
+            staged.publication_year = ai_meta["publication_year"]
+        if ai_meta.get("isbn"):
+            staged.isbn = ai_meta["isbn"]
+        if ai_meta.get("language"):
+            staged.language = ai_meta["language"]
+        if ai_meta.get("tags"):
+            staged.tags_text = ai_meta["tags"]
+
+        sources.append("ai_claude")
+        staged.metadata_sources = ",".join(sources)
+        staged.confidence = _compute_confidence(
+            staged.metadata_sources,
+            bool(staged.title),
+            bool(staged.author),
+            bool(staged.isbn),
+        )
+        db.session.commit()
+        enriched += 1
+
+    msg = f"Enriched {enriched} book(s) with AI."
+    if skip_reasons:
+        msg += f" Skipped {len(skip_reasons)}: {'; '.join(skip_reasons)}"
+    flash(msg, "success" if enriched else "warning")
+    return redirect(url_for("admin.import_pdf_review"))
