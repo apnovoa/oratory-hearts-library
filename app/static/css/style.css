@@ -466,10 +466,11 @@ p {
 
 .footer-verse {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 0.85rem;
-    font-style: italic;
-    font-weight: 300;
-    color: rgba(250, 247, 242, 0.4);
+    font-size: 1.35rem;
+    font-weight: 400;
+    color: #c5993e;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     max-width: 500px;
     line-height: 1.5;
     margin-top: 0.5rem;
