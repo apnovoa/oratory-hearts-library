@@ -318,6 +318,8 @@ p {
     align-items: center;
 }
 
+.nav-item--right { margin-left: auto; }
+
 .nav-item {
     margin: 0;
 }
