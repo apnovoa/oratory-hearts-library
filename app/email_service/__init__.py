@@ -9,6 +9,7 @@ _BULK_SEND_DELAY = 0.2
 def _send_email(subject, recipient, html_body):
     brevo_key = current_app.config.get("BREVO_API_KEY")
     sender = current_app.config.get("MAIL_DEFAULT_SENDER")
+    sender_name = current_app.config.get("MAIL_DEFAULT_SENDER_NAME")
     if not brevo_key:
         current_app.logger.debug("Email skipped (BREVO_API_KEY not configured): %s", subject)
         return
@@ -22,7 +23,7 @@ def _send_email(subject, recipient, html_body):
                 "Accept": "application/json",
             },
             json={
-                "sender": {"email": sender},
+                "sender": {"name": sender_name, "email": sender},
                 "to": [{"email": recipient}],
                 "subject": subject,
                 "htmlContent": html_body,

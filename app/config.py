@@ -39,6 +39,9 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get(
         "MAIL_DEFAULT_SENDER", "library@oratory.example.org"
     )
+    MAIL_DEFAULT_SENDER_NAME = os.environ.get(
+        "MAIL_DEFAULT_SENDER_NAME", "Custos Oratorii"
+    )
 
     # Library branding
     LIBRARY_NAME_LATIN = "Bibliotheca Oratorii Sacratissimorum Cordium"
