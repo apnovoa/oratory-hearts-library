@@ -1,23 +1,35 @@
 import time
 
 from flask import current_app, render_template
-from flask_mail import Message
 
-# Seconds to pause between emails in bulk sends to avoid SMTP rate limits
+# Seconds to pause between emails in bulk sends to avoid rate limits
 _BULK_SEND_DELAY = 0.2
 
 
 def _send_email(subject, recipient, html_body):
-    from app import mail
-
-    if not current_app.config.get("MAIL_USERNAME"):
-        current_app.logger.debug("Email skipped (MAIL_USERNAME not configured): %s", subject)
+    brevo_key = current_app.config.get("BREVO_API_KEY")
+    sender = current_app.config.get("MAIL_DEFAULT_SENDER")
+    if not brevo_key:
+        current_app.logger.debug("Email skipped (BREVO_API_KEY not configured): %s", subject)
         return
-
-    msg = Message(subject=subject, recipients=[recipient])
-    msg.html = html_body
     try:
-        mail.send(msg)
+        import httpx
+        resp = httpx.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "api-key": brevo_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            json={
+                "sender": {"email": sender},
+                "to": [{"email": recipient}],
+                "subject": subject,
+                "htmlContent": html_body,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
     except Exception as e:
         current_app.logger.error(f"Failed to send email to {recipient}: {e}")
 
