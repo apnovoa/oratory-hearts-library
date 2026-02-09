@@ -1,10 +1,12 @@
 // Service Worker for Bibliotheca Oratorii Sacratissimorum Cordium
-var CACHE_NAME = "bibliotheca-v1";
+var CACHE_NAME = "bibliotheca-v2";
 var STATIC_ASSETS = [
   "/static/css/style.css",
   "/static/js/app.js",
   "/static/img/logo.png",
   "/static/img/favicon.ico",
+  "/static/img/apple-touch-icon.png",
+  "/static/fonts/CormorantGaramond-Regular.ttf",
   "/static/manifest.json"
 ];
 
