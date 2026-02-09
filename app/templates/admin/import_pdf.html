@@ -190,18 +190,38 @@
     fileList.classList.remove('d-none');
     uploadBtn.classList.remove('d-none');
 
-    var html = '';
+    fileList.innerHTML = '';
     for (var i = 0; i < selectedFiles.length; i++) {
       var f = selectedFiles[i];
       var valid = f.name.toLowerCase().endsWith('.pdf');
-      html += '<div class="file-list-item' + (valid ? '' : ' file-list-item--invalid') + '">';
-      html += '<span class="text-break">' + f.name + ' <span class="text-subdued">(' + formatSize(f.size) + ')</span>';
-      if (!valid) html += ' <span class="text-error">&mdash; not a PDF</span>';
-      html += '</span>';
-      html += '<button type="button" data-index="' + i + '" class="file-list-remove" title="Remove">&times;</button>';
-      html += '</div>';
+      var row = document.createElement('div');
+      row.className = 'file-list-item' + (valid ? '' : ' file-list-item--invalid');
+
+      var span = document.createElement('span');
+      span.className = 'text-break';
+      span.textContent = f.name + ' ';
+      var sizeSpan = document.createElement('span');
+      sizeSpan.className = 'text-subdued';
+      sizeSpan.textContent = '(' + formatSize(f.size) + ')';
+      span.appendChild(sizeSpan);
+      if (!valid) {
+        var errSpan = document.createElement('span');
+        errSpan.className = 'text-error';
+        errSpan.textContent = ' \u2014 not a PDF';
+        span.appendChild(errSpan);
+      }
+      row.appendChild(span);
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.setAttribute('data-index', i);
+      removeBtn.className = 'file-list-remove';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = '\u00d7';
+      row.appendChild(removeBtn);
+
+      fileList.appendChild(row);
     }
-    fileList.innerHTML = html;
 
     var removeBtns = fileList.querySelectorAll('button[data-index]');
     for (var j = 0; j < removeBtns.length; j++) {

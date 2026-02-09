@@ -77,6 +77,8 @@ def create_app(config_name=None):
             from datetime import datetime, timezone
 
             login_time = session.get("login_time")
+            if not login_time:
+                return None  # No login_time = stale session
             if login_time:
                 lt = datetime.fromisoformat(login_time)
                 flo = user.force_logout_before
@@ -135,7 +137,10 @@ def create_app(config_name=None):
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data:; "
                 "connect-src 'self'; "
-                "frame-ancestors 'self'"
+                "frame-ancestors 'self'; "
+                "object-src 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
             )
         return response
 

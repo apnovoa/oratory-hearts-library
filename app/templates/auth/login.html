@@ -3,7 +3,7 @@
 {% block title %}Sign In — {{ library_name_latin }}{% endblock %}
 
 {% block head_extra %}
-<style>
+<style nonce="{{ csp_nonce }}">
     body { animation: loginDissolveIn 1.4s ease both; }
     @keyframes loginDissolveIn {
         from { opacity: 0; }

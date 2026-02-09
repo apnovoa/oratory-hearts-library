@@ -1,4 +1,4 @@
-from flask import request
+from flask import has_request_context, request
 from flask_login import current_user
 
 from ..models import AuditLog, db
@@ -11,7 +11,7 @@ def log_event(action, target_type=None, target_id=None, detail=None, user_id=Non
         target_type=target_type,
         target_id=target_id,
         detail=detail,
-        ip_address=request.remote_addr if request else None,
+        ip_address=request.remote_addr if has_request_context() else None,
     )
     db.session.add(entry)
     db.session.commit()

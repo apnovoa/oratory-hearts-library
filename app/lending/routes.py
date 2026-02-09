@@ -150,6 +150,13 @@ def join_waitlist(book_public_id):
         flash("You already have an active loan for this book.", "info")
         return redirect(url_for("catalog.detail", public_id=book.public_id))
 
+    # Remove any previously fulfilled waitlist entry so re-join works
+    fulfilled = WaitlistEntry.query.filter_by(
+        user_id=current_user.id, book_id=book.id, is_fulfilled=True
+    ).first()
+    if fulfilled:
+        db.session.delete(fulfilled)
+
     entry = WaitlistEntry(user_id=current_user.id, book_id=book.id)
     db.session.add(entry)
     db.session.commit()
