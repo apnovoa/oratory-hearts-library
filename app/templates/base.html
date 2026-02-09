@@ -78,9 +78,9 @@
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <form action="{{ url_for('auth.logout') }}" method="POST" style="display:inline; margin:0; padding:0; border:none; background:none;">
+                            <form action="{{ url_for('auth.logout') }}" method="POST" class="form-inline-reset">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="nav-link nav-link--muted" style="background:none; border:none; cursor:pointer; font:inherit; padding:0.45rem 0.85rem;">Sign Out</button>
+                                <button type="submit" class="nav-link nav-link--muted btn-reset">Sign Out</button>
                             </form>
                         </li>
                     {% else %}

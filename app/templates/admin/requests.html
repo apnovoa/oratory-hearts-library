@@ -52,7 +52,7 @@
             </td>
             <td><strong>{{ req.title }}</strong></td>
             <td>{{ req.author or '&mdash;'|safe }}</td>
-            <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ req.reason or '' }}">
+            <td class="td-truncate" title="{{ req.reason or '' }}">
               {{ req.reason or '&mdash;'|safe }}
             </td>
             <td>{{ req.created_at.strftime('%Y-%m-%d') }}</td>

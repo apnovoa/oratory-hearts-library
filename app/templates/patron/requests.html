@@ -8,7 +8,7 @@
 
 {% include "patron/_nav.html" %}
 
-<div class="mt-md" style="margin-bottom:1.5rem;">
+<div class="mt-md mb-lg">
   <a href="{{ url_for('patron.request_new') }}" class="btn btn-primary">Request a New Book</a>
 </div>
 
@@ -32,13 +32,13 @@
         <td class="text-sans text-small">{{ req.created_at.strftime('%d %b %Y') }}</td>
         <td>
           {% if req.status == 'pending' %}
-            <span class="badge badge--active" style="background:#c5993e; color:#fff;">Pending</span>
+            <span class="badge badge--pending-gold">Pending</span>
           {% elif req.status == 'approved' %}
-            <span class="badge badge--returned" style="background:#2a7d4f; color:#fff;">Approved</span>
+            <span class="badge badge--approved-grn">Approved</span>
           {% elif req.status == 'declined' %}
-            <span class="badge badge--expired" style="background:#6b1d2a; color:#fff;">Declined</span>
+            <span class="badge badge--declined-burg">Declined</span>
           {% elif req.status == 'fulfilled' %}
-            <span class="badge badge--returned" style="background:#1a6b3a; color:#fff;">Fulfilled</span>
+            <span class="badge badge--fulfilled-grn">Fulfilled</span>
           {% else %}
             <span class="badge">{{ req.status|capitalize }}</span>
           {% endif %}
@@ -57,7 +57,7 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-icon" style="font-size:3rem;">&#128220;</div>
+  <div class="empty-state-icon">&#128220;</div>
   <p class="empty-state-title">No Requests Yet</p>
   <p class="empty-state-text">You have not submitted any book requests.</p>
   <a href="{{ url_for('patron.request_new') }}" class="btn btn-primary">Request a Book</a>

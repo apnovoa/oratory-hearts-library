@@ -55,7 +55,7 @@
     <div class="card mb-xl">
       <div class="card-body">
         <h3>Upload PDFs</h3>
-        <p class="text-subdued mb-md" style="font-size: 0.9rem;">
+        <p class="text-subdued mb-md">
           Drag-and-drop PDF files or click the area below to select them. Files are placed in the staging directory for scanning.
         </p>
 
@@ -86,7 +86,7 @@
     <div class="card mb-xl">
       <div class="card-body">
         <h3>Scan Staging Directory</h3>
-        <p class="text-subdued mb-md" style="font-size: 0.9rem;">
+        <p class="text-subdued mb-md">
           After uploading (or adding files via SCP/rsync), click "Start Scan" to extract metadata and queue them for review.
         </p>
 
@@ -98,20 +98,20 @@
             </button>
           </form>
           {% if pending_count > 0 %}
-            <a href="{{ url_for('admin.import_pdf_review') }}" class="btn btn-secondary" style="margin-left: 0.5rem;">
+            <a href="{{ url_for('admin.import_pdf_review') }}" class="btn btn-secondary">
               Review Queue ({{ pending_count }})
             </a>
           {% endif %}
         </div>
 
         <!-- Progress Bar (shown during scan) -->
-        <div id="scan-progress" class="mt-lg" {% if not scan_progress.running %}style="display: none;"{% endif %}>
-          <div class="flex-between mb-sm" style="font-size: 0.85rem; color: #5c534d;">
+        <div id="scan-progress" class="mt-lg{% if not scan_progress.running %} d-none{% endif %}">
+          <div class="flex-between mb-sm text-xs text-muted">
             <span id="progress-label">Processing...</span>
             <span id="progress-count">0 / 0</span>
           </div>
           <div class="progress-bar-track">
-            <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
+            <div class="progress-bar-fill progress-bar-zero" id="progress-fill"></div>
           </div>
           <p id="progress-current" class="mt-sm text-subdued text-xs text-break"></p>
         </div>
@@ -130,7 +130,7 @@
           {% endif %}
         </h3>
         {% if config.AI_EXTRACTION_ENABLED %}
-          <p style="color: #5c534d; font-size: 0.9rem;" class="mb-sm">
+          <p class="text-muted mb-sm">
             Claude AI reads the first pages of each PDF to extract title, author, year, ISBN, language, and subject tags.
             {% if config.AI_EXTRACTION_TIER == 'tier3' %}
               Running in <strong>Tier 3 (deep read)</strong> mode — first 25 pages with rich descriptions.
@@ -144,7 +144,7 @@
             AI-extracted fields have the highest priority in the merge pipeline. Books processed with AI show a gold badge in the review queue.
           </p>
         {% else %}
-          <p class="text-subdued" style="font-size: 0.9rem;">
+          <p class="text-subdued">
             Set <code>AI_EXTRACTION_ENABLED=true</code> and provide an <code>ANTHROPIC_API_KEY</code> in the server <code>.env</code> to enable Claude-powered metadata extraction.
           </p>
         {% endif %}
@@ -155,7 +155,7 @@
     <div class="card">
       <div class="card-body">
         <h3>How It Works</h3>
-        <ol style="line-height: 2; color: #5c534d;">
+        <ol class="text-muted">
           <li><strong>Stage</strong> — Upload PDFs using the form above, or transfer files via SCP/rsync</li>
           <li><strong>Scan</strong> — Click "Start Scan" to extract metadata from each PDF</li>
           <li><strong>Review</strong> — Check extracted metadata, edit as needed, flag duplicates</li>

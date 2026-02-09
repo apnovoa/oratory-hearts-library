@@ -8,7 +8,7 @@
 <div class="auth-container">
   <div class="auth-card">
     <h1 class="page-title">Request a Book</h1>
-    <p class="page-subtitle" style="margin-bottom:1.5rem;">
+    <p class="page-subtitle mb-lg">
       Cannot find a title in our catalog? Submit a request and our librarian will review it.
     </p>
 
@@ -16,7 +16,7 @@
       {{ form.hidden_tag() }}
 
       <div class="form-group">
-        <label for="title" class="form-label">Book Title <span style="color:#6b1d2a;">*</span></label>
+        <label for="title" class="form-label">Book Title <span class="text-color-primary">*</span></label>
         <input type="text" id="title" name="title" class="form-input"
                value="{{ form.title.data or '' }}" required
                placeholder="Title of the book you would like added">

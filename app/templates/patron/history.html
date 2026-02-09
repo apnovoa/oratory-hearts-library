@@ -24,8 +24,8 @@
       <tr>
         <td>
           {% if loan.book %}
-          <a href="{{ url_for('catalog.detail', public_id=loan.book.public_id) }}" style="color:#6b1d2a; font-weight:600; text-decoration:none;">
-            {{ loan.book_title_snapshot or loan.book.title }}
+          <a href="{{ url_for('catalog.detail', public_id=loan.book.public_id) }}">
+            <strong>{{ loan.book_title_snapshot or loan.book.title }}</strong>
           </a>
           {% else %}
           <strong>{{ loan.book_title_snapshot or 'Unknown Title' }}</strong>

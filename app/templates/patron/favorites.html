@@ -32,11 +32,11 @@
         {% endif %}
       </div>
     </a>
-    <div style="padding:0 1rem 0.75rem; text-align:right;">
-      <form method="post" action="{{ url_for('patron.toggle_favorite', book_public_id=book.public_id) }}" style="display:inline;">
+    <div class="text-right">
+      <form method="post" action="{{ url_for('patron.toggle_favorite', book_public_id=book.public_id) }}" class="form-inline-reset">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:#6b1d2a;" title="Remove from favorites">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="#c5993e" stroke="#c5993e" stroke-width="1.5" style="vertical-align:middle; margin-right:0.25rem;"><path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z"/></svg>
+        <button type="submit" class="btn btn-outline btn-sm text-color-primary" title="Remove from favorites">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#c5993e" stroke="#c5993e" stroke-width="1.5" class="svg-icon-inline-sm"><path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z"/></svg>
           Remove
         </button>
       </form>
@@ -46,7 +46,7 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-icon" style="font-size:3rem;">&#9825;</div>
+  <div class="empty-state-icon">&#9825;</div>
   <p class="empty-state-title">No Favorites Yet</p>
   <p class="empty-state-text">Browse the catalog and tap the heart icon on any book to add it to your favorites.</p>
   <a href="{{ url_for('catalog.browse') }}" class="btn btn-primary">Browse Catalog</a>

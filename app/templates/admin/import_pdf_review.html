@@ -38,7 +38,7 @@
     <div class="card mb-lg">
       <div class="card-body">
         <form method="GET" class="filter-form">
-          <div class="form-group" style="min-width: 150px;">
+          <div class="form-group">
             <label class="form-label">Status</label>
             <select name="status" class="form-control">
               <option value="pending" {{ 'selected' if status_filter == 'pending' }}>Pending</option>
@@ -48,7 +48,7 @@
               <option value="all" {{ 'selected' if status_filter == 'all' }}>All</option>
             </select>
           </div>
-          <div class="form-group" style="min-width: 150px;">
+          <div class="form-group">
             <label class="form-label">Confidence</label>
             <select name="confidence" class="form-control">
               <option value="">All</option>
@@ -61,7 +61,7 @@
             <label class="form-label">Search</label>
             <input type="text" name="q" value="{{ q or '' }}" class="form-control" placeholder="Search filename, title, or author">
           </div>
-          <button type="submit" class="btn btn-secondary" style="height: fit-content;">Filter</button>
+          <button type="submit" class="btn btn-secondary">Filter</button>
         </form>
       </div>
     </div>
@@ -101,7 +101,7 @@
         <table class="admin-table">
           <thead>
             <tr>
-              <th style="width: 30px;"><input type="checkbox" id="select-all"></th>
+              <th class="th-checkbox"><input type="checkbox" id="select-all"></th>
               <th>Title / Filename</th>
               <th>Author</th>
               <th>Confidence</th>
@@ -115,15 +115,15 @@
             <tr>
               <td><input type="checkbox" name="staged_ids" value="{{ staged.id }}" class="row-check"></td>
               <td>
-                <div style="font-weight: 500;">
-                  {{ staged.title or '(No title)' }}
+                <div>
+                  <strong>{{ staged.title or '(No title)' }}</strong>
                   {% if staged.metadata_sources and 'ai_claude' in staged.metadata_sources %}
                     <span class="badge badge-ai" title="Metadata extracted by Claude AI">AI</span>
                   {% endif %}
                 </div>
                 <div class="text-subdued text-xs text-break">{{ staged.original_filename }}</div>
                 {% if staged.duplicate_of_book_id %}
-                  <span class="badge badge-warning" style="font-size: 0.75rem;">Duplicate ({{ staged.duplicate_type }})</span>
+                  <span class="badge badge-warning">Duplicate ({{ staged.duplicate_type }})</span>
                 {% endif %}
               </td>
               <td>{{ staged.author or '—' }}</td>
@@ -171,8 +171,8 @@
 
     {% else %}
     <div class="card">
-      <div class="card-body" style="text-align: center; padding: 3rem;">
-        <p class="text-subdued" style="font-size: 1.1rem;">No staged books found matching your filters.</p>
+      <div class="card-body text-center">
+        <p class="text-subdued text-lg">No staged books found matching your filters.</p>
         <a href="{{ url_for('admin.import_pdf_dashboard') }}" class="btn btn-secondary">Back to Import Dashboard</a>
       </div>
     </div>

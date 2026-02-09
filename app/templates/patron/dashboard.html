@@ -46,21 +46,21 @@
                             <a href="{{ url_for('lending.download', access_token=loan.access_token) }}" class="btn btn-outline btn-sm">Download</a>
                             {% endif %}
                             {% if loan.is_active and loan.renewal_count < loan.max_renewals %}
-                            <form method="post" action="{{ url_for('patron.renew_loan', loan_public_id=loan.public_id) }}" style="display:inline;">
+                            <form method="post" action="{{ url_for('patron.renew_loan', loan_public_id=loan.public_id) }}" class="form-inline-reset">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-outline btn-sm" title="{{ loan.renewal_count }} of {{ loan.max_renewals }} renewals used">Renew</button>
                             </form>
                             {% endif %}
-                            <form method="post" action="{{ url_for('patron.patron_return_loan', loan_public_id=loan.public_id) }}" style="display:inline;">
+                            <form method="post" action="{{ url_for('patron.patron_return_loan', loan_public_id=loan.public_id) }}" class="form-inline-reset">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-outline btn-sm" data-confirm="Return this book early?">Return</button>
                             </form>
                         </div>
                         {% if loan.max_renewals > 0 %}
-                        <div class="text-sans text-small" style="margin-top: 0.25rem; color: #8a8078;">
+                        <div class="text-sans text-small mt-sm text-subdued">
                             {{ loan.renewal_count }} of {{ loan.max_renewals }} renewal{{ 's' if loan.max_renewals != 1 else '' }} used
                             {% if loan.renewal_count >= loan.max_renewals %}
-                                <span style="color: #6b1d2a; font-weight: 500;">(max reached)</span>
+                                <span class="text-color-primary">(max reached)</span>
                             {% endif %}
                         </div>
                         {% endif %}

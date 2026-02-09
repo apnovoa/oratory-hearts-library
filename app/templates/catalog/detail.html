@@ -18,12 +18,12 @@
     </div>
 
     <div class="book-detail-info">
-      <div class="book-title-row" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-        <h1 style="margin:0;">{{ book.title }}</h1>
+      <div class="book-title-row d-flex flex-center gap-md flex-wrap">
+        <h1 class="mb-0">{{ book.title }}</h1>
         {% if current_user.is_authenticated and current_user.role == 'patron' %}
-        <form method="post" action="{{ url_for('patron.toggle_favorite', book_public_id=book.public_id) }}" style="display:inline; margin:0; padding:0;">
+        <form method="post" action="{{ url_for('patron.toggle_favorite', book_public_id=book.public_id) }}" class="form-inline-reset">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="favorite-btn" title="{{ 'Remove from favorites' if is_favorited else 'Add to favorites' }}" style="background:none; border:none; cursor:pointer; padding:0.25rem; font-size:1.5rem; line-height:1; color:#c5993e;">
+          <button type="submit" class="favorite-btn" title="{{ 'Remove from favorites' if is_favorited else 'Add to favorites' }}">
             {% if is_favorited %}
               <svg width="28" height="28" viewBox="0 0 24 24" fill="#c5993e" stroke="#c5993e" stroke-width="1.5"><path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z"/></svg>
             {% else %}
@@ -52,7 +52,7 @@
         <span class="availability-count">{{ book.available_copies }} of {{ book.owned_copies }} cop{{ 'ies' if book.owned_copies != 1 else 'y' }} available</span>
         {% if not book.is_available and next_available_date %}
         <p class="expected-availability">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 0.3rem; opacity: 0.7;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon-inline">
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
           </svg>
           Expected available: <strong>{{ next_available_date.strftime('%B %d, %Y').replace(' 0', ' ') }}</strong>
@@ -151,13 +151,13 @@
 
       {# ── Patron Notes Section ──────────────────────────────────── #}
       {% if current_user.is_authenticated and current_user.role == 'patron' %}
-      <div class="book-notes-section" style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid #e0d8cf;">
-        <h2 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; margin-bottom:1rem;">My Notes</h2>
+      <div class="book-notes-section">
+        <h2 class="book-notes-title">My Notes</h2>
 
         {% if patron_note %}
-        <div class="existing-note" style="background:#faf7f2; border:1px solid #e0d8cf; border-radius:6px; padding:1rem; margin-bottom:1rem;">
-          <p style="white-space:pre-wrap; margin:0 0 0.75rem 0; font-family:'Inter',sans-serif; font-size:0.95rem; line-height:1.6;">{{ patron_note.content }}</p>
-          <p style="font-size:0.8rem; color:#888; font-family:'Inter',sans-serif; margin:0;">
+        <div class="existing-note">
+          <p class="existing-note-text">{{ patron_note.content }}</p>
+          <p class="existing-note-date">
             Last updated {{ patron_note.updated_at.strftime('%B %d, %Y') }}
           </p>
         </div>
@@ -165,19 +165,19 @@
 
         <form method="post" action="{{ url_for('patron.save_note', book_public_id=book.public_id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="form-group" style="margin-bottom:0.75rem;">
-            <textarea name="content" rows="4" class="form-input" placeholder="Write your personal notes about this book..." style="width:100%; font-family:'Inter',sans-serif; font-size:0.95rem;">{{ patron_note.content if patron_note else '' }}</textarea>
+          <div class="form-group mb-md">
+            <textarea name="content" rows="4" class="form-input" placeholder="Write your personal notes about this book...">{{ patron_note.content if patron_note else '' }}</textarea>
           </div>
-          <div style="display:flex; gap:0.5rem; align-items:center;">
+          <div class="d-flex gap-sm flex-center">
             <button type="submit" class="btn btn-primary btn-sm">{{ 'Update Note' if patron_note else 'Save Note' }}</button>
             {% if patron_note %}
-            <a href="#" data-submit-form="delete-note-form" class="btn btn-outline btn-sm" style="color:#6b1d2a;">Delete Note</a>
+            <a href="#" data-submit-form="delete-note-form" class="btn btn-outline btn-sm text-color-primary">Delete Note</a>
             {% endif %}
           </div>
         </form>
 
         {% if patron_note %}
-        <form id="delete-note-form" method="post" action="{{ url_for('patron.delete_note', book_public_id=book.public_id) }}" style="display:none;">
+        <form id="delete-note-form" method="post" action="{{ url_for('patron.delete_note', book_public_id=book.public_id) }}" class="d-none">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         </form>
         {% endif %}
@@ -188,8 +188,8 @@
   </div>
 
   {% if related_books %}
-  <div class="related-books" style="margin-top:3rem; padding-top:2rem; border-top:1px solid #e0d8cf;">
-    <h2 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; margin-bottom:1.5rem;">Related Books</h2>
+  <div class="related-books related-books-section">
+    <h2 class="related-books-title">Related Books</h2>
     <div class="book-grid">
       {% for rbook in related_books %}
       <div class="book-card">

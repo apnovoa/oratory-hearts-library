@@ -3,7 +3,7 @@
 {% block title %}Reading: {{ loan.book_title_snapshot }} - {{ library_name_latin }}{% endblock %}
 
 {% block head_extra %}
-<style>
+<style nonce="{{ csp_nonce }}">
     /* Override base layout for full-screen reader */
     .site-header, .site-footer { display: none; }
     .main-content { padding: 0; }
@@ -232,7 +232,7 @@
     </div>
     <div class="reader-toolbar-right">
         <a href="{{ url_for('lending.download', access_token=loan.access_token, file=1) }}"
-           class="reader-download-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.3rem; padding:0.3rem 0.75rem; border-radius:4px; font-size:0.85rem; font-family:'Inter',sans-serif; font-weight:500;">
+           class="reader-download-btn reader-download-link">
             Download
         </a>
     </div>
@@ -291,7 +291,7 @@
             updateNavButtons();
         } catch (err) {
             console.error('PDF load error:', err);
-            loadingOverlay.innerHTML = '<div class="reader-error"><p>Unable to load document.</p><p style="font-size:0.9rem;margin-top:0.5rem;">The loan may have expired, or the file is not yet available.</p><a href="{{ url_for("patron.dashboard") }}" style="color:#c5993e;margin-top:1rem;display:inline-block;">Return to Dashboard</a></div>';
+            loadingOverlay.innerHTML = '<div class="reader-error"><p>Unable to load document.</p><p class="reader-error-detail">The loan may have expired, or the file is not yet available.</p><a href="{{ url_for("patron.dashboard") }}" class="reader-error-link">Return to Dashboard</a></div>';
         }
     }
 

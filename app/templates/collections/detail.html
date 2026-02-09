@@ -3,15 +3,15 @@
 {% block title %}{{ reading_list.name }}{% endblock %}
 
 {% block content %}
-<section class="collection-detail" style="max-width:900px; margin:0 auto;">
-  <nav style="margin-bottom:1.5rem;">
-    <a href="{{ url_for('collections.index') }}" style="color:#6b1d2a; text-decoration:none; font-size:0.9rem;">&larr; Back to Collections</a>
+<section class="collection-detail">
+  <nav class="collection-nav">
+    <a href="{{ url_for('collections.index') }}" class="collection-back-link">&larr; Back to Collections</a>
   </nav>
 
-  <header style="margin-bottom:2rem;">
-    <h1 style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:2rem; margin-bottom:0.35rem;">{{ reading_list.name }}</h1>
+  <header class="collection-header">
+    <h1 class="collection-title">{{ reading_list.name }}</h1>
     {% if reading_list.season %}
-      <span style="display:inline-block; background:#c5993e; color:#fff; font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:3px; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">
+      <span class="season-badge">
         {% if reading_list.season == "advent" %}Advent
         {% elif reading_list.season == "christmas" %}Christmastide
         {% elif reading_list.season == "ordinary_early" %}Ordinary Time
@@ -22,57 +22,56 @@
       </span>
     {% endif %}
     {% if reading_list.description %}
-      <p style="color:#5c4a3a; font-size:1rem; line-height:1.6; margin-top:0.75rem;">{{ reading_list.description }}</p>
+      <p class="collection-desc">{{ reading_list.description }}</p>
     {% endif %}
-    <p style="font-size:0.8rem; color:#8b7355; margin-top:0.5rem;">
+    <p class="collection-meta">
       {{ reading_list.items|length }} {{ "book" if reading_list.items|length == 1 else "books" }}
       &middot; Curated by {{ reading_list.creator.display_name }}
     </p>
   </header>
 
   {% if reading_list.items %}
-  <ol class="collection-books" style="list-style:none; padding:0; margin:0;">
+  <ol class="collection-books">
     {% for item in reading_list.items %}
-      <li style="display:flex; gap:1.25rem; background:#fff; border:1px solid #d4c5a9; border-radius:6px; padding:1.25rem; margin-bottom:1rem; align-items:flex-start;">
+      <li class="collection-book-item">
         {# Book cover thumbnail #}
-        <div style="flex-shrink:0; width:70px;">
+        <div class="collection-book-cover">
           {% if item.book.cover_filename %}
             <img src="{{ url_for('catalog.serve_cover', filename=item.book.cover_filename) }}"
-                 alt="Cover of {{ item.book.title }}"
-                 style="width:70px; height:auto; border-radius:3px; border:1px solid #d4c5a9;">
+                 alt="Cover of {{ item.book.title }}">
           {% else %}
-            <div style="width:70px; height:95px; background:#f0e6d3; border:1px solid #d4c5a9; border-radius:3px; display:flex; align-items:center; justify-content:center;">
-              <span style="color:#8b7355; font-size:0.7rem; text-align:center;">No cover</span>
+            <div class="collection-book-no-cover">
+              <span>No cover</span>
             </div>
           {% endif %}
         </div>
 
         {# Book details #}
-        <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:baseline; gap:0.5rem; margin-bottom:0.25rem;">
-            <span style="color:#c5993e; font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:600;">{{ item.position }}.</span>
-            <a href="{{ url_for('catalog.detail', public_id=item.book.public_id) }}" style="font-family:'Cormorant Garamond',serif; color:#6b1d2a; font-size:1.15rem; font-weight:600; text-decoration:none;">
+        <div class="collection-book-details">
+          <div class="collection-book-header">
+            <span class="collection-book-position">{{ item.position }}.</span>
+            <a href="{{ url_for('catalog.detail', public_id=item.book.public_id) }}" class="collection-book-link">
               {{ item.book.title }}
             </a>
           </div>
-          <p style="color:#5c4a3a; font-size:0.9rem; font-style:italic; margin:0 0 0.35rem;">{{ item.book.author }}</p>
+          <p class="collection-book-author">{{ item.book.author }}</p>
 
           {% if item.note %}
-            <p style="color:#6b5d4f; font-size:0.85rem; line-height:1.5; margin:0.5rem 0 0; padding-left:0.75rem; border-left:3px solid #c5993e;">
+            <p class="collection-book-note">
               {{ item.note }}
             </p>
           {% endif %}
 
           {% if item.book.description %}
-            <p style="color:#7a6a5a; font-size:0.85rem; margin:0.5rem 0 0; line-height:1.45;">{{ item.book.description|truncate(200) }}</p>
+            <p class="collection-book-desc">{{ item.book.description|truncate(200) }}</p>
           {% endif %}
 
           {# Availability badge #}
-          <div style="margin-top:0.5rem;">
+          <div class="mt-sm">
             {% if item.book.is_available %}
-              <span style="font-size:0.75rem; color:#2d6a4f; background:#d8f3dc; padding:0.15rem 0.5rem; border-radius:3px;">Available</span>
+              <span class="avail-badge avail-badge--yes">Available</span>
             {% else %}
-              <span style="font-size:0.75rem; color:#6b1d2a; background:#f8d7da; padding:0.15rem 0.5rem; border-radius:3px;">Currently on loan</span>
+              <span class="avail-badge avail-badge--no">Currently on loan</span>
             {% endif %}
           </div>
         </div>
@@ -80,8 +79,8 @@
     {% endfor %}
   </ol>
   {% else %}
-  <div style="text-align:center; padding:3rem 1rem; color:#8b7355; background:#faf7f2; border:1px solid #d4c5a9; border-radius:6px;">
-    <p style="font-style:italic;">This reading list is empty.</p>
+  <div class="collections-empty">
+    <p class="collections-empty-main">This reading list is empty.</p>
   </div>
   {% endif %}
 </section>

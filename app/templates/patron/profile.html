@@ -29,10 +29,10 @@
 
             <div class="form-group">
                 <label class="form-label">Birthday</label>
-                <p class="form-hint" style="margin-bottom:0.5rem;">We remember our patrons with prayers on their birthday.</p>
-                <div style="display:flex; gap:0.75rem;">
-                    {{ form.birth_month(class="form-input", style="flex:2;") }}
-                    {{ form.birth_day(class="form-input", style="flex:1;") }}
+                <p class="form-hint mb-sm">We remember our patrons with prayers on their birthday.</p>
+                <div class="d-flex gap-md">
+                    {{ form.birth_month(class="form-input flex-2") }}
+                    {{ form.birth_day(class="form-input flex-1") }}
                 </div>
             </div>
 

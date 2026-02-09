@@ -134,7 +134,7 @@ def create_app(config_name=None):
                 "default-src 'self'; "
                 f"script-src 'self' 'nonce-{nonce}' https://cdnjs.cloudflare.com; "
                 "worker-src 'self' blob: https://cdnjs.cloudflare.com; "
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data:; "
                 "connect-src 'self'; "

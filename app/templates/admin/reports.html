@@ -2,6 +2,16 @@
 
 {% block title %}Reports{% endblock %}
 
+{% block head_extra %}
+<style nonce="{{ csp_nonce }}">
+{% set max_c = loans_per_month | map(attribute='count') | max %}
+{% for entry in loans_per_month %}
+{% if max_c > 0 %}.bar-chart-{{ loop.index }} { width: {{ (entry.count / max_c * 200) | int }}px; }
+{% endif %}
+{% endfor %}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="admin-layout">
   <nav class="admin-nav">
@@ -55,7 +65,7 @@
               <td>{{ entry.count }}</td>
               <td>
                 {% if max_count > 0 %}
-                  <div class="bar-chart" style="width: {{ (entry.count / max_count * 200) | int }}px; min-width: 2px; height: 16px; background: #2c5282; display: inline-block;"></div>
+                  <div class="bar-chart bar-chart-{{ loop.index }}"></div>
                 {% endif %}
               </td>
             </tr>

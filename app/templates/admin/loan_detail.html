@@ -95,7 +95,7 @@
           <form method="POST" action="{{ url_for('admin.loan_extend', loan_id=loan.id) }}" class="inline-form">
             {{ extend_form.hidden_tag() }}
             <div class="form-group">
-              {{ extend_form.days(class="form-control", style="width: 120px; display: inline-block;") }}
+              {{ extend_form.days(class="form-control form-control-w180") }}
               <span>days</span>
             </div>
             {{ extend_form.submit(class="btn btn-primary") }}

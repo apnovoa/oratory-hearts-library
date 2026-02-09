@@ -34,12 +34,12 @@
       {% endif %}
     {% endwith %}
 
-    <div class="card" style="max-width: 720px;">
+    <div class="card card-max-720">
       <div class="card-body">
         <h3>CSV Format</h3>
         <p>Upload a CSV file with the following columns. The first row must be a header row.</p>
 
-        <table class="admin-table" style="margin-bottom: 1.5rem; font-size: 0.9rem;">
+        <table class="admin-table mb-lg">
           <thead>
             <tr>
               <th>Column</th>
@@ -59,20 +59,20 @@
         </table>
 
         <h3>Example</h3>
-        <pre style="background: #f5f0e8; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; line-height: 1.6;">title,author,description,language,publication_year,isbn,tags
+        <pre class="code-block">title,author,description,language,publication_year,isbn,tags
 The Imitation of Christ,Thomas a Kempis,Classic devotional work,en,1418,,spirituality, classics
 Introduction to the Devout Life,St. Francis de Sales,A guide to holiness for laypeople,en,1609,,spirituality</pre>
 
-        <p style="margin-top: 1rem; font-size: 0.85rem; color: #8a8078;">
+        <p class="mt-md text-xs text-subdued">
           Maximum 5,000 rows per import. Duplicate titles are not automatically detected.
           PDF files and cover images must be uploaded individually after import.
         </p>
 
-        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e8e0d6;">
+        <hr class="hr-subtle">
 
         <form method="POST" enctype="multipart/form-data">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="form-group" style="margin-bottom: 1rem;">
+          <div class="form-group mb-md">
             <label for="csv_file" class="form-label">Select CSV File</label>
             <input type="file" name="csv_file" id="csv_file" accept=".csv" class="form-control" required>
           </div>

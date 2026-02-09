@@ -3,38 +3,38 @@
 {% block title %}Download — {{ loan.book_title_snapshot }}{% endblock %}
 
 {% block content %}
-<div style="max-width: 640px; margin: 2rem auto;">
-  <div class="auth-card" style="max-width: 100%;">
+<div class="lending-page">
+  <div class="auth-card lending-card">
     <div class="auth-header">
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library crest" class="auth-cross-logo">
-      <h1 class="auth-title" style="font-size: 1.6rem;">{{ loan.book_title_snapshot }}</h1>
+      <h1 class="auth-title lending-title">{{ loan.book_title_snapshot }}</h1>
       <p class="auth-subtitle">by {{ loan.book_author_snapshot }}</p>
     </div>
 
-    <table class="book-metadata" style="margin: 1.5rem 0;">
+    <table class="book-metadata my-lg">
       <tr><th>Borrowed</th><td>{{ loan.borrowed_at.strftime('%B %d, %Y') }}</td></tr>
       <tr><th>Due Date</th><td>{{ loan.due_at.strftime('%B %d, %Y at %H:%M UTC') }}</td></tr>
       <tr><th>Downloads</th><td>{{ loan.download_count }}</td></tr>
     </table>
 
-    <div style="display: flex; gap: 0.75rem; margin: 1.5rem 0;">
+    <div class="d-flex gap-md my-lg">
       <a href="{{ url_for('lending.reader', access_token=loan.access_token) }}"
-         class="btn btn-primary" style="flex: 1; text-align: center;">
+         class="btn btn-primary flex-1 text-center">
         Read in Browser
       </a>
       <a href="{{ url_for('lending.download', access_token=loan.access_token, file=1) }}"
-         class="btn btn-outline" style="flex: 1; text-align: center;">
+         class="btn btn-outline flex-1 text-center">
         Download PDF
       </a>
     </div>
 
-    <p style="color: #8a8078; font-size: 0.875rem; text-align: center;">
+    <p class="text-subdued text-small text-center">
       This copy is personalized to your account. Please do not share or redistribute.
     </p>
 
-    <div class="ornament-divider" style="margin: 1.5rem 0;"></div>
+    <div class="ornament-divider my-lg"></div>
 
-    <div style="display: flex; justify-content: space-between;">
+    <div class="flex-between">
       <a href="{{ url_for('patron.dashboard') }}">&larr; My Dashboard</a>
       <a href="{{ url_for('catalog.browse') }}">Browse Catalog &rarr;</a>
     </div>

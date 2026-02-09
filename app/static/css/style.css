@@ -3331,6 +3331,465 @@ select.form-control {
 
 
 /* =================================================================
+   CSP-SAFE UTILITY CLASSES
+   (Replace inline style= attributes across templates)
+   ================================================================= */
+
+/* ── Layout utilities ──────────────────────────────────────────── */
+.flex-1           { flex: 1; }
+.flex-2           { flex: 2; }
+.flex-shrink-0    { flex-shrink: 0; }
+.flex-col         { flex-direction: column; }
+.items-start      { align-items: flex-start; }
+.items-baseline   { align-items: baseline; }
+.gap-xs           { gap: 0.25rem; }
+.gap-lg           { gap: 1.25rem; }
+.content-narrow   { max-width: 640px; margin-left: auto; margin-right: auto; }
+.content-mid      { max-width: 900px; margin-left: auto; margin-right: auto; }
+.max-w-400        { max-width: 400px; }
+
+/* ── Spacing ───────────────────────────────────────────────────── */
+.my-md  { margin-top: 1rem; margin-bottom: 1rem; }
+.my-lg  { margin-top: 1.5rem; margin-bottom: 1.5rem; }
+.mt-2xl { margin-top: 3rem; }
+.pt-lg  { padding-top: 1.5rem; }
+
+/* ── Form utilities ────────────────────────────────────────────── */
+.form-inline-reset {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+}
+
+.btn-reset {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.45rem 0.85rem;
+}
+
+.favorite-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #c5993e;
+}
+
+
+/* =================================================================
+   COLLECTION COMPONENTS
+   ================================================================= */
+
+.collection-detail { max-width: 900px; margin: 0 auto; }
+
+.collection-header { margin-bottom: 2rem; }
+
+.collection-title {
+    font-family: 'Cormorant Garamond', serif;
+    color: #6b1d2a;
+    font-size: 2rem;
+    margin-bottom: 0.35rem;
+}
+
+.collection-desc {
+    color: #5c4a3a;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-top: 0.75rem;
+}
+
+.collection-meta {
+    font-size: 0.8rem;
+    color: #8b7355;
+    margin-top: 0.5rem;
+}
+
+.collection-nav { margin-bottom: 1.5rem; }
+
+.collection-back-link {
+    color: #6b1d2a;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.collections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.25rem;
+}
+
+.collections-section { margin-bottom: 2.5rem; }
+
+.collections-section-title {
+    font-family: 'Cormorant Garamond', serif;
+    color: #6b1d2a;
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #c5993e;
+    padding-bottom: 0.4rem;
+}
+
+.collection-card {
+    display: block;
+    background: #fff;
+    border: 1px solid #d4c5a9;
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+    text-decoration: none;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.collection-card:hover {
+    box-shadow: 0 4px 12px rgba(26, 20, 18, 0.08);
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+
+.collection-card--featured { border-left: 4px solid #c5993e; }
+.collection-card--secondary { background: #faf7f2; }
+
+.collection-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    color: #6b1d2a;
+    font-size: 1.25rem;
+    margin: 0 0 0.5rem;
+}
+
+.collection-card-desc {
+    color: #5c4a3a;
+    font-size: 0.9rem;
+    margin: 0 0 0.75rem;
+    line-height: 1.5;
+}
+
+.collection-card-count {
+    font-size: 0.8rem;
+    color: #8b7355;
+}
+
+.collection-books {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.collection-book-item {
+    display: flex;
+    gap: 1.25rem;
+    background: #fff;
+    border: 1px solid #d4c5a9;
+    border-radius: 6px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    align-items: flex-start;
+}
+
+.collection-book-cover {
+    flex-shrink: 0;
+    width: 70px;
+}
+
+.collection-book-cover img {
+    width: 70px;
+    height: auto;
+    border-radius: 3px;
+    border: 1px solid #d4c5a9;
+}
+
+.collection-book-no-cover {
+    width: 70px;
+    height: 95px;
+    background: #f0e6d3;
+    border: 1px solid #d4c5a9;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.collection-book-no-cover span {
+    color: #8b7355;
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+.collection-book-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.collection-book-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.collection-book-position {
+    color: #c5993e;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.collection-book-link {
+    font-family: 'Cormorant Garamond', serif;
+    color: #6b1d2a;
+    font-size: 1.15rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.collection-book-author {
+    color: #5c4a3a;
+    font-size: 0.9rem;
+    font-style: italic;
+    margin: 0 0 0.35rem;
+}
+
+.collection-book-note {
+    color: #6b5d4f;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0.5rem 0 0;
+    padding-left: 0.75rem;
+    border-left: 3px solid #c5993e;
+}
+
+.collection-book-desc {
+    color: #7a6a5a;
+    font-size: 0.85rem;
+    margin: 0.5rem 0 0;
+    line-height: 1.45;
+}
+
+.season-banner {
+    background: linear-gradient(135deg, #6b1d2a 0%, #8b2e3a 100%);
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.25rem;
+}
+
+.season-banner-title {
+    font-family: 'Cormorant Garamond', serif;
+    color: #faf7f2;
+    font-size: 1.5rem;
+    margin: 0 0 0.35rem;
+}
+
+.season-banner-desc {
+    color: #f0e6d3;
+    font-size: 0.9rem;
+    margin: 0;
+    font-style: italic;
+}
+
+.season-badge {
+    display: inline-block;
+    background: #c5993e;
+    color: #fff;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.avail-badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+}
+
+.avail-badge--yes { color: #2d6a4f; background: #d8f3dc; }
+.avail-badge--no  { color: #6b1d2a; background: #f8d7da; }
+
+.collections-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #8b7355;
+}
+
+.collections-empty-main {
+    font-size: 1.1rem;
+    font-style: italic;
+}
+
+.collections-empty-sub {
+    font-size: 0.9rem;
+}
+
+
+/* =================================================================
+   LENDING PAGE COMPONENTS
+   ================================================================= */
+
+.lending-page { max-width: 640px; margin: 2rem auto; }
+.lending-card { max-width: 100%; }
+.lending-title { font-size: 1.6rem; }
+
+.warning-box {
+    background: #fdf6e3;
+    border: 1px solid #e8e0d6;
+    border-radius: 6px;
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    text-align: center;
+}
+
+.warning-box p { margin: 0; color: #5c534d; }
+
+
+/* =================================================================
+   BOOK NOTES / RELATED BOOKS
+   ================================================================= */
+
+.book-notes-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e0d8cf;
+}
+
+.book-notes-title {
+    font-family: 'Cormorant Garamond', serif;
+    color: #6b1d2a;
+    margin-bottom: 1rem;
+}
+
+.existing-note {
+    background: #faf7f2;
+    border: 1px solid #e0d8cf;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.existing-note-text {
+    white-space: pre-wrap;
+    margin: 0 0 0.75rem 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.existing-note-date {
+    font-size: 0.8rem;
+    color: #888;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+}
+
+.related-books-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e0d8cf;
+}
+
+.related-books-title {
+    font-family: 'Cormorant Garamond', serif;
+    color: #6b1d2a;
+    margin-bottom: 1.5rem;
+}
+
+
+/* =================================================================
+   PATRON NAV
+   ================================================================= */
+
+.patron-nav {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+}
+
+
+/* =================================================================
+   ADMIN UTILITY COMPONENTS
+   ================================================================= */
+
+.bar-chart {
+    height: 16px;
+    background: #2c5282;
+    display: inline-block;
+    min-width: 2px;
+}
+
+.code-block {
+    background: #f5f0e8;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.hr-subtle {
+    margin: 1.5rem 0;
+    border: none;
+    border-top: 1px solid #e8e0d6;
+}
+
+.td-truncate {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Request status badges */
+.badge--pending-gold  { background: #c5993e; color: #fff; }
+.badge--approved-grn  { background: #2a7d4f; color: #fff; }
+.badge--declined-burg { background: #6b1d2a; color: #fff; }
+.badge--fulfilled-grn { background: #1a6b3a; color: #fff; }
+
+/* Text color utilities */
+.text-success-dark { color: #2d6a4f; }
+.text-danger-dark  { color: #9b2c2c; }
+.text-color-primary { color: #6b1d2a; }
+
+/* Reader download link */
+.reader-download-link {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+
+/* Progress bar initial state */
+.progress-bar-zero { width: 0%; }
+
+/* Inline form styles for delete-note etc */
+.d-none-form { display: none; }
+
+/* SVG icon inline alignment */
+.svg-icon-inline { vertical-align: -2px; margin-right: 0.3rem; opacity: 0.7; }
+.svg-icon-inline-sm { vertical-align: middle; margin-right: 0.25rem; }
+
+/* Checkbox column width */
+.th-checkbox { width: 30px; }
+
+/* Font size utilities */
+.text-lg { font-size: 1.1rem; }
+
+/* Reader error styles (used in JS innerHTML) */
+.reader-error-detail { font-size: 0.9rem; margin-top: 0.5rem; }
+.reader-error-link   { color: #c5993e; margin-top: 1rem; display: inline-block; }
+
+
+/* =================================================================
    RESPONSIVE — Tablet and below (768px)
    ================================================================= */
 
