@@ -6,6 +6,10 @@ from flask import current_app, render_template
 _BULK_SEND_DELAY = 0.2
 
 
+def _logo_url():
+    return current_app.config["LIBRARY_DOMAIN"] + "/static/img/logo.png"
+
+
 def _send_email(subject, recipient, html_body):
     brevo_key = current_app.config.get("BREVO_API_KEY")
     sender = current_app.config.get("MAIL_DEFAULT_SENDER")
@@ -44,6 +48,7 @@ def send_loan_email(loan, user, book):
         book=book,
         loan=loan,
         download_url=download_url,
+        logo_url=_logo_url(),
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
@@ -63,6 +68,7 @@ def send_reminder_email(loan, user, book):
         book=book,
         loan=loan,
         download_url=download_url,
+        logo_url=_logo_url(),
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
@@ -79,6 +85,7 @@ def send_expiration_email(loan, user, book):
         user=user,
         book=book,
         loan=loan,
+        logo_url=_logo_url(),
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
@@ -97,6 +104,7 @@ def send_waitlist_notification(user, book):
         user=user,
         book=book,
         catalog_url=catalog_url,
+        logo_url=_logo_url(),
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
@@ -112,6 +120,7 @@ def send_password_reset_email(user, reset_url):
         "email/password_reset.html",
         user=user,
         reset_url=reset_url,
+        logo_url=_logo_url(),
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
@@ -147,6 +156,7 @@ def send_birthday_greetings():
         html = render_template(
             "email/birthday.html",
             user=patron,
+            logo_url=_logo_url(),
             library_name=current_app.config["LIBRARY_NAME_LATIN"],
             library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
         )
@@ -201,6 +211,7 @@ def send_new_acquisitions_digest():
             user=patron,
             books=new_books,
             catalog_url=catalog_url,
+            logo_url=_logo_url(),
             library_name=current_app.config["LIBRARY_NAME_LATIN"],
             library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
         )
