@@ -128,32 +128,7 @@
         </div>
     </footer>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            var toggle = document.querySelector(".nav-toggle");
-            var navList = document.querySelector(".nav-list");
-            if (toggle && navList) {
-                toggle.addEventListener("click", function () {
-                    var expanded = toggle.getAttribute("aria-expanded") === "true";
-                    toggle.setAttribute("aria-expanded", String(!expanded));
-                    navList.classList.toggle("nav-list--open");
-                });
-            }
-            document.querySelectorAll(".flash-dismiss").forEach(function (btn) {
-                btn.addEventListener("click", function () {
-                    var el = btn.parentElement;
-                    el.style.opacity = "0";
-                    el.style.transform = "translateY(-10px)";
-                    setTimeout(function () { el.remove(); }, 300);
-                });
-            });
-
-            // Register service worker for PWA support
-            if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.register("/static/sw.js").catch(function () {});
-            }
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

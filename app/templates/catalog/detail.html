@@ -171,7 +171,7 @@
           <div style="display:flex; gap:0.5rem; align-items:center;">
             <button type="submit" class="btn btn-primary btn-sm">{{ 'Update Note' if patron_note else 'Save Note' }}</button>
             {% if patron_note %}
-            <a href="#" onclick="document.getElementById('delete-note-form').submit(); return false;" class="btn btn-outline btn-sm" style="color:#6b1d2a;">Delete Note</a>
+            <a href="#" data-submit-form="delete-note-form" class="btn btn-outline btn-sm" style="color:#6b1d2a;">Delete Note</a>
             {% endif %}
           </div>
         </form>

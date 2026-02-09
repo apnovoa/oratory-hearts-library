@@ -73,25 +73,25 @@
 
       <div class="d-flex gap-sm mb-md flex-wrap">
         <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_approve') }}" class="btn btn-primary btn-sm"
-                onclick="return confirm('Approve selected books?')">
+                data-confirm="Approve selected books?">
           Approve Selected
         </button>
         <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_dismiss') }}" class="btn btn-secondary btn-sm"
-                onclick="return confirm('Dismiss selected books?')">
+                data-confirm="Dismiss selected books?">
           Dismiss Selected
         </button>
         <button type="submit" formaction="{{ url_for('admin.import_pdf_ai_enrich') }}" class="btn btn-secondary btn-sm"
-                onclick="return confirm('Run AI extraction on selected books?')">
+                data-confirm="Run AI extraction on selected books?">
           Enrich with AI
         </button>
         <button type="submit" formaction="{{ url_for('admin.import_pdf_refresh_covers') }}" class="btn btn-secondary btn-sm"
-                onclick="return confirm('Refresh covers for selected books?')">
+                data-confirm="Refresh covers for selected books?">
           Refresh Covers
         </button>
         {% if status_filter == 'pending' %}
         <button type="submit" formaction="{{ url_for('admin.import_pdf_bulk_approve') }}" name="approve_all" value="1"
                 class="btn btn-primary btn-sm ml-auto"
-                onclick="return confirm('Approve ALL {{ pagination.total }} pending books? This cannot be undone.')">
+                data-confirm="Approve ALL {{ pagination.total }} pending books? This cannot be undone.">
           Approve All Pending ({{ pagination.total }})
         </button>
         {% endif %}
@@ -180,7 +180,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function() {
   var selectAll = document.getElementById('select-all');
   if (selectAll) {

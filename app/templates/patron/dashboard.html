@@ -53,7 +53,7 @@
                             {% endif %}
                             <form method="post" action="{{ url_for('patron.patron_return_loan', loan_public_id=loan.public_id) }}" style="display:inline;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Return this book early?');">Return</button>
+                                <button type="submit" class="btn btn-outline btn-sm" data-confirm="Return this book early?">Return</button>
                             </form>
                         </div>
                         {% if loan.max_renewals > 0 %}

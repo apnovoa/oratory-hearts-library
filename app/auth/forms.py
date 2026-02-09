@@ -37,7 +37,7 @@ class LoginForm(FlaskForm):
     email = StringField(
         "Email",
         validators=[DataRequired(), Email(), Length(max=255)],
-        render_kw={"placeholder": "Email address", "autofocus": True},
+        render_kw={"placeholder": "Email address", "autofocus": True, "type": "email"},
     )
     password = PasswordField(
         "Password",
@@ -62,7 +62,7 @@ class RegistrationForm(FlaskForm):
     email = StringField(
         "Email",
         validators=[DataRequired(), Email(), Length(max=255)],
-        render_kw={"placeholder": "Email address"},
+        render_kw={"placeholder": "Email address", "type": "email"},
     )
     password = PasswordField(
         "Password",
@@ -80,7 +80,7 @@ class RequestPasswordResetForm(FlaskForm):
     email = StringField(
         "Email",
         validators=[DataRequired(), Email(), Length(max=255)],
-        render_kw={"placeholder": "Email address", "autofocus": True},
+        render_kw={"placeholder": "Email address", "autofocus": True, "type": "email"},
     )
     submit = SubmitField("Send Reset Link")
 

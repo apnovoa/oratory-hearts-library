@@ -2,7 +2,9 @@
 var CACHE_NAME = "bibliotheca-v1";
 var STATIC_ASSETS = [
   "/static/css/style.css",
+  "/static/js/app.js",
   "/static/img/logo.png",
+  "/static/img/favicon.ico",
   "/static/manifest.json"
 ];
 

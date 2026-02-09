@@ -252,14 +252,6 @@
         <a href="{{ url_for('auth.login') }}" class="splash-enter" id="enter-btn">Enter the Library</a>
     </div>
 
-    <script>
-        document.getElementById('enter-btn').addEventListener('click', function(e) {
-            e.preventDefault();
-            var dest = this.href;
-            document.body.style.transition = 'opacity 1.2s ease';
-            document.body.style.opacity = '0';
-            setTimeout(function() { window.location.href = dest; }, 1200);
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

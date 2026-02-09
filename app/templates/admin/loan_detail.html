@@ -107,7 +107,7 @@
           <p>Immediately end this loan and mark as returned.</p>
           <form method="POST" action="{{ url_for('admin.loan_terminate', loan_id=loan.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-warning" onclick="return confirm('Terminate this loan?')">Terminate</button>
+            <button type="submit" class="btn btn-warning" data-confirm="Terminate this loan?">Terminate</button>
           </form>
         </div>
 

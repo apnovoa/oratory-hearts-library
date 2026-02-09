@@ -1,4 +1,5 @@
 import os
+import secrets
 from pathlib import Path
 
 from flask import Flask
@@ -112,18 +113,26 @@ def create_app(config_name=None):
     from .errors import register_error_handlers
     register_error_handlers(app)
 
+    # Generate a per-request CSP nonce for inline scripts that need template vars
+    @app.before_request
+    def generate_csp_nonce():
+        from flask import g
+        g.csp_nonce = secrets.token_urlsafe(16)
+
     # Security headers
     @app.after_request
     def set_security_headers(response):
+        from flask import g
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         if not app.debug:
+            nonce = getattr(g, "csp_nonce", "")
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+                f"script-src 'self' 'nonce-{nonce}' https://cdnjs.cloudflare.com; "
                 "worker-src 'self' blob: https://cdnjs.cloudflare.com; "
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
@@ -136,10 +145,12 @@ def create_app(config_name=None):
     # Register template context
     @app.context_processor
     def inject_library_branding():
+        from flask import g
         return {
             "library_name_latin": app.config["LIBRARY_NAME_LATIN"],
             "library_name_english": app.config["LIBRARY_NAME_ENGLISH"],
             "library_contact_email": app.config["LIBRARY_CONTACT_EMAIL"],
+            "csp_nonce": getattr(g, "csp_nonce", ""),
         }
 
     # Start scheduler for loan expiration

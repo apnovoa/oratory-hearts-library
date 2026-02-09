@@ -166,7 +166,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function() {
   var dropZone = document.getElementById('drop-zone');
   var fileInput = document.getElementById('pdf-file-input');
@@ -262,7 +262,7 @@
 })();
 </script>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function() {
   var running = {{ 'true' if scan_progress.running else 'false' }};
   if (!running) return;
