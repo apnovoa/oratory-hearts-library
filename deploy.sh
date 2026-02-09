@@ -9,6 +9,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "==> Adding SSH key to agent (enter passphrase once)..."
 ssh-add "$KEY" 2>/dev/null || true
 
+echo "==> Verifying remote production config..."
+ssh -i "$KEY" "$SERVER" "grep -q '^FLASK_ENV=production' $REMOTE_DIR/.env" || { echo "FATAL: FLASK_ENV is not set to production in remote $REMOTE_DIR/.env"; exit 1; }
+
 GIT_HASH=$(git rev-parse --short HEAD)
 echo "==> Creating deploy tarball (${GIT_HASH})..."
 cd "$PROJECT_DIR"

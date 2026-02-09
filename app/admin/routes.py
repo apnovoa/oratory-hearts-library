@@ -23,6 +23,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 
+from .. import limiter
 from ..audit import log_event
 from ..cover_service import fetch_cover
 from ..models import AuditLog, Book, BookRequest, Loan, ReadingList, ReadingListItem, StagedBook, Tag, User, WaitlistEntry, db
@@ -94,6 +95,7 @@ def dashboard():
 
 @admin_bp.route("/change-password", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def change_password():
     form = AdminChangePasswordForm()
     if form.validate_on_submit():
@@ -145,6 +147,7 @@ def books():
 
 @admin_bp.route("/books/add", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def book_add():
     form = BookForm()
     if form.validate_on_submit():
@@ -204,6 +207,7 @@ def book_add():
 
 @admin_bp.route("/books/<int:book_id>/edit", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def book_edit(book_id):
     book = db.session.get(Book, book_id)
     if not book:
@@ -267,6 +271,7 @@ def book_edit(book_id):
 
 @admin_bp.route("/books/<int:book_id>/toggle-visibility", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def book_toggle_visibility(book_id):
     book = db.session.get(Book, book_id)
     if not book:
@@ -281,6 +286,7 @@ def book_toggle_visibility(book_id):
 
 @admin_bp.route("/books/<int:book_id>/toggle-disabled", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def book_toggle_disabled(book_id):
     book = db.session.get(Book, book_id)
     if not book:
@@ -295,6 +301,7 @@ def book_toggle_disabled(book_id):
 
 @admin_bp.route("/books/<int:book_id>/fetch-cover", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def book_fetch_cover(book_id):
     book = db.session.get(Book, book_id)
     if not book:
@@ -393,6 +400,7 @@ def loan_detail(loan_id):
 
 @admin_bp.route("/loans/<int:loan_id>/extend", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def loan_extend(loan_id):
     loan = db.session.get(Loan, loan_id)
     if not loan:
@@ -412,6 +420,7 @@ def loan_extend(loan_id):
 
 @admin_bp.route("/loans/<int:loan_id>/terminate", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def loan_terminate(loan_id):
     loan = db.session.get(Loan, loan_id)
     if not loan:
@@ -430,6 +439,7 @@ def loan_terminate(loan_id):
 
 @admin_bp.route("/loans/<int:loan_id>/invalidate", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def loan_invalidate(loan_id):
     loan = db.session.get(Loan, loan_id)
     if not loan:
@@ -505,6 +515,7 @@ def user_detail(user_id):
 
 @admin_bp.route("/users/<int:user_id>/block", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def user_block(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -524,6 +535,7 @@ def user_block(user_id):
 
 @admin_bp.route("/users/<int:user_id>/unblock", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def user_unblock(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -539,6 +551,7 @@ def user_unblock(user_id):
 
 @admin_bp.route("/users/<int:user_id>/deactivate", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def user_deactivate(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -553,6 +566,7 @@ def user_deactivate(user_id):
 
 @admin_bp.route("/users/<int:user_id>/activate", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def user_activate(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -567,6 +581,7 @@ def user_activate(user_id):
 
 @admin_bp.route("/users/<int:user_id>/force-logout", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def user_force_logout(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -581,6 +596,7 @@ def user_force_logout(user_id):
 
 @admin_bp.route("/users/<int:user_id>/change-role", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def user_change_role(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -727,6 +743,7 @@ def reports():
 
 @admin_bp.route("/books/import-csv", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def books_import_csv():
     if request.method == "GET":
         return render_template("admin/import_csv.html")
@@ -918,6 +935,7 @@ def book_requests():
 
 @admin_bp.route("/requests/<int:request_id>/resolve", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def book_request_resolve(request_id):
     book_req = db.session.get(BookRequest, request_id)
     if not book_req:
@@ -958,6 +976,7 @@ def reading_lists():
 
 @admin_bp.route("/reading-lists/new", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def reading_list_new():
     form = ReadingListForm()
     if form.validate_on_submit():
@@ -987,6 +1006,7 @@ def reading_list_new():
 
 @admin_bp.route("/reading-lists/<int:list_id>/edit", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def reading_list_edit(list_id):
     rl = db.session.get(ReadingList, list_id)
     if not rl:
@@ -1056,6 +1076,7 @@ def reading_list_edit(list_id):
 
 @admin_bp.route("/reading-lists/<int:list_id>/delete", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def reading_list_delete(list_id):
     rl = db.session.get(ReadingList, list_id)
     if not rl:
@@ -1114,6 +1135,7 @@ def import_pdf_dashboard():
 
 @admin_bp.route("/import-pdf/upload", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_upload():
     files = request.files.getlist("pdf_files")
     if not files or all(f.filename == "" for f in files):
@@ -1162,6 +1184,7 @@ def import_pdf_upload():
 
 @admin_bp.route("/import-pdf/scan", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_scan():
     from ..scanner import start_scan
 
@@ -1230,6 +1253,7 @@ def import_pdf_review():
 
 @admin_bp.route("/import-pdf/staged/<int:staged_id>/edit", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_staged_edit(staged_id):
     staged = db.session.get(StagedBook, staged_id)
     if not staged:
@@ -1259,6 +1283,7 @@ def import_pdf_staged_edit(staged_id):
 
 @admin_bp.route("/import-pdf/staged/<int:staged_id>/approve", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_staged_approve(staged_id):
     staged = db.session.get(StagedBook, staged_id)
     if not staged:
@@ -1321,6 +1346,7 @@ def import_pdf_staged_approve(staged_id):
 
 @admin_bp.route("/import-pdf/staged/<int:staged_id>/dismiss", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_staged_dismiss(staged_id):
     staged = db.session.get(StagedBook, staged_id)
     if not staged:
@@ -1335,6 +1361,7 @@ def import_pdf_staged_dismiss(staged_id):
 
 @admin_bp.route("/import-pdf/bulk-approve", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_bulk_approve():
     staging_dir = Path(current_app.config["STAGING_STORAGE"])
     master_dir = Path(current_app.config["MASTER_STORAGE"])
@@ -1411,6 +1438,7 @@ def import_pdf_bulk_approve():
 
 @admin_bp.route("/import-pdf/bulk-dismiss", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_bulk_dismiss():
     staged_ids = request.form.getlist("staged_ids", type=int)
 
@@ -1426,6 +1454,7 @@ def import_pdf_bulk_dismiss():
 
 @admin_bp.route("/import-pdf/ai-enrich", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_ai_enrich():
     if not current_app.config.get("AI_EXTRACTION_ENABLED"):
         flash("AI extraction is disabled. Enable AI_EXTRACTION_ENABLED first.", "warning")
@@ -1530,6 +1559,7 @@ def import_pdf_ai_enrich():
 
 @admin_bp.route("/import-pdf/refresh-covers", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def import_pdf_refresh_covers():
     staged_ids = request.form.getlist("staged_ids", type=int)
     if not staged_ids:

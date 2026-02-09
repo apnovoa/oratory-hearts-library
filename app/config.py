@@ -75,6 +75,10 @@ class Config:
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = 3600 * 8  # 8 hours
+    REMEMBER_COOKIE_DURATION = 3600 * 24 * 14    # 14 days (down from 365-day default)
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SECURE = False               # overridden in production
+    REMEMBER_COOKIE_SAMESITE = "Lax"
 
     # Scheduler
     SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
@@ -87,6 +91,7 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True
 
     @classmethod
     def init_app(cls, app):

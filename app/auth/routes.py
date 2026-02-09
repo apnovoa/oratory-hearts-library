@@ -175,6 +175,7 @@ def register():
 
 @auth_bp.route("/logout", methods=["POST"])
 @login_required
+@limiter.limit("10 per minute")
 def logout():
     log_event("logout", "user", current_user.id)
     logout_user()
@@ -222,6 +223,7 @@ def reset_password():
 # ── Password reset with token ──────────────────────────────────────
 
 @auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def reset_password_token(token):
     if current_user.is_authenticated:
         return redirect(url_for("catalog.index"))

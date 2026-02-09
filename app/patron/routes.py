@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, request, jsonify
 from flask_login import login_required, current_user
 
+from .. import limiter
 from ..models import db, Loan, Book, Favorite, BookNote, BookRequest
 from ..audit import log_event
 from ..lending.service import return_loan as service_return_loan
@@ -66,6 +67,7 @@ def loans():
 
 
 @patron_bp.route("/loans/<string:loan_public_id>/return", methods=["POST"])
+@limiter.limit("10 per minute")
 def patron_return_loan(loan_public_id):
     loan = Loan.query.filter_by(
         public_id=loan_public_id,
@@ -84,6 +86,7 @@ def patron_return_loan(loan_public_id):
 
 
 @patron_bp.route("/loans/<string:loan_public_id>/renew", methods=["POST"])
+@limiter.limit("10 per minute")
 def renew_loan(loan_public_id):
     loan = Loan.query.filter_by(
         public_id=loan_public_id,
@@ -106,6 +109,7 @@ def renew_loan(loan_public_id):
 
 
 @patron_bp.route("/profile", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def profile():
     form = ProfileForm(obj=current_user)
     if request.method == "GET":
@@ -157,6 +161,7 @@ def profile():
 # ── Favorites ─────────────────────────────────────────────────────
 
 @patron_bp.route("/favorites/<string:book_public_id>/toggle", methods=["POST"])
+@limiter.limit("30 per minute")
 def toggle_favorite(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
 
@@ -226,6 +231,7 @@ def history():
 # ── Book Requests ─────────────────────────────────────────────────
 
 @patron_bp.route("/requests/new", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def request_new():
     form = BookRequestForm()
 
@@ -265,6 +271,7 @@ def requests():
 # ── Patron Notes ──────────────────────────────────────────────────
 
 @patron_bp.route("/notes/<string:book_public_id>", methods=["POST"])
+@limiter.limit("20 per minute")
 def save_note(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
     form = BookNoteForm()
@@ -294,6 +301,7 @@ def save_note(book_public_id):
 
 
 @patron_bp.route("/notes/<string:book_public_id>/delete", methods=["POST"])
+@limiter.limit("20 per minute")
 def delete_note(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
 
