@@ -46,8 +46,19 @@
         </div>
 
         <div class="form-group">
-          {{ form.author.label }}
-          {{ form.author(class="form-control") }}
+          <label>Author(s)</label>
+          {{ form.author(id="author-hidden") }}
+          <div id="authors-container">
+            {% for name in (form.author.data or '').split('||') %}
+            {% if name.strip() %}
+            <div class="author-row d-flex gap-sm mb-sm">
+              <input type="text" class="form-control author-input" value="{{ name.strip() }}" placeholder="Author name">
+              <button type="button" class="btn btn-outline btn-sm author-remove" title="Remove">&times;</button>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          <button type="button" id="add-author-btn" class="btn btn-outline btn-sm mt-sm">+ Add Author</button>
           {% for error in form.author.errors %}
             <span class="form-error">{{ error }}</span>
           {% endfor %}
@@ -212,4 +223,68 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var container = document.getElementById("authors-container");
+    var hidden = document.getElementById("author-hidden");
+    var addBtn = document.getElementById("add-author-btn");
+    if (!container || !hidden || !addBtn) return;
+
+    function createRow(value) {
+        var row = document.createElement("div");
+        row.className = "author-row d-flex gap-sm mb-sm";
+        var input = document.createElement("input");
+        input.type = "text";
+        input.className = "form-control author-input";
+        input.placeholder = "Author name";
+        input.value = value || "";
+        var removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "btn btn-outline btn-sm author-remove";
+        removeBtn.title = "Remove";
+        removeBtn.textContent = "\u00d7";
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+        return row;
+    }
+
+    // Ensure at least one row exists on load
+    if (!container.querySelector(".author-row")) {
+        container.appendChild(createRow(""));
+    }
+
+    addBtn.addEventListener("click", function () {
+        container.appendChild(createRow(""));
+        container.lastElementChild.querySelector("input").focus();
+    });
+
+    container.addEventListener("click", function (e) {
+        if (e.target.classList.contains("author-remove")) {
+            var rows = container.querySelectorAll(".author-row");
+            if (rows.length > 1) {
+                e.target.parentElement.remove();
+            } else {
+                rows[0].querySelector("input").value = "";
+            }
+        }
+    });
+
+    // Sync individual inputs -> hidden field on submit
+    var form = hidden.closest("form");
+    if (form) {
+        form.addEventListener("submit", function () {
+            var inputs = container.querySelectorAll(".author-input");
+            var names = [];
+            for (var i = 0; i < inputs.length; i++) {
+                var v = inputs[i].value.trim();
+                if (v) names.push(v);
+            }
+            hidden.value = names.join("||");
+        });
+    }
+})();
+</script>
 {% endblock %}

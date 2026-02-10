@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField
 from wtforms import (
     BooleanField,
+    HiddenField,
     IntegerField,
     PasswordField,
     SelectField,
@@ -12,6 +13,7 @@ from wtforms import (
 from wtforms.validators import DataRequired, EqualTo, Length, NumberRange, Optional
 
 from ..auth.forms import _validate_password_strength
+from ..models import LANGUAGE_CHOICES
 
 
 class BookForm(FlaskForm):
@@ -20,21 +22,20 @@ class BookForm(FlaskForm):
         validators=[DataRequired(), Length(max=500)],
         render_kw={"placeholder": "Book title"},
     )
-    author = TextAreaField(
+    author = HiddenField(
         "Author",
         validators=[DataRequired(), Length(max=500)],
-        render_kw={"placeholder": "One author per line", "rows": 2},
     )
     description = TextAreaField(
         "Description",
         validators=[Optional(), Length(max=5000)],
         render_kw={"placeholder": "Book description", "rows": 4},
     )
-    language = StringField(
+    language = SelectField(
         "Language",
-        validators=[DataRequired(), Length(max=50)],
+        validators=[DataRequired()],
+        choices=LANGUAGE_CHOICES,
         default="en",
-        render_kw={"placeholder": "e.g. en, la, es"},
     )
     publication_year = IntegerField(
         "Publication Year",
@@ -271,9 +272,14 @@ class ReadingListForm(FlaskForm):
 
 class StagedBookForm(FlaskForm):
     title = StringField("Title", validators=[Optional(), Length(max=500)])
-    author = TextAreaField("Author", validators=[Optional(), Length(max=500)], render_kw={"placeholder": "One author per line", "rows": 2})
+    author = HiddenField("Author", validators=[Optional(), Length(max=500)])
     description = TextAreaField("Description", validators=[Optional(), Length(max=5000)], render_kw={"rows": 4})
-    language = StringField("Language", validators=[Optional(), Length(max=50)], default="en")
+    language = SelectField(
+        "Language",
+        validators=[Optional()],
+        choices=[("", "-- Select --")] + LANGUAGE_CHOICES,
+        default="en",
+    )
     publication_year = IntegerField("Publication Year", validators=[Optional(), NumberRange(min=1, max=2100)])
     isbn = StringField("ISBN", validators=[Optional(), Length(max=20)])
     tags_text = StringField(

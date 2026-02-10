@@ -196,8 +196,6 @@ def import_pdf_staged_edit(staged_id):
         abort(404)
 
     form = StagedBookForm(obj=staged)
-    if request.method == "GET" and staged.author:
-        form.author.data = staged.author.replace("||", "\n")
 
     if form.validate_on_submit():
         staged.title = form.title.data.strip() if form.title.data else None

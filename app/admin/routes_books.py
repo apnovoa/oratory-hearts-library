@@ -150,9 +150,6 @@ def book_edit(book_id):
     form = BookForm(obj=book)
     if request.method == "GET":
         form.tags_text.data = ", ".join(t.name for t in book.tags)
-        # Show ||‑delimited authors as one-per-line in the textarea
-        if book.author:
-            form.author.data = book.author.replace("||", "\n")
 
     if form.validate_on_submit():
         book.title = form.title.data.strip()

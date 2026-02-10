@@ -115,7 +115,21 @@ LANGUAGE_LABELS = {
     "de": "German",
     "pt": "Portuguese",
     "pl": "Polish",
+    "el": "Greek",
 }
+
+# Ordered choices for admin language dropdowns (Latin/English first, then alphabetical)
+LANGUAGE_CHOICES = [
+    ("la", "Latin"),
+    ("en", "English"),
+    ("de", "German"),
+    ("el", "Greek"),
+    ("es", "Spanish"),
+    ("fr", "French"),
+    ("it", "Italian"),
+    ("pl", "Polish"),
+    ("pt", "Portuguese"),
+]
 
 # ── Book ────────────────────────────────────────────────────────────
 
