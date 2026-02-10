@@ -8,97 +8,120 @@
   {# ── Header ────────────────────────────────────────────────────── #}
   <div class="policy-header">
     <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library seal" class="policy-header-seal">
-    <h1 class="policy-header-title">Support the Library</h1>
+    <h1 class="policy-header-title">Support Our Library</h1>
     <p class="policy-header-subtitle">{{ library_name_latin }}</p>
     <p class="policy-header-english">{{ library_name_english }}</p>
     <div class="policy-header-ornament" aria-hidden="true">&#x2726;</div>
   </div>
 
-  {# ── Introduction ──────────────────────────────────────────────── #}
+  {# ── Heart of the Appeal ──────────────────────────────────────── #}
   <section class="policy-section">
-    <h2 class="policy-section-title">A Living Collection, Sustained by Generosity</h2>
-    <p>
-      The library of the Oratory exists for the spiritual and intellectual
-      enrichment of its faithful. Every volume on our shelves&mdash;whether a
-      patristic commentary, a manual of ascetical theology, or a children's
-      catechism&mdash;is placed there so that it might form souls in the truth
-      and beauty of the Catholic Faith.
-    </p>
-    <p>
-      Maintaining and growing a collection of this kind is a work of charity.
-      Your generosity, whether through the gift of a book or a financial
-      contribution, directly sustains this apostolate and ensures that the
-      riches of Catholic thought remain accessible to every member of the
-      Oratory.
-    </p>
-  </section>
-
-  {# ── Donate Books ──────────────────────────────────────────────── #}
-  <section class="policy-section">
-    <h2 class="policy-section-title">Donate Books</h2>
-    <p>
-      If you possess Catholic works that you believe would benefit the Oratory's
-      collection&mdash;works of theology, Sacred Scripture, spirituality,
-      Church history, canon law, liturgy, hagiography, or Catholic
-      letters&mdash;we warmly welcome your donations. Books in good condition
-      may be mailed to:
-    </p>
-    <div class="donate-address">
-      <strong>Library of the Oratory of the Most Sacred Hearts</strong><br>
-      PO Box 431521<br>
-      Miami, FL 33243-1521
+    <div class="donate-hero">
+      <p class="donate-hero-lead">
+        Every volume in this library exists because someone believed it was
+        worth preserving.
+      </p>
+      <p>
+        The Oratory's collection&mdash;patristic commentaries, manuals of
+        ascetical theology, children's catechisms, rare pre-conciliar
+        texts&mdash;has been assembled and digitised through the quiet,
+        patient work of a small community. We keep it open and free for
+        every member of the faithful, and we intend to keep it that way.
+      </p>
+      <p>
+        But a library does not sustain itself. If these books have nourished
+        your prayer, study, or teaching, we humbly ask: would you help us
+        continue this work?
+      </p>
     </div>
-    <p>
-      We are particularly grateful for works bearing an imprimatur or nihil
-      obstat, editions of the Church Fathers, pre-conciliar manuals,
-      and titles that have been requested by our patrons. If you are unsure
-      whether a particular volume would be a good fit for the collection, please
-      do not hesitate to contact us at
-      <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
-      before sending.
-    </p>
   </section>
 
-  {# ── Monetary Donations ────────────────────────────────────────── #}
+  {# ── How to Give ──────────────────────────────────────────────── #}
   <section class="policy-section">
-    <h2 class="policy-section-title">Make a Financial Contribution</h2>
-    <p>
-      The digital library requires ongoing resources to operate: hosting costs,
-      software maintenance, the digitization of physical volumes, and above all
-      the acquisition of new titles to meet the needs of our patrons.
-      A financial gift of any amount helps to ensure the continuity and growth
-      of this work.
-    </p>
-    <p>
-      Monetary donations are used for:
-    </p>
+    <h2 class="policy-section-title">How You Can Help</h2>
+
+    <div class="donate-cards">
+      {# ── Card: Financial Gift ──────────────────────────────────── #}
+      <div class="donate-card">
+        <div class="donate-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+        </div>
+        <h3 class="donate-card-title">Make a Donation</h3>
+        <p>
+          A financial gift of any size goes directly toward acquiring new
+          titles, digitising physical volumes, and keeping our servers running.
+          No amount is too small.
+        </p>
+        <p>
+          To contribute, please write to us at
+          <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
+          and we will provide instructions.
+        </p>
+      </div>
+
+      {# ── Card: Donate Books ────────────────────────────────────── #}
+      <div class="donate-card">
+        <div class="donate-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+        </div>
+        <h3 class="donate-card-title">Donate a Book</h3>
+        <p>
+          If you possess Catholic works you would like to see preserved&mdash;theology,
+          Sacred Scripture, spirituality, Church history, canon law, liturgy, or
+          hagiography&mdash;we warmly welcome them. We are especially grateful for
+          works with an imprimatur, editions of the Fathers, and titles our
+          patrons have requested.
+        </p>
+        <p>Books in good condition may be mailed to:</p>
+        <div class="donate-address">
+          <strong>Library of the Oratory of the Most Sacred Hearts</strong><br>
+          PO Box 431521<br>
+          Miami, FL 33243-1521
+        </div>
+        <p class="text-small text-subdued">
+          Unsure whether a volume is a good fit? Write to
+          <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
+          before sending.
+        </p>
+      </div>
+
+      {# ── Card: Prayer ──────────────────────────────────────────── #}
+      <div class="donate-card">
+        <div class="donate-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
+        </div>
+        <h3 class="donate-card-title">Pray for Us</h3>
+        <p>
+          Above all, we ask for your prayers. The Oratory remembers its
+          benefactors at every Mass and in our daily Office. A Hail Mary for
+          the success of this apostolate is the greatest gift you can offer.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {# ── Where Your Gift Goes ─────────────────────────────────────── #}
+  <section class="policy-section">
+    <h2 class="policy-section-title">Where Your Gift Goes</h2>
     <ul class="donate-list">
-      <li>Purchasing books requested by patrons of the Oratory</li>
-      <li>Acquiring new editions of essential Catholic texts</li>
-      <li>Covering the costs of digitization and preservation</li>
-      <li>Maintaining the infrastructure of the digital lending system</li>
+      <li>Purchasing books requested by our patrons</li>
+      <li>Digitising and preserving rare Catholic texts</li>
+      <li>Hosting and maintaining the digital lending system</li>
+      <li>Expanding the public domain collection for free access</li>
     </ul>
-    <p>
-      To make a financial contribution, please contact us at
-      <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
-      for instructions. We are deeply grateful for every act of generosity,
-      however modest.
-    </p>
   </section>
 
   {# ── Closing ───────────────────────────────────────────────────── #}
   <section class="policy-section">
-    <h2 class="policy-section-title">A Word of Thanks</h2>
-    <p>
-      Every book donated, every contribution made, is an investment in the
-      formation of Catholic souls. The Oratory remembers its benefactors in
-      prayer. May God reward your generosity and may the saints whose words fill
-      these pages intercede for you and your families.
-    </p>
     <p class="donate-scripture">
-      <em>&ldquo;Each one must give as he has decided in his heart, not reluctantly
-      or under compulsion, for God loves a cheerful giver.&rdquo;</em><br>
+      <em>&ldquo;Each one must give as he has decided in his heart, not
+      reluctantly or under compulsion, for God loves a cheerful
+      giver.&rdquo;</em><br>
       <span class="donate-citation">&mdash; 2 Corinthians 9:7</span>
+    </p>
+    <p class="donate-gratitude">
+      May God reward your generosity and may the saints whose words fill
+      these pages intercede for you and your families.
     </p>
   </section>
 
