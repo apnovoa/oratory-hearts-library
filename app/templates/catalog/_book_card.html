@@ -7,7 +7,9 @@
       <div class="cover-placeholder" data-initial="{{ book.title[:1] }}"></div>
       {% endif %}
       {# Availability badge overlay on cover #}
-      {% if book.restricted_access %}
+      {% if book.is_public_domain %}
+      <span class="badge badge-success book-cover-badge">Public Domain</span>
+      {% elif book.restricted_access %}
       <span class="badge badge-unavailable book-cover-badge">Restricted</span>
       {% elif book.is_available %}
       <span class="badge badge-available book-cover-badge">Available</span>

@@ -120,6 +120,9 @@
                   {% if staged.metadata_sources and 'ai_claude' in staged.metadata_sources %}
                     <span class="badge badge-ai" title="Metadata extracted by Claude AI">AI</span>
                   {% endif %}
+                  {% if staged.public_domain_confidence is not none and staged.public_domain_confidence >= 70 %}
+                    <span class="badge badge-success" title="AI: {{ staged.public_domain_confidence }}% public domain">PD {{ staged.public_domain_confidence }}%</span>
+                  {% endif %}
                 </div>
                 <div class="text-subdued text-xs text-break">{{ staged.original_filename }}</div>
                 {% if staged.duplicate_of_book_id %}

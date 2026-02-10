@@ -251,6 +251,8 @@ def import_pdf_staged_approve(staged_id):
         isbn=staged.isbn,
         master_filename=master_filename,
         cover_filename=staged.cover_filename,
+        public_domain_confidence=staged.public_domain_confidence,
+        public_domain_reasoning=staged.public_domain_reasoning,
     )
 
     sync_tags(book, staged.tags_text)
@@ -342,6 +344,8 @@ def import_pdf_bulk_approve():
                 isbn=staged.isbn,
                 master_filename=master_filename,
                 cover_filename=staged.cover_filename,
+                public_domain_confidence=staged.public_domain_confidence,
+                public_domain_reasoning=staged.public_domain_reasoning,
             )
 
             sync_tags(book, staged.tags_text)
@@ -455,6 +459,10 @@ def import_pdf_ai_enrich():
             staged.language = ai_meta["language"]
         if ai_meta.get("tags"):
             staged.tags_text = ai_meta["tags"]
+        if ai_meta.get("public_domain_confidence") is not None:
+            staged.public_domain_confidence = ai_meta["public_domain_confidence"]
+        if ai_meta.get("public_domain_reasoning"):
+            staged.public_domain_reasoning = ai_meta["public_domain_reasoning"]
 
         sources.append("ai_claude")
         staged.metadata_sources = ",".join(sources)

@@ -44,13 +44,16 @@
       {% endif %}
 
       <div class="book-availability">
-        {% if book.restricted_access %}
+        {% if book.is_public_domain %}
+        <span class="badge badge-success">Public Domain</span>
+        {% elif book.restricted_access %}
         <span class="badge badge-unavailable">Restricted</span>
         {% elif book.is_available %}
         <span class="badge badge-available">Available</span>
         {% else %}
         <span class="badge badge-unavailable">Checked Out</span>
         {% endif %}
+        {% if not book.is_public_domain %}
         <span class="availability-count">{{ book.available_copies }} of {{ book.owned_copies }} cop{{ 'ies' if book.owned_copies != 1 else 'y' }} available</span>
         {% if not book.restricted_access and not book.is_available and next_available_date %}
         <p class="expected-availability">
@@ -60,11 +63,14 @@
           Expected available: <strong>{{ next_available_date.strftime('%B %d, %Y').replace(' 0', ' ') }}</strong>
         </p>
         {% endif %}
+        {% endif %}
       </div>
 
       {% if current_user.role == 'patron' %}
       <div class="book-actions">
-        {% if patron_has_loan %}
+        {% if book.is_public_domain %}
+        <a href="{{ url_for('lending.download_free', book_public_id=book.public_id) }}" class="btn btn-primary">Download (Free)</a>
+        {% elif patron_has_loan %}
         <p class="action-note">You currently have this book on loan.</p>
         <a href="{{ url_for('patron.dashboard') }}" class="btn btn-secondary">View My Loans</a>
         {% elif book.restricted_access %}
@@ -210,7 +216,9 @@
           <div class="book-card-info">
             <h3 class="book-card-title">{{ rbook.title }}</h3>
             <p class="book-card-author">{{ rbook.formatted_authors }}</p>
-            {% if rbook.restricted_access %}
+            {% if rbook.is_public_domain %}
+            <span class="badge badge-success">Public Domain</span>
+            {% elif rbook.restricted_access %}
             <span class="badge badge-unavailable">Restricted</span>
             {% elif rbook.is_available %}
             <span class="badge badge-available">Available</span>

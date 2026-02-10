@@ -81,6 +81,7 @@ def book_add():
             is_visible=form.is_visible.data,
             is_disabled=form.is_disabled.data,
             restricted_access=form.restricted_access.data,
+            is_public_domain=form.is_public_domain.data,
             imprimatur=form.imprimatur.data.strip() if form.imprimatur.data else None,
             nihil_obstat=form.nihil_obstat.data.strip() if form.nihil_obstat.data else None,
             ecclesiastical_approval_date=form.ecclesiastical_approval_date.data.strip()
@@ -167,6 +168,7 @@ def book_edit(book_id):
         book.is_visible = form.is_visible.data
         book.is_disabled = form.is_disabled.data
         book.restricted_access = form.restricted_access.data
+        book.is_public_domain = form.is_public_domain.data
         book.imprimatur = form.imprimatur.data.strip() if form.imprimatur.data else None
         book.nihil_obstat = form.nihil_obstat.data.strip() if form.nihil_obstat.data else None
         book.ecclesiastical_approval_date = (
@@ -283,6 +285,106 @@ def book_fetch_cover(book_id):
         flash("Could not find a cover image on Open Library. Try uploading one manually.", "warning")
 
     return redirect(url_for("admin.book_edit", book_id=book.id))
+
+
+# ── Public Domain AI Check ─────────────────────────────────────────
+
+
+@admin_bp.route("/books/<int:book_id>/check-public-domain", methods=["POST"])
+@admin_required
+@limiter.limit("10 per minute")
+def book_check_public_domain(book_id):
+    """Run AI public domain assessment on a single existing book."""
+    book = db.session.get(Book, book_id)
+    if not book:
+        abort(404)
+
+    if not current_app.config.get("AI_EXTRACTION_ENABLED"):
+        flash("AI extraction is disabled. Enable AI_EXTRACTION_ENABLED first.", "warning")
+        return redirect(url_for("admin.book_edit", book_id=book.id))
+
+    if not book.master_filename:
+        flash("No master PDF available for this book.", "warning")
+        return redirect(url_for("admin.book_edit", book_id=book.id))
+
+    master_dir = current_app.config["MASTER_STORAGE"]
+    master_path = os.path.realpath(os.path.join(master_dir, book.master_filename))
+    if not master_path.startswith(os.path.realpath(master_dir) + os.sep) or not os.path.isfile(master_path):
+        flash("Master PDF file not found.", "warning")
+        return redirect(url_for("admin.book_edit", book_id=book.id))
+
+    from ..ai_service import extract_metadata_with_ai
+
+    ai_meta = extract_metadata_with_ai(master_path, current_app.config)
+
+    if ai_meta and ai_meta.get("public_domain_confidence") is not None:
+        book.public_domain_confidence = ai_meta["public_domain_confidence"]
+        book.public_domain_reasoning = ai_meta.get("public_domain_reasoning")
+        db.session.commit()
+        log_event(
+            "public_domain_check",
+            target_type="book",
+            target_id=book.id,
+            detail=f"AI PD check: {book.public_domain_confidence}% for '{book.title}'",
+        )
+        flash(
+            f"Public domain assessment: {book.public_domain_confidence}% confidence. "
+            f"{book.public_domain_reasoning or ''}",
+            "success",
+        )
+    else:
+        flash("AI could not assess public domain status for this book.", "warning")
+
+    return redirect(url_for("admin.book_edit", book_id=book.id))
+
+
+@admin_bp.route("/books/batch-check-public-domain", methods=["POST"])
+@admin_required
+@limiter.limit("5 per minute")
+def books_batch_check_public_domain():
+    """Run AI public domain assessment on all books that haven't been checked yet."""
+    if not current_app.config.get("AI_EXTRACTION_ENABLED"):
+        flash("AI extraction is disabled. Enable AI_EXTRACTION_ENABLED first.", "warning")
+        return redirect(url_for("admin.books"))
+
+    from ..ai_service import extract_metadata_with_ai
+
+    # Find books with a master PDF that haven't been assessed yet
+    unchecked = Book.query.filter(
+        Book.master_filename.isnot(None),
+        Book.public_domain_confidence.is_(None),
+    ).all()
+
+    if not unchecked:
+        flash("All books with PDF files have already been checked.", "info")
+        return redirect(url_for("admin.books"))
+
+    master_dir = current_app.config["MASTER_STORAGE"]
+    checked = 0
+    skipped = 0
+
+    for book in unchecked:
+        master_path = os.path.realpath(os.path.join(master_dir, book.master_filename))
+        if not master_path.startswith(os.path.realpath(master_dir) + os.sep) or not os.path.isfile(master_path):
+            skipped += 1
+            continue
+
+        ai_meta = extract_metadata_with_ai(master_path, current_app.config)
+
+        if ai_meta and ai_meta.get("public_domain_confidence") is not None:
+            book.public_domain_confidence = ai_meta["public_domain_confidence"]
+            book.public_domain_reasoning = ai_meta.get("public_domain_reasoning")
+            checked += 1
+        else:
+            skipped += 1
+
+    db.session.commit()
+    log_event(
+        "batch_public_domain_check",
+        detail=f"Checked {checked} books, skipped {skipped}",
+    )
+    flash(f"Public domain check complete: {checked} assessed, {skipped} skipped.", "success")
+    return redirect(url_for("admin.books"))
 
 
 # ── CSV Import ────────────────────────────────────────────────────

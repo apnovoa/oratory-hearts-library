@@ -545,6 +545,10 @@ def _scan_single_file(filepath, batch_id, app):
             has_isbn=bool(final_isbn),
         )
 
+        # ---- Public domain assessment (from AI) ----
+        pd_confidence = ai.get("public_domain_confidence")
+        pd_reasoning = ai.get("public_domain_reasoning")
+
         # ---- Create StagedBook record ----
         staged = StagedBook(
             original_filename=filename,
@@ -557,6 +561,8 @@ def _scan_single_file(filepath, batch_id, app):
             publication_year=final_year,
             isbn=final_isbn,
             tags_text=final_subjects,
+            public_domain_confidence=pd_confidence,
+            public_domain_reasoning=pd_reasoning,
             metadata_sources=metadata_sources_str,
             cover_filename=cover_filename,
             confidence=confidence,

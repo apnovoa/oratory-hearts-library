@@ -32,6 +32,9 @@ def borrow(book_public_id):
     if not book.is_visible or book.is_disabled:
         abort(404)
 
+    if book.is_public_domain:
+        return redirect(url_for("lending.download_free", book_public_id=book.public_id))
+
     if book.restricted_access:
         flash("This title has restricted access. Please contact a librarian.", "warning")
         return redirect(url_for("catalog.detail", public_id=book.public_id))
@@ -132,6 +135,77 @@ def download(access_token):
         )
 
     return render_template("lending/download.html", loan=loan)
+
+
+@lending_bp.route("/download-free/<book_public_id>")
+@login_required
+@limiter.limit("30 per hour")
+def download_free(book_public_id):
+    """Download a public domain book directly (no loan required)."""
+    book = Book.query.filter_by(public_id=book_public_id).first_or_404()
+
+    if not book.is_public_domain or not book.is_visible or book.is_disabled:
+        abort(404)
+
+    if not book.master_filename:
+        flash("This title is not currently available for download.", "warning")
+        return redirect(url_for("catalog.detail", public_id=book.public_id))
+
+    # Serve download page (GET without ?file param) vs actual file
+    if request.args.get("file") == "1":
+        # Generate or use cached library-edition PDF
+        circ_dir = Path(current_app.config["CIRCULATION_STORAGE"]).resolve()
+
+        if not book.public_domain_filename:
+            from ..pdf_service import generate_public_domain_copy
+
+            try:
+                book.public_domain_filename = generate_public_domain_copy(book)
+                db.session.commit()
+            except (FileNotFoundError, ValueError, OSError) as exc:
+                current_app.logger.error("Failed to generate public domain PDF for book %d: %s", book.id, exc)
+                flash("Could not generate the download file. Please contact a librarian.", "danger")
+                return redirect(url_for("catalog.detail", public_id=book.public_id))
+
+        file_path = (circ_dir / book.public_domain_filename).resolve()
+        try:
+            file_path.relative_to(circ_dir)
+        except ValueError:
+            abort(403)
+        if not file_path.is_file():
+            # Regenerate if the cached file was deleted
+            from ..pdf_service import generate_public_domain_copy
+
+            try:
+                book.public_domain_filename = generate_public_domain_copy(book)
+                db.session.commit()
+            except (FileNotFoundError, ValueError, OSError) as exc:
+                current_app.logger.error("Failed to regenerate public domain PDF for book %d: %s", book.id, exc)
+                flash("Could not generate the download file. Please contact a librarian.", "danger")
+                return redirect(url_for("catalog.detail", public_id=book.public_id))
+
+        book.download_count += 1
+        db.session.commit()
+
+        log_event(
+            action="public_domain_download",
+            target_type="book",
+            target_id=book.id,
+            detail=f"Downloaded public domain copy (count: {book.download_count})",
+            user_id=current_user.id,
+        )
+
+        raw_title = book.title or "book"
+        safe_stem = secure_filename(raw_title).strip("._") or "book"
+        download_name = f"{safe_stem}.pdf"
+        return send_from_directory(
+            str(circ_dir),
+            book.public_domain_filename,
+            as_attachment=True,
+            download_name=download_name,
+        )
+
+    return render_template("lending/download_free.html", book=book)
 
 
 @lending_bp.route("/waitlist/<book_public_id>", methods=["POST"])

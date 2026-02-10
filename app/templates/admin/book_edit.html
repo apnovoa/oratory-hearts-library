@@ -147,6 +147,26 @@
           {{ form.restricted_access(class="form-check-input") }}
           {{ form.restricted_access.label }}
         </div>
+        <div class="form-group form-check">
+          {{ form.is_public_domain(class="form-check-input") }}
+          {{ form.is_public_domain.label }}
+        </div>
+        {% if book and book.public_domain_confidence is not none %}
+        <div class="form-group">
+          <small>AI confidence: <strong>{{ book.public_domain_confidence }}%</strong></small>
+          {% if book.public_domain_reasoning %}
+          <br><small>{{ book.public_domain_reasoning }}</small>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if book %}
+        <div class="form-group">
+          <button type="submit" formaction="{{ url_for('admin.book_check_public_domain', book_id=book.id) }}" class="btn btn-secondary btn-sm">
+            Run AI Public Domain Check
+          </button>
+          <small>Uses AI to assess whether this book is in the public domain.</small>
+        </div>
+        {% endif %}
       </fieldset>
 
       <fieldset>

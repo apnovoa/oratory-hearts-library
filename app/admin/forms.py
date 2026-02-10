@@ -80,6 +80,7 @@ class BookForm(FlaskForm):
     is_visible = BooleanField("Visible in catalog", default=True)
     is_disabled = BooleanField("Disabled (no new loans)", default=False)
     restricted_access = BooleanField("Restricted access", default=False)
+    is_public_domain = BooleanField("Public domain (free download, no loan required)", default=False)
     tags_text = StringField(
         "Tags",
         validators=[Optional(), Length(max=1000)],

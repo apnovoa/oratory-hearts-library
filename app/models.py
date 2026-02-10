@@ -159,6 +159,13 @@ class Book(db.Model):
     is_featured = db.Column(db.Boolean, nullable=False, default=False)
     restricted_access = db.Column(db.Boolean, nullable=False, default=False)
 
+    # Public domain
+    is_public_domain = db.Column(db.Boolean, nullable=False, default=False)
+    public_domain_confidence = db.Column(db.Integer, nullable=True)  # 0-100
+    public_domain_reasoning = db.Column(db.Text, nullable=True)
+    public_domain_filename = db.Column(db.String(255), nullable=True)  # cached library-edition PDF
+    download_count = db.Column(db.Integer, nullable=False, default=0)
+
     imprimatur = db.Column(db.String(500), nullable=True)
     nihil_obstat = db.Column(db.String(500), nullable=True)
     ecclesiastical_approval_date = db.Column(db.String(100), nullable=True)
@@ -466,6 +473,10 @@ class StagedBook(db.Model):
     publication_year = db.Column(db.Integer, nullable=True)
     isbn = db.Column(db.String(20), nullable=True)
     tags_text = db.Column(db.String(1000), nullable=True)
+
+    # Public domain (AI assessment during scan)
+    public_domain_confidence = db.Column(db.Integer, nullable=True)  # 0-100
+    public_domain_reasoning = db.Column(db.Text, nullable=True)
 
     # Metadata provenance
     metadata_sources = db.Column(db.Text, nullable=True)

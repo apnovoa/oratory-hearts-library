@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Download — {{ book.title }}{% endblock %}
+
+{% block content %}
+<div class="lending-page">
+  <div class="auth-card lending-card">
+    <div class="auth-header">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library crest" class="auth-cross-logo">
+      <h1 class="auth-title lending-title">{{ book.title }}</h1>
+      <p class="auth-subtitle">by {{ book.formatted_authors }}</p>
+    </div>
+
+    <div class="badge badge-success my-md" style="display:inline-block">Public Domain</div>
+
+    <p class="text-subdued my-md">
+      This work is in the public domain and may be freely downloaded, shared, and distributed.
+    </p>
+
+    <div class="d-flex gap-md my-lg">
+      <a href="{{ url_for('lending.download_free', book_public_id=book.public_id, file=1) }}"
+         class="btn btn-primary flex-1 text-center">
+        Download PDF
+      </a>
+    </div>
+
+    {% if book.download_count > 0 %}
+    <p class="text-subdued text-small text-center">
+      Downloaded {{ book.download_count }} time{{ 's' if book.download_count != 1 }} from this library.
+    </p>
+    {% endif %}
+
+    <div class="ornament-divider my-lg"></div>
+
+    <div class="flex-between">
+      <a href="{{ url_for('catalog.detail', public_id=book.public_id) }}">&larr; Book Details</a>
+      <a href="{{ url_for('catalog.browse') }}">Browse Catalog &rarr;</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

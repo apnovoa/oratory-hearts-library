@@ -23,9 +23,15 @@
   <div class="admin-content">
     <div class="admin-header">
       <h1>Books</h1>
-      <div class="d-flex gap-sm">
+      <div class="d-flex gap-sm flex-wrap">
         <a href="{{ url_for('admin.book_add') }}" class="btn btn-primary">Add Book</a>
         <a href="{{ url_for('admin.books_import_csv') }}" class="btn btn-secondary">Import CSV</a>
+        <form method="POST" action="{{ url_for('admin.books_batch_check_public_domain') }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-secondary" onclick="return confirm('Run AI public domain check on all unchecked books? This may take a while.')">
+            AI Public Domain Check
+          </button>
+        </form>
       </div>
     </div>
 
@@ -62,7 +68,7 @@
         {% for book in books %}
           <tr>
             <td>{{ book.id }}</td>
-            <td>{{ book.title }}</td>
+            <td>{{ book.title }}{% if book.is_public_domain %} <span class="badge badge-success">PD</span>{% endif %}</td>
             <td>{{ book.formatted_authors }}</td>
             <td>{{ book.owned_copies }}</td>
             <td>{{ book.active_loan_count }}</td>

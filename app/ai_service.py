@@ -101,6 +101,8 @@ def _build_metadata_prompt(text, include_description=True):
         '"isbn": "ISBN-10 or ISBN-13 if found, else null"',
         '"language": "ISO 639-1 two-letter code (e.g. en, la, es, fr, de, it)"',
         '"tags": ["up to 8 specific subject tags relevant to the content"]',
+        '"public_domain_confidence": integer 0-100 (how confident you are this work is in the public domain)',
+        '"public_domain_reasoning": "brief explanation of why you believe this is or is not public domain"',
     ]
 
     if include_description:
@@ -111,6 +113,11 @@ def _build_metadata_prompt(text, include_description=True):
     user_prompt = (
         f"Extract metadata from this book text and return JSON in exactly this format:\n"
         f"{json_schema}\n\n"
+        "Public domain assessment guidelines: Works published before 1929 are almost certainly "
+        "public domain in the US. Works by authors who died more than 70 years ago are likely "
+        "public domain. Consider the publisher, copyright notice, publication year, and any "
+        "other relevant clues visible in the text. If the publication year is unknown, use "
+        "other clues (language style, publisher, printing conventions) to estimate.\n\n"
         f"--- BOOK TEXT ---\n{text}"
     )
 
@@ -133,6 +140,8 @@ def _build_vision_prompt(include_description=True):
         '"isbn": "ISBN-10 or ISBN-13 if found, else null"',
         '"language": "ISO 639-1 two-letter code (e.g. en, la, es, fr, de, it)"',
         '"tags": ["up to 8 specific subject tags relevant to the content"]',
+        '"public_domain_confidence": integer 0-100 (how confident you are this work is in the public domain)',
+        '"public_domain_reasoning": "brief explanation of why you believe this is or is not public domain"',
     ]
 
     if include_description:
@@ -143,7 +152,11 @@ def _build_vision_prompt(include_description=True):
     user_text = (
         "These are images of the first pages of a scanned book. "
         "Read the visible text and extract metadata in exactly this JSON format:\n"
-        f"{json_schema}"
+        f"{json_schema}\n\n"
+        "Public domain assessment guidelines: Works published before 1929 are almost certainly "
+        "public domain in the US. Works by authors who died more than 70 years ago are likely "
+        "public domain. Consider the publisher, copyright notice, publication year, and any "
+        "other relevant clues visible in the pages."
     )
 
     return system_prompt, user_text
@@ -180,6 +193,8 @@ def _parse_ai_response(raw_text, filepath):
         "isbn": _safe_str(result.get("isbn"), 20),
         "language": _safe_str(result.get("language"), 10),
         "tags": None,
+        "public_domain_confidence": None,
+        "public_domain_reasoning": None,
     }
 
     year = result.get("publication_year")
@@ -190,6 +205,19 @@ def _parse_ai_response(raw_text, filepath):
     if isinstance(tags, list):
         joined = ", ".join(str(t)[:100] for t in tags[:15] if t)
         normalised["tags"] = joined[:2000] or None
+
+    pd_conf = result.get("public_domain_confidence")
+    if isinstance(pd_conf, int) and 0 <= pd_conf <= 100:
+        normalised["public_domain_confidence"] = pd_conf
+    elif isinstance(pd_conf, (float, str)):
+        try:
+            val = int(float(pd_conf))
+            if 0 <= val <= 100:
+                normalised["public_domain_confidence"] = val
+        except (ValueError, TypeError):
+            pass
+
+    normalised["public_domain_reasoning"] = _safe_str(result.get("public_domain_reasoning"), 2000)
 
     return normalised
 

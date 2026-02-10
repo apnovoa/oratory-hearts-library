@@ -2,11 +2,13 @@ admin.dashboard|GET|/admin/
 admin.audit|GET|/admin/audit
 admin.audit_export|GET|/admin/audit/export
 admin.books|GET|/admin/books
+admin.book_check_public_domain|POST|/admin/books/<int:book_id>/check-public-domain
 admin.book_edit|GET,POST|/admin/books/<int:book_id>/edit
 admin.book_fetch_cover|POST|/admin/books/<int:book_id>/fetch-cover
 admin.book_toggle_disabled|POST|/admin/books/<int:book_id>/toggle-disabled
 admin.book_toggle_visibility|POST|/admin/books/<int:book_id>/toggle-visibility
 admin.book_add|GET,POST|/admin/books/add
+admin.books_batch_check_public_domain|POST|/admin/books/batch-check-public-domain
 admin.books_import_csv|GET,POST|/admin/books/import-csv
 admin.change_password|GET,POST|/admin/change-password
 admin.import_pdf_dashboard|GET|/admin/import-pdf

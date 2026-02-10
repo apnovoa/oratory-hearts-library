@@ -311,6 +311,175 @@ def _build_end_page(book, user, due_str):
     return buf
 
 
+def generate_public_domain_copy(book):
+    """Generate a library-edition PDF for a public domain book.
+
+    Prepends a donate/attribution front page. No watermarks, no end page.
+    Returns the filename of the saved copy, or raises on failure.
+    """
+    master_dir = current_app.config["MASTER_STORAGE"]
+    master_path = os.path.realpath(os.path.join(master_dir, book.master_filename))
+    if not master_path.startswith(os.path.realpath(master_dir) + os.sep):
+        raise ValueError(f"Path traversal blocked: {book.master_filename}")
+    if not os.path.isfile(master_path):
+        raise FileNotFoundError(f"Master PDF not found: {book.master_filename}")
+
+    # Build the donate front page
+    donate_buf = _build_donate_page(book)
+
+    with pikepdf.open(master_path) as master_pdf:
+        # Insert donate page at beginning
+        donate_pdf = pikepdf.open(donate_buf)
+        master_pdf.pages.insert(0, donate_pdf.pages[0])
+
+        # Embed metadata
+        with master_pdf.open_metadata() as meta:
+            meta["dc:title"] = book.title
+            meta["dc:creator"] = [book.formatted_authors]
+            meta["dc:description"] = f"Public domain \u2014 {LIBRARY_NAME}"
+            meta["pdf:Producer"] = LIBRARY_NAME
+
+        # Save to circulation storage (reuse the same dir)
+        filename = f"pd_{book.public_id}.pdf"
+        output_path = os.path.join(current_app.config["CIRCULATION_STORAGE"], filename)
+        master_pdf.save(output_path)
+
+        donate_pdf.close()
+
+    return filename
+
+
+def _build_donate_page(book):
+    """Build a donate/attribution front page for public domain books. Returns a BytesIO."""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter)
+    width, height = letter
+
+    donate_url = current_app.config.get("DONATE_URL", "")
+    library_url = current_app.config.get("LIBRARY_URL", "")
+
+    logo_path = _get_logo_path()
+
+    # Logo centered at top
+    if logo_path:
+        logo_w = 1.8 * inch
+        logo_h = 0.9 * inch
+        c.drawImage(
+            logo_path,
+            (width - logo_w) / 2,
+            height - 1.2 * inch,
+            width=logo_w,
+            height=logo_h,
+            preserveAspectRatio=True,
+            anchor="c",
+            mask="auto",
+        )
+        name_y = height - 1.6 * inch
+    else:
+        name_y = height - 1.5 * inch
+
+    # Library name header
+    c.setFont("Times-Bold", 22)
+    c.drawCentredString(width / 2, name_y, LIBRARY_NAME)
+
+    # Decorative line
+    line_y = name_y - 0.3 * inch
+    c.setStrokeColorRGB(0.42, 0.11, 0.16)
+    c.setLineWidth(1.5)
+    c.line(1.2 * inch, line_y, width - 1.2 * inch, line_y)
+
+    # "Public Domain" heading
+    c.setFont("Times-Bold", 18)
+    c.drawCentredString(width / 2, line_y - 0.7 * inch, "Public Domain Edition")
+
+    # Book details
+    y = line_y - 1.5 * inch
+    c.setFont("Times-Roman", 13)
+
+    fields = [
+        ("Title:", book.title),
+        ("Author:", book.formatted_authors),
+    ]
+    if book.publication_year:
+        fields.append(("Year:", str(book.publication_year)))
+
+    for label, value in fields:
+        c.setFont("Times-Bold", 12)
+        c.drawString(1.5 * inch, y, label)
+        c.setFont("Times-Roman", 12)
+        display_value = value if len(value) <= 70 else value[:67] + "..."
+        c.drawString(3.0 * inch, y, display_value)
+        y -= 0.35 * inch
+
+    # Public domain notice
+    y -= 0.5 * inch
+    c.setFont("Times-Italic", 11)
+    notice_lines = [
+        "This work is in the public domain and is provided freely by the",
+        f"{LIBRARY_NAME}.",
+        "",
+        "You are free to read, share, and distribute this text.",
+    ]
+    for line in notice_lines:
+        if line == "":
+            y -= 0.15 * inch
+            continue
+        c.drawCentredString(width / 2, y, line)
+        y -= 0.25 * inch
+
+    # Donate request
+    y -= 0.4 * inch
+    c.setFont("Times-Bold", 13)
+    c.drawCentredString(width / 2, y, "Support Our Library")
+    y -= 0.35 * inch
+    c.setFont("Times-Roman", 11)
+    donate_lines = [
+        "If this book has been of value to you, please consider",
+        "making a donation to help us continue preserving and sharing",
+        "the treasures of the Catholic intellectual tradition.",
+    ]
+    for line in donate_lines:
+        c.drawCentredString(width / 2, y, line)
+        y -= 0.25 * inch
+
+    if donate_url:
+        y -= 0.15 * inch
+        c.setFont("Times-Bold", 11)
+        c.setFillColorRGB(0.42, 0.11, 0.16)
+        c.drawCentredString(width / 2, y, donate_url)
+        c.setFillColorRGB(0, 0, 0)
+
+    # Decorative bottom line
+    c.setStrokeColorRGB(0.42, 0.11, 0.16)
+    c.setLineWidth(1.5)
+    c.line(1.2 * inch, 1.2 * inch, width - 1.2 * inch, 1.2 * inch)
+
+    # Footer
+    if logo_path:
+        footer_logo_w = 0.5 * inch
+        footer_logo_h = 0.25 * inch
+        c.drawImage(
+            logo_path,
+            (width - footer_logo_w) / 2,
+            0.85 * inch,
+            width=footer_logo_w,
+            height=footer_logo_h,
+            preserveAspectRatio=True,
+            anchor="c",
+            mask="auto",
+        )
+        c.setFont("Times-Roman", 8)
+        c.drawCentredString(width / 2, 0.7 * inch, LIBRARY_NAME)
+    else:
+        c.setFont("Times-Roman", 9)
+        c.drawCentredString(width / 2, 0.9 * inch, LIBRARY_NAME)
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf
+
+
 def _build_watermark_overlay(page, text):
     """Build a single-page PDF with a two-line footer watermark sized to match the given page.
 

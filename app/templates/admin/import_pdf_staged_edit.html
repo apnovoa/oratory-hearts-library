@@ -47,6 +47,9 @@
           {% if staged.duplicate_of_book_id %}
           <tr><td>Duplicate:</td><td><span class="badge badge-warning">{{ staged.duplicate_type }} match — Book #{{ staged.duplicate_of_book_id }}</span></td></tr>
           {% endif %}
+          {% if staged.public_domain_confidence is not none %}
+          <tr><td>Public Domain:</td><td><strong>{{ staged.public_domain_confidence }}%</strong> confidence{% if staged.public_domain_reasoning %} — {{ staged.public_domain_reasoning }}{% endif %}</td></tr>
+          {% endif %}
           {% if staged.error_message %}
           <tr><td>Error:</td><td class="text-error">{{ staged.error_message }}</td></tr>
           {% endif %}
