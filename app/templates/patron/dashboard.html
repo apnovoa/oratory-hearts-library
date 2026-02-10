@@ -37,7 +37,7 @@
                         <strong>{{ loan.book_title_snapshot or 'Unknown Title' }}</strong>
                         {% endif %}
                     </td>
-                    <td>{{ loan.book_author_snapshot or loan.book.formatted_authors }}</td>
+                    <td>{{ loan.book_author_snapshot or (loan.book.formatted_authors if loan.book else '—') }}</td>
                     <td class="text-sans text-small">{{ loan.borrowed_at.strftime('%d %b %Y') }}</td>
                     <td class="text-sans text-small">
                         {{ loan.due_at.strftime('%d %b %Y, %H:%M UTC') }}

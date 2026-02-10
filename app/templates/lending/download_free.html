@@ -26,7 +26,7 @@
 
     {% if book.download_count > 0 %}
     <p class="text-subdued text-small text-center">
-      Downloaded {{ book.download_count }} time{{ 's' if book.download_count != 1 }} from this library.
+      Downloaded {{ book.download_count }} time{{ 's' if book.download_count != 1 else '' }} from this library.
     </p>
     {% endif %}
 
