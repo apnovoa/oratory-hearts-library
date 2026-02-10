@@ -1,14 +1,15 @@
 from datetime import UTC, datetime
-from urllib.parse import urlparse
 
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
+from sqlalchemy.exc import IntegrityError
 
 from .. import limiter
 from ..audit import log_event
 from ..lending.service import renew_loan as service_renew_loan
 from ..lending.service import return_loan as service_return_loan
 from ..models import Book, BookNote, BookRequest, Favorite, Loan, db
+from ..url_utils import is_safe_redirect_target
 from .forms import BookNoteForm, BookRequestForm, ProfileForm
 
 patron_bp = Blueprint("patron", __name__)
@@ -171,9 +172,14 @@ def toggle_favorite(book_public_id):
     else:
         fav = Favorite(user_id=current_user.id, book_id=book.id)
         db.session.add(fav)
-        db.session.commit()
-        is_favorited = True
-        flash(f'"{book.title}" added to favorites.', "success")
+        try:
+            db.session.commit()
+            is_favorited = True
+            flash(f'"{book.title}" added to favorites.', "success")
+        except IntegrityError:
+            db.session.rollback()
+            is_favorited = True
+            flash(f'"{book.title}" is already in your favorites.', "info")
 
     # AJAX-friendly: return JSON if requested
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -181,10 +187,8 @@ def toggle_favorite(book_public_id):
 
     # Otherwise redirect back to referrer or book detail
     referrer = request.referrer
-    if referrer:
-        parsed = urlparse(referrer)
-        if parsed.netloc and parsed.netloc != request.host:
-            referrer = None
+    if not is_safe_redirect_target(referrer, request.host_url):
+        referrer = None
     return redirect(referrer or url_for("catalog.detail", public_id=book.public_id))
 
 

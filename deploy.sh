@@ -96,7 +96,8 @@ systemctl restart bibliotheca
 sleep 3
 
 if systemctl is-active --quiet bibliotheca \
-   && curl -sf http://127.0.0.1:8080/ping >/dev/null; then
+   && curl -sf http://127.0.0.1:8080/health \
+      | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("status") == "ok" else 1)'; then
     echo "Health check passed."
 else
     echo "FATAL: Health check failed — rolling back..."

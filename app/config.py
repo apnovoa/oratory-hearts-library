@@ -31,6 +31,7 @@ class Config:
     MAX_FAILED_LOGINS = int(os.environ.get("MAX_FAILED_LOGINS", "5"))
     ACCOUNT_LOCKOUT_MINUTES = int(os.environ.get("ACCOUNT_LOCKOUT_MINUTES", "15"))
     REGISTRATION_ENABLED = os.environ.get("REGISTRATION_ENABLED", "true").lower() == "true"
+    TRUST_PROXY = os.environ.get("TRUST_PROXY", "false").lower() == "true"
 
     # Rate limiting
     RATELIMIT_DEFAULT = os.environ.get("RATELIMIT_DEFAULT", "200 per hour")
@@ -59,6 +60,7 @@ class Config:
     AI_MODEL_TIER3 = "claude-sonnet-4-5-20250929"
     AI_MAX_PAGES_METADATA = 3
     AI_MAX_PAGES_DEEP = int(os.environ.get("AI_MAX_PAGES_DEEP", "9999"))
+    AI_REQUEST_TIMEOUT_SECONDS = int(os.environ.get("AI_REQUEST_TIMEOUT_SECONDS", "30"))
 
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
@@ -97,11 +99,25 @@ class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True
     REMEMBER_COOKIE_SECURE = True
+    TRUST_PROXY = os.environ.get("TRUST_PROXY", "true").lower() == "true"
 
     @classmethod
     def init_app(cls, app):
-        if not os.environ.get("SECRET_KEY"):
+        secret_key = os.environ.get("SECRET_KEY", "").strip()
+        if not secret_key:
             raise RuntimeError("SECRET_KEY environment variable must be set in production")
+        if len(secret_key) < 32:
+            raise RuntimeError(
+                "SECRET_KEY is too short for production (minimum 32 characters). "
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+        lowered_secret = secret_key.lower()
+        weak_markers = ("changeme", "change-this", "replace", "secret", "example", "default")
+        if any(marker in lowered_secret for marker in weak_markers):
+            raise RuntimeError(
+                "SECRET_KEY appears to be a placeholder and is not allowed in production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
 
         library_domain = os.environ.get("LIBRARY_DOMAIN", "").strip()
         parsed_domain = urlparse(library_domain)

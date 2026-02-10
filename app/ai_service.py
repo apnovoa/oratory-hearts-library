@@ -11,6 +11,8 @@ import json
 import logging
 import time
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 # Rate-limit delay between API calls (seconds)
@@ -233,13 +235,20 @@ def extract_metadata_with_ai(filepath, app_config):
         logger.warning("anthropic package is not installed; AI extraction unavailable.")
         return None
 
+    configured_timeout = app_config.get("AI_REQUEST_TIMEOUT_SECONDS", 30)
+    try:
+        timeout_seconds = max(1, int(configured_timeout))
+    except (TypeError, ValueError):
+        timeout_seconds = 30
+        logger.warning("Invalid AI_REQUEST_TIMEOUT_SECONDS value %r; defaulting to %s.", configured_timeout, 30)
+
     # Extract text
     text = _extract_text_from_pdf(filepath, max_pages=max_pages)
 
     # Rate limiting
     time.sleep(_API_DELAY)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, timeout=timeout_seconds)
 
     if text:
         # ---- Text-based extraction ----
@@ -252,7 +261,7 @@ def extract_metadata_with_ai(filepath, app_config):
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )
-        except (anthropic.APIError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        except (anthropic.APIError, httpx.TimeoutException, OSError, RuntimeError, TypeError, ValueError) as exc:
             logger.warning("AI API call failed for %s: %s", filepath, exc)
             return None
 
@@ -289,7 +298,7 @@ def extract_metadata_with_ai(filepath, app_config):
                 system=system_prompt,
                 messages=[{"role": "user", "content": content_blocks}],
             )
-        except (anthropic.APIError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        except (anthropic.APIError, httpx.TimeoutException, OSError, RuntimeError, TypeError, ValueError) as exc:
             logger.warning("AI vision call failed for %s: %s", filepath, exc)
             return None
 

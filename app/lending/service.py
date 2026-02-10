@@ -257,56 +257,66 @@ def expire_loans():
 
 
 def process_waitlist(book, *, commit=True):
-    """Notify the next patron on the waitlist when a copy becomes available."""
-    if book.available_copies <= 0:
-        return False
+    """Notify waitlisted patrons while copies are available.
 
-    next_entry = (
-        WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False)
-        .filter(WaitlistEntry.notified_at == None)
-        .order_by(WaitlistEntry.created_at.asc())
-        .first()
-    )
+    Returns the number of successful notifications.
+    """
+    available_copies = max(0, int(book.available_copies))
+    if available_copies <= 0:
+        return 0
 
-    if not next_entry:
-        return False
+    max_notifications = min(available_copies, max(0, int(book.owned_copies)))
+    notifications_sent = 0
 
-    # Send waitlist notification email first; only mark as notified on success.
-    try:
-        from ..email_service import send_waitlist_notification
+    while notifications_sent < max_notifications:
+        next_entry = (
+            WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False)
+            .filter(WaitlistEntry.notified_at == None)
+            .order_by(WaitlistEntry.created_at.asc())
+            .first()
+        )
 
-        user = db.session.get(User, next_entry.user_id)
-        if not user:
-            return False
-        sent = send_waitlist_notification(user, book)
-        if not sent:
-            current_app.logger.warning(
-                "Waitlist notification send returned false for user %s book '%s'",
-                next_entry.user_id,
-                book.title,
-            )
-            return False
-    except (RuntimeError, OSError, ValueError):
-        current_app.logger.exception(f"Failed to send waitlist notification for book '{book.title}'")
-        return False
+        if not next_entry:
+            break
 
-    next_entry.notified_at = _utcnow()
-    log_event(
-        action="waitlist_notify",
-        target_type="book",
-        target_id=book.id,
-        detail=f"Notified patron {next_entry.user_id} that '{book.title}' is available",
-        user_id=next_entry.user_id,
-        commit=False,
-    )
+        # Send waitlist notification email first; only mark as notified on success.
+        try:
+            from ..email_service import send_waitlist_notification
 
-    if commit:
-        db.session.commit()
-    else:
-        db.session.flush()
+            user = db.session.get(User, next_entry.user_id)
+            if not user:
+                break
+            sent = send_waitlist_notification(user, book)
+            if not sent:
+                current_app.logger.warning(
+                    "Waitlist notification send returned false for user %s book '%s'",
+                    next_entry.user_id,
+                    book.title,
+                )
+                break
+        except (RuntimeError, OSError, ValueError):
+            current_app.logger.exception("Failed to send waitlist notification for book '%s'", book.title)
+            break
 
-    current_app.logger.info(f"Waitlist: notified user {next_entry.user_id} for book '{book.title}'")
-    return True
+        next_entry.notified_at = _utcnow()
+        log_event(
+            action="waitlist_notify",
+            target_type="book",
+            target_id=book.id,
+            detail=f"Notified patron {next_entry.user_id} that '{book.title}' is available",
+            user_id=next_entry.user_id,
+            commit=False,
+        )
+        notifications_sent += 1
+
+    if notifications_sent:
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+        current_app.logger.info("Waitlist: notified %d patron(s) for book '%s'", notifications_sent, book.title)
+
+    return notifications_sent
 
 
 def send_reminders():

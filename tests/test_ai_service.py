@@ -52,7 +52,7 @@ def test_extract_metadata_handles_api_error_gracefully(monkeypatch):
             raise _DummyAPIError("boom")
 
     class _DummyAnthropicClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, timeout=None):
             self.messages = _DummyMessages()
 
     class _DummyAnthropicModule:
@@ -71,3 +71,46 @@ def test_extract_metadata_handles_api_error_gracefully(monkeypatch):
         "AI_MAX_PAGES_METADATA": 3,
     }
     assert ai_service.extract_metadata_with_ai("book.pdf", cfg) is None
+
+
+def test_extract_metadata_uses_configured_timeout(monkeypatch):
+    captured = {}
+
+    class _DummyMessages:
+        @staticmethod
+        def create(**kwargs):
+            class _Content:
+                text = '{"title":"Book","author":"Author","publication_year":2000}'
+
+            class _Response:
+                def __init__(self):
+                    self.content = [_Content()]
+
+            return _Response()
+
+    class _DummyAnthropicClient:
+        def __init__(self, api_key, timeout=None):
+            captured["api_key"] = api_key
+            captured["timeout"] = timeout
+            self.messages = _DummyMessages()
+
+    class _DummyAnthropicModule:
+        APIError = Exception
+        Anthropic = _DummyAnthropicClient
+
+    monkeypatch.setitem(sys.modules, "anthropic", _DummyAnthropicModule())
+    monkeypatch.setattr(ai_service, "_extract_text_from_pdf", lambda filepath, max_pages=3: "sample text")
+    monkeypatch.setattr(ai_service, "_API_DELAY", 0)
+
+    cfg = {
+        "AI_EXTRACTION_ENABLED": True,
+        "ANTHROPIC_API_KEY": "key",
+        "AI_EXTRACTION_TIER": "tier2",
+        "AI_MODEL_TIER2": "dummy",
+        "AI_MAX_PAGES_METADATA": 3,
+        "AI_REQUEST_TIMEOUT_SECONDS": 17,
+    }
+    result = ai_service.extract_metadata_with_ai("book.pdf", cfg)
+    assert result is not None
+    assert captured["api_key"] == "key"
+    assert captured["timeout"] == 17

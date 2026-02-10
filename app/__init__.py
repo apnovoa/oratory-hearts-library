@@ -66,9 +66,14 @@ def create_app(config_name=None):
     if hasattr(config_cls, "init_app"):
         config_cls.init_app(app)
 
-    from werkzeug.middleware.proxy_fix import ProxyFix
+    trust_proxy_env = os.environ.get("TRUST_PROXY")
+    if trust_proxy_env is not None:
+        app.config["TRUST_PROXY"] = trust_proxy_env.lower() == "true"
 
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    if app.config.get("TRUST_PROXY"):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # Configure logging
     _configure_logging(app)

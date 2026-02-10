@@ -3,6 +3,8 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+from sqlalchemy.exc import IntegrityError
+
 from app.models import Book, Loan, WaitlistEntry
 from tests.conftest import _make_book, _make_user
 
@@ -225,6 +227,31 @@ def test_waitlist_duplicate_prevented(mock_pdf, mock_del, patron_client, patron,
     assert count == 1
 
 
+def test_waitlist_join_handles_integrity_race(patron_client, patron, db, monkeypatch):
+    book = _make_book(title="Waitlist Race", owned_copies=1)
+    other = _make_user(email="race-other@test.com")
+    db.session.add(
+        Loan(user_id=other.id, book_id=book.id, is_active=True, due_at=datetime.now(UTC) + timedelta(days=7))
+    )
+    db.session.commit()
+
+    real_commit = db.session.commit
+    state = {"raised": False}
+
+    def _flaky_commit():
+        if not state["raised"]:
+            state["raised"] = True
+            raise IntegrityError("INSERT INTO waitlist_entries ...", {}, Exception("duplicate"))
+        return real_commit()
+
+    monkeypatch.setattr(db.session, "commit", _flaky_commit)
+
+    rv = patron_client.post(f"/waitlist/{book.public_id}", follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"already on the waitlist" in rv.data
+    assert WaitlistEntry.query.filter_by(user_id=patron.id, book_id=book.id).count() == 0
+
+
 def test_waitlist_hidden_book_returns_404(patron_client):
     hidden_book = _make_book(title="Hidden Waitlist", is_visible=False)
     rv = patron_client.post(f"/waitlist/{hidden_book.public_id}", follow_redirects=False)
@@ -443,11 +470,70 @@ def test_process_waitlist_does_not_mark_notified_on_email_failure(mock_waitlist,
         from app.lending.service import process_waitlist
 
         result = process_waitlist(book)
-        assert result is False
+        assert result == 0
 
     db.session.refresh(wait_entry)
     assert wait_entry.notified_at is None
     mock_waitlist.assert_called_once()
+
+
+@patch("app.email_service.send_waitlist_notification", return_value=True)
+def test_process_waitlist_notifies_multiple_patrons_when_multiple_copies_available(mock_waitlist, app, db):
+    waiter_1 = _make_user(email="wl-multi-1@test.com")
+    waiter_2 = _make_user(email="wl-multi-2@test.com")
+    waiter_3 = _make_user(email="wl-multi-3@test.com")
+    book = _make_book(title="Waitlist Multi", owned_copies=3)
+
+    # One active loan => two copies available.
+    borrower = _make_user(email="wl-multi-borrower@test.com")
+    db.session.add(
+        Loan(user_id=borrower.id, book_id=book.id, is_active=True, due_at=datetime.now(UTC) + timedelta(days=2))
+    )
+    db.session.add_all(
+        [
+            WaitlistEntry(user_id=waiter_1.id, book_id=book.id, is_fulfilled=False),
+            WaitlistEntry(user_id=waiter_2.id, book_id=book.id, is_fulfilled=False),
+            WaitlistEntry(user_id=waiter_3.id, book_id=book.id, is_fulfilled=False),
+        ]
+    )
+    db.session.commit()
+
+    with app.app_context():
+        from app.lending.service import process_waitlist
+
+        sent_count = process_waitlist(book)
+        assert sent_count == 2
+
+    entries = WaitlistEntry.query.filter_by(book_id=book.id).order_by(WaitlistEntry.created_at.asc()).all()
+    assert entries[0].notified_at is not None
+    assert entries[1].notified_at is not None
+    assert entries[2].notified_at is None
+    assert mock_waitlist.call_count == 2
+
+
+@patch("app.email_service.send_waitlist_notification", side_effect=[True, False])
+def test_process_waitlist_stops_fifo_on_notification_failure(mock_waitlist, app, db):
+    waiter_1 = _make_user(email="wl-fifo-1@test.com")
+    waiter_2 = _make_user(email="wl-fifo-2@test.com")
+    book = _make_book(title="Waitlist FIFO", owned_copies=2)
+    db.session.add_all(
+        [
+            WaitlistEntry(user_id=waiter_1.id, book_id=book.id, is_fulfilled=False),
+            WaitlistEntry(user_id=waiter_2.id, book_id=book.id, is_fulfilled=False),
+        ]
+    )
+    db.session.commit()
+
+    with app.app_context():
+        from app.lending.service import process_waitlist
+
+        sent_count = process_waitlist(book)
+        assert sent_count == 1
+
+    entries = WaitlistEntry.query.filter_by(book_id=book.id).order_by(WaitlistEntry.created_at.asc()).all()
+    assert entries[0].notified_at is not None
+    assert entries[1].notified_at is None
+    assert mock_waitlist.call_count == 2
 
 
 @patch("app.email_service.send_reminder_email", return_value=False)

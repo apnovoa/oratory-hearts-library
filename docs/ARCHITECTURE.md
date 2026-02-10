@@ -201,6 +201,8 @@ SystemConfig (key-value settings store)
 
 Standard email/password login with optional Google OAuth. Passwords are hashed with bcrypt (13 rounds). Failed login attempts trigger progressive account lockout (5 failures = 15-minute lock). Password reset uses time-limited signed tokens (1 hour). Sessions last 8 hours; remember-me cookies last 14 days. All auth routes are rate-limited at 5 requests/minute. Admins can force-logout any user by setting a timestamp that invalidates all earlier sessions.
 
+Role model note: `admin` and `patron` are currently enforced in route guards; `librarian` remains a reserved role value for future policy expansion.
+
 ### Book Catalog
 
 Authenticated patrons browse the catalog with full-text search powered by SQLite FTS5. Results can be filtered by tag, language, and availability, and sorted by title, author, recency, or availability. The landing page shows a "New Arrivals" shelf and "Staff Picks" (featured books). Each book detail page shows metadata, availability status, expected return dates for checked-out copies, and the patron's personal notes and favorite status.

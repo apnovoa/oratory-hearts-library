@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+from sqlalchemy.exc import IntegrityError
+
 from app.models import BookNote, Favorite
 from tests.conftest import _make_book
 
@@ -54,6 +56,47 @@ def test_favorite_toggle_remove(patron_client, patron, db):
     patron_client.post(f"/patron/favorites/{book.public_id}/toggle", follow_redirects=True)
     fav = Favorite.query.filter_by(user_id=patron.id, book_id=book.id).first()
     assert fav is None
+
+
+def test_favorite_toggle_handles_integrity_race(patron_client, patron, db, monkeypatch):
+    book = _make_book(title="Race Favorite")
+
+    real_commit = db.session.commit
+    state = {"raised": False}
+
+    def _flaky_commit():
+        if not state["raised"]:
+            state["raised"] = True
+            raise IntegrityError("INSERT INTO favorites ...", {}, Exception("duplicate"))
+        return real_commit()
+
+    monkeypatch.setattr(db.session, "commit", _flaky_commit)
+
+    rv = patron_client.post(f"/patron/favorites/{book.public_id}/toggle", follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"already in your favorites" in rv.data
+
+
+def test_favorite_toggle_rejects_unsafe_referrer_redirect(patron_client):
+    book = _make_book(title="Unsafe Referrer Favorite")
+    rv = patron_client.post(
+        f"/patron/favorites/{book.public_id}/toggle",
+        headers={"Referer": "javascript:alert(1)"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    assert rv.headers["Location"].endswith(f"/catalog/{book.public_id}")
+
+
+def test_favorite_toggle_allows_same_origin_referrer_redirect(patron_client):
+    book = _make_book(title="Safe Referrer Favorite")
+    rv = patron_client.post(
+        f"/patron/favorites/{book.public_id}/toggle",
+        headers={"Referer": "http://localhost/patron/dashboard"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    assert rv.headers["Location"].endswith("/patron/dashboard")
 
 
 def test_favorite_toggle_hidden_book_returns_404(patron_client, db):

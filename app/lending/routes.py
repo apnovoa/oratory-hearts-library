@@ -12,6 +12,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
 from .. import limiter
@@ -177,7 +178,12 @@ def join_waitlist(book_public_id):
 
     entry = WaitlistEntry(user_id=current_user.id, book_id=book.id)
     db.session.add(entry)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("You are already on the waitlist for this book.", "info")
+        return redirect(url_for("catalog.detail", public_id=book.public_id))
 
     position = WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False).count()
 

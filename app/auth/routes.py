@@ -1,6 +1,5 @@
 import secrets
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urljoin, urlparse
 
 import bcrypt
 from authlib.integrations.base_client.errors import OAuthError
@@ -11,7 +10,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from .. import limiter, oauth
 from ..audit import log_event
 from ..models import User, db
-from ..url_utils import public_base_url
+from ..url_utils import is_safe_redirect_target, public_base_url
 from .forms import LoginForm, RegistrationForm, RequestPasswordResetForm, ResetPasswordForm
 
 auth_bp = Blueprint("auth", __name__)
@@ -37,21 +36,6 @@ def _verify_reset_token(token):
     except (BadSignature, SignatureExpired):
         return None
     return email
-
-
-def _is_safe_redirect_target(target):
-    """Allow only same-origin redirect targets."""
-    if not target:
-        return False
-    if "\\" in target:
-        return False
-    if any(ord(ch) < 32 for ch in target):
-        return False
-    if not target.startswith("/") or target.startswith("//"):
-        return False
-    ref_url = urlparse(request.host_url)
-    test_url = urlparse(urljoin(request.host_url, target))
-    return test_url.scheme in {"http", "https"} and ref_url.netloc == test_url.netloc
 
 
 def _library_absolute_url(endpoint, **values):
@@ -138,7 +122,7 @@ def login():
         log_event("login_success", "user", user.id)
 
         next_page = request.args.get("next")
-        if not _is_safe_redirect_target(next_page):
+        if not is_safe_redirect_target(next_page, request.host_url):
             next_page = None
         return redirect(next_page or url_for("catalog.index"))
 
