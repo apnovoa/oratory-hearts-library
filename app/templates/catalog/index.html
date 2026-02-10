@@ -129,7 +129,13 @@
       <input type="hidden" name="language" value="{{ form.language.data or '' }}">
       <input type="hidden" name="availability" value="{{ form.availability.data or '' }}">
       <label for="catalog-sort-select" class="catalog-sort-label">Sort by</label>
-      <select id="catalog-sort-select" name="sort" class="form-control catalog-sort-select" onchange="this.form.submit();" aria-label="Sort results">
+      <select
+        id="catalog-sort-select"
+        name="sort"
+        class="form-control catalog-sort-select"
+        data-auto-submit="true"
+        aria-label="Sort results"
+      >
         {% for value, label in form.sort.choices %}
         <option value="{{ value }}" {% if current_sort == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}

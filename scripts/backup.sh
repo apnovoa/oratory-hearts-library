@@ -36,23 +36,25 @@ DAILY_BACKUP_DIR="$BACKUP_DIR/$TIMESTAMP"
 # Ensure backup directory exists
 mkdir -p "$DAILY_BACKUP_DIR"
 
-# ── Database backup ───────────────────────────────────────────────
+# ── Database backup (SQLite online backup API) ───────────────────
 if [ -f "$DB_FILE" ]; then
     DB_BACKUP="$DAILY_BACKUP_DIR/bibliotheca_${TIMESTAMP}.db"
-    cp "$DB_FILE" "$DB_BACKUP"
-    echo "[backup] Database copied to $DB_BACKUP"
+    if ! command -v sqlite3 >/dev/null 2>&1; then
+        echo "[backup] ERROR: sqlite3 is required for consistent DB backups." >&2
+        exit 1
+    fi
+
+    # Use SQLite's online backup API for a transactionally consistent snapshot.
+    sqlite3 "$DB_FILE" ".backup \"$DB_BACKUP\""
+    echo "[backup] Database backed up via sqlite3 .backup to $DB_BACKUP"
 
     # Verify backup integrity
-    if command -v sqlite3 >/dev/null 2>&1; then
-        INTEGRITY=$(sqlite3 "$DB_BACKUP" "PRAGMA integrity_check;" 2>&1)
-        if [ "$INTEGRITY" = "ok" ]; then
-            echo "[backup] Integrity check passed."
-        else
-            echo "[backup] ERROR: Integrity check failed: $INTEGRITY" >&2
-            exit 1
-        fi
+    INTEGRITY=$(sqlite3 "$DB_BACKUP" "PRAGMA integrity_check;" 2>&1)
+    if [ "$INTEGRITY" = "ok" ]; then
+        echo "[backup] Integrity check passed."
     else
-        echo "[backup] WARNING: sqlite3 not found — skipping integrity check."
+        echo "[backup] ERROR: Integrity check failed: $INTEGRITY" >&2
+        exit 1
     fi
 
     # Generate checksum

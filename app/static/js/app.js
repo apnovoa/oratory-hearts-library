@@ -31,6 +31,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
+    // ── Submit confirmations via data-confirm-submit ───────────────
+    document.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        var message = form.getAttribute("data-confirm-submit");
+        if (message && !confirm(message)) {
+            e.preventDefault();
+        }
+    });
+
     // ── Form submission via data-submit-form ───────────────────────
     document.addEventListener("click", function (e) {
         var trigger = e.target.closest("[data-submit-form]");
@@ -39,6 +49,13 @@ document.addEventListener("DOMContentLoaded", function () {
             var form = document.getElementById(trigger.getAttribute("data-submit-form"));
             if (form) form.submit();
         }
+    });
+
+    // ── Auto-submit selects via data-auto-submit ────────────────────
+    document.querySelectorAll("select[data-auto-submit]").forEach(function (select) {
+        select.addEventListener("change", function () {
+            if (select.form) select.form.submit();
+        });
     });
 
     // ── Splash page enter transition ───────────────────────────────

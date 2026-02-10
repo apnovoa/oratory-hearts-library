@@ -89,3 +89,20 @@ jobs:
           assert data['status'] == 'ok', f'Expected ok, got {data}'
           print('/health returned 200 ok')
           "
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y libqpdf-dev libjpeg-dev libpng-dev
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
+      - run: pip install -r requirements.txt
+      - name: Run test suite
+        run: pytest -q

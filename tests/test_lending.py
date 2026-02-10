@@ -177,3 +177,62 @@ def test_return_already_returned_handled(mock_pdf, mock_del, patron_client, patr
     # Should not crash; loan remains inactive
     db.session.refresh(loan)
     assert loan.is_active is False
+
+
+# ── Access control and path traversal ─────────────────────────────
+
+
+@patch("app.lending.service._delete_circulation_file")
+@patch("app.pdf_service.generate_circulation_copy", return_value="test-circ.pdf")
+def test_reader_idor_forbidden(mock_pdf, mock_del, patron_client, db):
+    owner = _make_user(email="owner@test.com")
+    book = _make_book(title="Owner Book")
+    loan = Loan(
+        user_id=owner.id,
+        book_id=book.id,
+        is_active=True,
+        due_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    db.session.add(loan)
+    db.session.commit()
+
+    # Logged in as a different patron; must get 403.
+    rv = patron_client.get(f"/read/{loan.access_token}")
+    assert rv.status_code == 403
+
+
+@patch("app.lending.service._delete_circulation_file")
+@patch("app.pdf_service.generate_circulation_copy", return_value="test-circ.pdf")
+def test_download_idor_forbidden(mock_pdf, mock_del, patron_client, db):
+    owner = _make_user(email="owner2@test.com")
+    book = _make_book(title="Owner Book 2")
+    loan = Loan(
+        user_id=owner.id,
+        book_id=book.id,
+        is_active=True,
+        due_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    db.session.add(loan)
+    db.session.commit()
+
+    # Logged in as a different patron; must get 403.
+    rv = patron_client.get(f"/loan/{loan.access_token}/download")
+    assert rv.status_code == 403
+
+
+@patch("app.lending.service._delete_circulation_file")
+@patch("app.pdf_service.generate_circulation_copy", return_value="test-circ.pdf")
+def test_download_blocks_path_traversal(mock_pdf, mock_del, patron_client, patron, db):
+    book = _make_book(title="Traversal Book")
+    loan = Loan(
+        user_id=patron.id,
+        book_id=book.id,
+        is_active=True,
+        due_at=datetime.now(UTC) + timedelta(days=7),
+        circulation_filename="../outside.pdf",
+    )
+    db.session.add(loan)
+    db.session.commit()
+
+    rv = patron_client.get(f"/loan/{loan.access_token}/download?file=1")
+    assert rv.status_code == 403

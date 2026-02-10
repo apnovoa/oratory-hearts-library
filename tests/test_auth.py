@@ -1,5 +1,8 @@
 """Tests for authentication: login, registration, logout."""
 
+import time
+
+from app.auth.routes import _generate_reset_token
 from app.models import User
 from tests.conftest import _login, _make_user
 
@@ -119,3 +122,64 @@ def test_logout_clears_session(patron_client):
     rv = patron_client.get("/catalog", follow_redirects=False)
     assert rv.status_code == 302
     assert "/login" in rv.headers.get("Location", "")
+
+
+# ── Password reset security flows ──────────────────────────────────
+
+
+def test_password_reset_updates_password_and_force_logout(client, patron, db):
+    patron.password_changed_at = None
+    db.session.commit()
+
+    token = _generate_reset_token(patron.email)
+
+    rv = client.post(
+        f"/reset-password/{token}",
+        data={"password": "NewStrong1", "password_confirm": "NewStrong1"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+
+    db.session.refresh(patron)
+    assert patron.check_password("NewStrong1") is True
+    assert patron.force_logout_before is not None
+
+
+def test_password_reset_token_cannot_be_reused(client, patron):
+    from app.models import db
+
+    patron.password_changed_at = None
+    db.session.commit()
+
+    token = _generate_reset_token(patron.email)
+
+    # First use: valid reset
+    rv = client.post(
+        f"/reset-password/{token}",
+        data={"password": "NewStrong1", "password_confirm": "NewStrong1"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert rv.request.path == "/login"
+
+    # Second use: must be rejected as already used
+    rv = client.get(f"/reset-password/{token}", follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"already been used" in rv.data
+
+
+def test_password_reset_token_expires(client, patron, monkeypatch):
+    from app.models import db
+
+    patron.password_changed_at = None
+    db.session.commit()
+
+    token = _generate_reset_token(patron.email)
+
+    # Force tiny token lifetime for deterministic expiry in test.
+    monkeypatch.setattr("app.auth.routes.PASSWORD_RESET_MAX_AGE", 1)
+    time.sleep(2)
+
+    rv = client.get(f"/reset-password/{token}", follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"invalid or has expired" in rv.data

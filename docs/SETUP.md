@@ -169,7 +169,7 @@ Disable with `SCHEDULER_ENABLED=false` if running in a multi-worker setup (to pr
 The SQLite database is at `bibliotheca.db` in the project root. Back it up regularly:
 
 ```bash
-cp bibliotheca.db storage/backups/bibliotheca-$(date +%Y%m%d).db
+sqlite3 bibliotheca.db ".backup 'storage/backups/bibliotheca-$(date +%Y%m%d).db'"
 ```
 
 ### Master Scans
