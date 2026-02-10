@@ -350,129 +350,163 @@ def generate_public_domain_copy(book):
 
 
 def _build_donate_page(book):
-    """Build a donate/attribution front page for public domain books. Returns a BytesIO."""
+    """Build an elegant donate/attribution front page for public domain books.
+
+    Returns a BytesIO containing a single-page PDF.
+    """
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=letter)
     width, height = letter
+    cx = width / 2
 
     donate_url = current_app.config.get("DONATE_URL", "")
-    library_url = current_app.config.get("LIBRARY_URL", "")
+
+    # Library burgundy
+    BURG_R, BURG_G, BURG_B = 0.42, 0.11, 0.16
+    # Warm grey for secondary text
+    WARM_R, WARM_G, WARM_B = 0.35, 0.33, 0.31
 
     logo_path = _get_logo_path()
 
-    # Logo centered at top
+    # ── Top decorative rule ──────────────────────────────────
+    c.setStrokeColorRGB(BURG_R, BURG_G, BURG_B)
+    c.setLineWidth(0.75)
+    c.line(1.8 * inch, height - 0.7 * inch, width - 1.8 * inch, height - 0.7 * inch)
+
+    # ── Logo ─────────────────────────────────────────────────
     if logo_path:
-        logo_w = 1.8 * inch
-        logo_h = 0.9 * inch
+        logo_w = 1.5 * inch
+        logo_h = 0.75 * inch
         c.drawImage(
             logo_path,
             (width - logo_w) / 2,
-            height - 1.2 * inch,
+            height - 1.55 * inch,
             width=logo_w,
             height=logo_h,
             preserveAspectRatio=True,
             anchor="c",
             mask="auto",
         )
-        name_y = height - 1.6 * inch
+        y = height - 1.85 * inch
     else:
-        name_y = height - 1.5 * inch
+        y = height - 1.2 * inch
 
-    # Library name header
-    c.setFont("Times-Bold", 22)
-    c.drawCentredString(width / 2, name_y, LIBRARY_NAME)
+    # ── Library name ─────────────────────────────────────────
+    c.setFillColorRGB(BURG_R, BURG_G, BURG_B)
+    c.setFont("Times-Bold", 16)
+    c.drawCentredString(cx, y, LIBRARY_NAME)
 
-    # Decorative line
-    line_y = name_y - 0.3 * inch
-    c.setStrokeColorRGB(0.42, 0.11, 0.16)
-    c.setLineWidth(1.5)
-    c.line(1.2 * inch, line_y, width - 1.2 * inch, line_y)
+    # ── Thin rule under name ─────────────────────────────────
+    y -= 0.25 * inch
+    c.setStrokeColorRGB(BURG_R, BURG_G, BURG_B)
+    c.setLineWidth(0.5)
+    c.line(2.5 * inch, y, width - 2.5 * inch, y)
 
-    # "Public Domain" heading
-    c.setFont("Times-Bold", 18)
-    c.drawCentredString(width / 2, line_y - 0.7 * inch, "Public Domain Edition")
+    # ── "From Our Collection" subtitle ───────────────────────
+    y -= 0.4 * inch
+    c.setFillColorRGB(WARM_R, WARM_G, WARM_B)
+    c.setFont("Times-Roman", 10)
+    c.drawCentredString(cx, y, "FROM OUR PUBLIC DOMAIN COLLECTION")
 
-    # Book details
-    y = line_y - 1.5 * inch
-    c.setFont("Times-Roman", 13)
+    # ── Book title ───────────────────────────────────────────
+    y -= 0.55 * inch
+    c.setFillColorRGB(0, 0, 0)
 
-    fields = [
-        ("Title:", book.title),
-        ("Author:", book.formatted_authors),
-    ]
+    # Scale title font to fit — start at 26pt, shrink if needed
+    title_text = book.title or ""
+    title_size = 26
+    while title_size > 16:
+        tw = c.stringWidth(title_text, "Times-Bold", title_size)
+        if tw <= width - 3 * inch:
+            break
+        title_size -= 1
+
+    c.setFont("Times-Bold", title_size)
+    c.drawCentredString(cx, y, title_text if len(title_text) <= 80 else title_text[:77] + "...")
+
+    # ── Author ───────────────────────────────────────────────
+    y -= 0.4 * inch
+    c.setFont("Times-Italic", 14)
+    c.setFillColorRGB(WARM_R, WARM_G, WARM_B)
+    author_text = book.formatted_authors
+    c.drawCentredString(cx, y, author_text if len(author_text) <= 80 else author_text[:77] + "...")
+
+    # ── Year (if known) ──────────────────────────────────────
     if book.publication_year:
-        fields.append(("Year:", str(book.publication_year)))
+        y -= 0.3 * inch
+        c.setFont("Times-Roman", 11)
+        c.drawCentredString(cx, y, str(book.publication_year))
 
-    for label, value in fields:
-        c.setFont("Times-Bold", 12)
-        c.drawString(1.5 * inch, y, label)
-        c.setFont("Times-Roman", 12)
-        display_value = value if len(value) <= 70 else value[:67] + "..."
-        c.drawString(3.0 * inch, y, display_value)
-        y -= 0.35 * inch
+    # ── Ornamental separator ─────────────────────────────────
+    y -= 0.55 * inch
+    c.setFillColorRGB(BURG_R, BURG_G, BURG_B)
+    c.setFont("Times-Roman", 14)
+    c.drawCentredString(cx, y, "\u2726  \u2726  \u2726")
 
-    # Public domain notice
-    y -= 0.5 * inch
-    c.setFont("Times-Italic", 11)
+    # ── Public domain notice ─────────────────────────────────
+    y -= 0.55 * inch
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Times-Italic", 10.5)
     notice_lines = [
-        "This work is in the public domain and is provided freely by the",
-        f"{LIBRARY_NAME}.",
-        "",
-        "You are free to read, share, and distribute this text.",
+        "This work belongs to the public domain and is made available",
+        "freely through the digital library of the Oratory of the Sacred Hearts.",
+        "You are welcome to read, share, and redistribute this text.",
     ]
     for line in notice_lines:
-        if line == "":
-            y -= 0.15 * inch
-            continue
-        c.drawCentredString(width / 2, y, line)
-        y -= 0.25 * inch
+        c.drawCentredString(cx, y, line)
+        y -= 0.2 * inch
 
-    # Donate request
-    y -= 0.4 * inch
-    c.setFont("Times-Bold", 13)
-    c.drawCentredString(width / 2, y, "Support Our Library")
+    # ── Donation appeal ──────────────────────────────────────
+    y -= 0.45 * inch
+    c.setFillColorRGB(BURG_R, BURG_G, BURG_B)
+    c.setFont("Times-Bold", 12)
+    c.drawCentredString(cx, y, "A Gift for a Gift")
+
     y -= 0.35 * inch
-    c.setFont("Times-Roman", 11)
-    donate_lines = [
-        "If this book has been of value to you, please consider",
-        "making a donation to help us continue preserving and sharing",
-        "the treasures of the Catholic intellectual tradition.",
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Times-Roman", 10.5)
+    appeal_lines = [
+        "This book has been digitised and preserved for future generations",
+        "by the work of our small community. If it has enriched your study",
+        "or prayer, would you consider supporting our mission with a donation?",
+        "Every gift, however small, helps us keep this library open to all.",
     ]
-    for line in donate_lines:
-        c.drawCentredString(width / 2, y, line)
-        y -= 0.25 * inch
+    for line in appeal_lines:
+        c.drawCentredString(cx, y, line)
+        y -= 0.2 * inch
 
     if donate_url:
-        y -= 0.15 * inch
+        y -= 0.2 * inch
         c.setFont("Times-Bold", 11)
-        c.setFillColorRGB(0.42, 0.11, 0.16)
-        c.drawCentredString(width / 2, y, donate_url)
-        c.setFillColorRGB(0, 0, 0)
+        c.setFillColorRGB(BURG_R, BURG_G, BURG_B)
+        c.drawCentredString(cx, y, donate_url)
 
-    # Decorative bottom line
-    c.setStrokeColorRGB(0.42, 0.11, 0.16)
-    c.setLineWidth(1.5)
-    c.line(1.2 * inch, 1.2 * inch, width - 1.2 * inch, 1.2 * inch)
+    # ── Bottom decorative rule ───────────────────────────────
+    c.setStrokeColorRGB(BURG_R, BURG_G, BURG_B)
+    c.setLineWidth(0.75)
+    c.line(1.8 * inch, 1.15 * inch, width - 1.8 * inch, 1.15 * inch)
 
-    # Footer
+    # ── Footer ───────────────────────────────────────────────
     if logo_path:
-        footer_logo_w = 0.5 * inch
-        footer_logo_h = 0.25 * inch
+        footer_logo_w = 0.4 * inch
+        footer_logo_h = 0.2 * inch
         c.drawImage(
             logo_path,
             (width - footer_logo_w) / 2,
-            0.85 * inch,
+            0.82 * inch,
             width=footer_logo_w,
             height=footer_logo_h,
             preserveAspectRatio=True,
             anchor="c",
             mask="auto",
         )
-        c.setFont("Times-Roman", 8)
-        c.drawCentredString(width / 2, 0.7 * inch, LIBRARY_NAME)
+        c.setFillColorRGB(WARM_R, WARM_G, WARM_B)
+        c.setFont("Times-Roman", 7.5)
+        c.drawCentredString(cx, 0.68 * inch, LIBRARY_NAME)
     else:
-        c.setFont("Times-Roman", 9)
-        c.drawCentredString(width / 2, 0.9 * inch, LIBRARY_NAME)
+        c.setFillColorRGB(WARM_R, WARM_G, WARM_B)
+        c.setFont("Times-Roman", 8)
+        c.drawCentredString(cx, 0.85 * inch, LIBRARY_NAME)
 
     c.showPage()
     c.save()
