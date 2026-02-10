@@ -16,4 +16,5 @@ def register_error_handlers(app):
 
     @app.errorhandler(500)
     def internal_error(e):
+        app.logger.exception("Internal server error: %s", e)
         return render_template("errors/500.html"), 500

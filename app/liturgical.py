@@ -76,7 +76,6 @@ def get_current_season(today=None):
     # Christmas season: Dec 25 of previous year through ~Jan 13
     # If today is Jan 1-13, check if we're still in Christmas season
     christmas_end = date(year, 1, 13)
-    date(year - 1, 12, 25)
 
     if today >= date(year, 12, 25):
         return "christmas"

@@ -13,7 +13,7 @@ watermarking, expiration, and email notifications.
 ### 1. Prerequisites
 
 - Python 3.11+ (tested on 3.13)
-- A working SMTP email account (Gmail, Fastmail, etc.)
+- A Brevo (formerly Sendinblue) account for transactional email, or email can be disabled
 
 ### 2. Install
 
@@ -37,11 +37,9 @@ Edit `.env` with your actual values:
 | `SECRET_KEY` | Flask session encryption. Generate with `python -c "import secrets; print(secrets.token_hex(32))"` | **Yes** |
 | `ADMIN_EMAIL` | Email for the seed admin account | Yes |
 | `ADMIN_PASSWORD` | Password for the seed admin account | Yes |
-| `MAIL_SERVER` | SMTP server hostname | Yes for email |
-| `MAIL_PORT` | SMTP port (587 for TLS) | Yes for email |
-| `MAIL_USERNAME` | SMTP login | Yes for email |
-| `MAIL_PASSWORD` | SMTP password or app-specific password | Yes for email |
+| `BREVO_API_KEY` | Brevo HTTP API key for transactional email. If empty, emails are silently skipped. | Yes for email |
 | `MAIL_DEFAULT_SENDER` | From address on all emails | Yes for email |
+| `MAIL_DEFAULT_SENDER_NAME` | Display name on outgoing emails (default: `Custos Oratorii`) | No |
 | `LIBRARY_CONTACT_EMAIL` | Contact shown in policy and loan slips | Yes |
 | `LIBRARY_DOMAIN` | Public URL of the library (e.g. `https://library.oratory.org`) | Yes |
 | `DEFAULT_LOAN_DAYS` | Default loan period in days (default: 14) | No |
@@ -62,12 +60,12 @@ and seeds the admin account from your `.env` values.
 
 ```bash
 source venv/bin/activate
-gunicorn -w 2 -b 0.0.0.0:8000 "app:create_app('production')"
+gunicorn -w 1 -b 0.0.0.0:8000 "app:create_app('production')"
 ```
 
 Place behind a reverse proxy (nginx, Caddy) with HTTPS.
 
-**Important**: Set `FLASK_ENV=production` and ensure `SECRET_KEY` is a strong random value.
+**Important**: Use `--workers 1` (required for SQLite checkout locking). Set `FLASK_ENV=production` and ensure `SECRET_KEY` is a strong random value.
 
 ---
 
@@ -195,7 +193,7 @@ to an offsite location.
 - **Session security**: HTTPOnly cookies, SameSite=Lax, configurable secure flag.
 - **CSRF protection**: All POST forms use CSRF tokens via Flask-WTF.
 - **Force logout**: Admin can invalidate all sessions for any user.
-- **Rate limiting**: Not included. Add via reverse proxy (nginx `limit_req`) if exposed to the internet.
+- **Rate limiting**: Application-level rate limiting via Flask-Limiter (in-memory, single-worker). Additional reverse proxy rate limiting (nginx `limit_req`) is recommended if exposed to the internet.
 
 ---
 
@@ -237,7 +235,7 @@ that can be customized without affecting the rest of the application.
 
 | Problem | Solution |
 |---------|----------|
-| "Failed to send email" in logs | Check SMTP settings in `.env`. For Gmail, use an App Password. |
+| "Failed to send email" in logs | Check `BREVO_API_KEY` in `.env`. Verify the key is valid at brevo.com. |
 | PDF generation fails | Verify the master PDF exists in `storage/masters/` and is not corrupted. |
 | Login doesn't work | Check that the admin account was seeded. Look for the log line on first startup. |
 | Scheduler runs twice | Set `SCHEDULER_ENABLED=false` and run scheduler as a separate process, or use 1 worker. |

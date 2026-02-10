@@ -21,12 +21,16 @@ def init_scheduler(app):
         trigger="interval",
         minutes=5,
         id="expire_loans",
+        max_instances=1,
+        coalesce=True,
     )
     scheduler.add_job(
         func=run_reminders,
         trigger="interval",
         minutes=60,
         id="send_reminders",
+        max_instances=1,
+        coalesce=True,
     )
 
     def run_new_acquisitions_digest():
@@ -42,6 +46,8 @@ def init_scheduler(app):
         hour=8,
         minute=0,
         id="new_acquisitions_digest",
+        max_instances=1,
+        coalesce=True,
     )
 
     def run_birthday_greetings():
@@ -56,5 +62,7 @@ def init_scheduler(app):
         hour=7,
         minute=0,
         id="birthday_greetings",
+        max_instances=1,
+        coalesce=True,
     )
     scheduler.start()
