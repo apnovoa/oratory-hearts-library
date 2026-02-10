@@ -202,7 +202,16 @@ def create_app(config_name=None):
         else:
             result["scheduler"] = {"running": False, "reason": "disabled"}
 
-        all_ok = scheduler is None or scheduler.running
+        # Check database connectivity
+        try:
+            db.session.execute(db.text("SELECT 1"))
+            result["database"] = {"status": "ok"}
+        except Exception as e:
+            result["database"] = {"status": "error", "error": str(e)}
+
+        scheduler_ok = scheduler is None or scheduler.running
+        db_ok = result.get("database", {}).get("status") == "ok"
+        all_ok = scheduler_ok and db_ok
         result["status"] = "ok" if all_ok else "degraded"
         return result, 200 if all_ok else 503
 

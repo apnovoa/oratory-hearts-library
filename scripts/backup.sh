@@ -7,6 +7,16 @@
 # Optional offsite sync: set BACKUP_REMOTE to an rsync-compatible
 # destination (e.g. user@backup-host:/backups/bibliotheca) and the
 # script will push each backup offsite after local verification.
+#
+# Scheduling (add to crontab):
+#   0 2 * * * /opt/bibliotheca/current/scripts/backup.sh >> /var/log/bibliotheca-backup.log 2>&1
+#
+# Offsite sync (set in environment or crontab):
+#   BACKUP_REMOTE=user@backup-host:/backups/bibliotheca
+#
+# Verify a backup manually:
+#   sqlite3 storage/backups/<date>/bibliotheca_<date>.db "PRAGMA integrity_check;"
+#   sha256sum -c storage/backups/<date>/bibliotheca_<date>.db.sha256
 # ─────────────────────────────────────────────────────────────────
 
 set -euo pipefail

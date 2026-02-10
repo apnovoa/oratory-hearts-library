@@ -93,6 +93,17 @@ class ProductionConfig(Config):
         if not os.environ.get("SECRET_KEY"):
             raise RuntimeError("SECRET_KEY environment variable must be set in production")
 
+        # Guard against multi-worker deployments: the checkout lock in
+        # lending/service.py is process-local, so >1 worker would allow
+        # double-checkouts.  PaaS platforms often set WEB_CONCURRENCY.
+        web_concurrency = os.environ.get("WEB_CONCURRENCY")
+        if web_concurrency and int(web_concurrency) > 1:
+            raise RuntimeError(
+                f"WEB_CONCURRENCY is set to {web_concurrency} but this application "
+                "requires a single worker (the lending lock is process-local). "
+                "Set WEB_CONCURRENCY=1 or remove it."
+            )
+
 
 config_by_name = {
     "development": DevelopmentConfig,

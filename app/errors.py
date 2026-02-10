@@ -1,9 +1,10 @@
-from flask import render_template
+from flask import render_template, request
 
 
 def register_error_handlers(app):
     @app.errorhandler(403)
     def forbidden(e):
+        app.logger.warning("403 Forbidden: %s", request.path)
         return render_template("errors/403.html"), 403
 
     @app.errorhandler(404)
