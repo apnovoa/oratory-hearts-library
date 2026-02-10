@@ -161,8 +161,8 @@ def register():
                         f'or <a href="{reset_url}">reset your password</a>.</p>'
                     ),
                 )
-            except Exception:  # nosec B110 — intentional: suppress to prevent email enumeration
-                pass
+            except Exception as exc:  # nosec B110 — intentional: suppress to prevent email enumeration
+                current_app.logger.debug("Registration-attempt email suppressed: %s", exc)
             # Show the same success message to prevent email enumeration
             flash("Account created successfully. You may now sign in.", "success")
             return redirect(url_for("auth.login"))

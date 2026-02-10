@@ -38,6 +38,14 @@ def upgrade():
         sa.Column("force_logout_before", sa.DateTime(), nullable=True),
         sa.Column("password_changed_at", sa.DateTime(), nullable=True),
         sa.Column("google_id", sa.String(length=255), nullable=True),
+        sa.CheckConstraint(
+            "birth_month IS NULL OR (birth_month >= 1 AND birth_month <= 12)",
+            name="ck_users_birth_month_range",
+        ),
+        sa.CheckConstraint(
+            "birth_day IS NULL OR (birth_day >= 1 AND birth_day <= 31)",
+            name="ck_users_birth_day_range",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
         sa.UniqueConstraint("google_id"),
@@ -98,8 +106,8 @@ def upgrade():
         "book_tags",
         sa.Column("book_id", sa.Integer(), nullable=False),
         sa.Column("tag_id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["book_id"], ["books.id"]),
-        sa.ForeignKeyConstraint(["tag_id"], ["tags.id"]),
+        sa.ForeignKeyConstraint(["book_id"], ["books.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["tag_id"], ["tags.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("book_id", "tag_id"),
     )
 
@@ -125,8 +133,8 @@ def upgrade():
         sa.Column("expiration_notice_sent", sa.Boolean(), nullable=False),
         sa.Column("book_title_snapshot", sa.String(length=500), nullable=True),
         sa.Column("book_author_snapshot", sa.String(length=500), nullable=True),
-        sa.ForeignKeyConstraint(["book_id"], ["books.id"]),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.ForeignKeyConstraint(["book_id"], ["books.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("access_token"),
         sa.UniqueConstraint("public_id"),
@@ -145,8 +153,8 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("notified_at", sa.DateTime(), nullable=True),
         sa.Column("is_fulfilled", sa.Boolean(), nullable=False),
-        sa.ForeignKeyConstraint(["book_id"], ["books.id"]),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.ForeignKeyConstraint(["book_id"], ["books.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("user_id", "book_id", name="uq_waitlist_user_book"),
     )
@@ -165,7 +173,7 @@ def upgrade():
         sa.Column("target_id", sa.Integer(), nullable=True),
         sa.Column("detail", sa.Text(), nullable=True),
         sa.Column("ip_address", sa.String(length=45), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("audit_logs", schema=None) as batch_op:
@@ -190,8 +198,8 @@ def upgrade():
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("book_id", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["book_id"], ["books.id"]),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.ForeignKeyConstraint(["book_id"], ["books.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("user_id", "book_id", name="uq_favorite_user_book"),
     )
@@ -208,8 +216,8 @@ def upgrade():
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["book_id"], ["books.id"]),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.ForeignKeyConstraint(["book_id"], ["books.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("book_notes", schema=None) as batch_op:
@@ -230,8 +238,8 @@ def upgrade():
         sa.Column("resolved_by", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("resolved_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(["resolved_by"], ["users.id"]),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"]),
+        sa.ForeignKeyConstraint(["resolved_by"], ["users.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("public_id"),
     )
@@ -251,7 +259,7 @@ def upgrade():
         sa.Column("created_by", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("public_id"),
     )
@@ -265,8 +273,8 @@ def upgrade():
         sa.Column("position", sa.Integer(), nullable=False),
         sa.Column("note", sa.Text(), nullable=True),
         sa.Column("added_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["book_id"], ["books.id"]),
-        sa.ForeignKeyConstraint(["reading_list_id"], ["reading_lists.id"]),
+        sa.ForeignKeyConstraint(["book_id"], ["books.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["reading_list_id"], ["reading_lists.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("reading_list_id", "book_id", name="uq_reading_list_book"),
     )
@@ -304,8 +312,8 @@ def upgrade():
         sa.Column("approved_at", sa.DateTime(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("imported_book_id", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(["duplicate_of_book_id"], ["books.id"]),
-        sa.ForeignKeyConstraint(["imported_book_id"], ["books.id"]),
+        sa.ForeignKeyConstraint(["duplicate_of_book_id"], ["books.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["imported_book_id"], ["books.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     with op.batch_alter_table("staged_books", schema=None) as batch_op:

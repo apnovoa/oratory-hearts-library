@@ -20,8 +20,8 @@ def _uuid():
 
 book_tags = db.Table(
     "book_tags",
-    db.Column("book_id", db.Integer, db.ForeignKey("books.id"), primary_key=True),
-    db.Column("tag_id", db.Integer, db.ForeignKey("tags.id"), primary_key=True),
+    db.Column("book_id", db.Integer, db.ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("tag_id", db.Integer, db.ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -49,6 +49,17 @@ class User(UserMixin, db.Model):
     force_logout_before = db.Column(db.DateTime, nullable=True)
     password_changed_at = db.Column(db.DateTime, nullable=True)
     google_id = db.Column(db.String(255), unique=True, nullable=True)
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "birth_month IS NULL OR (birth_month >= 1 AND birth_month <= 12)",
+            name="ck_users_birth_month_range",
+        ),
+        db.CheckConstraint(
+            "birth_day IS NULL OR (birth_day >= 1 AND birth_day <= 31)",
+            name="ck_users_birth_day_range",
+        ),
+    )
 
     loans = db.relationship("Loan", backref="patron", lazy="dynamic")
     waitlist_entries = db.relationship("WaitlistEntry", backref="patron", lazy="dynamic")
@@ -172,8 +183,8 @@ class Loan(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(32), unique=True, nullable=False, default=_uuid)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = db.Column(db.Integer, db.ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
 
     borrowed_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     due_at = db.Column(db.DateTime, nullable=False)
@@ -221,8 +232,8 @@ class WaitlistEntry(db.Model):
     __tablename__ = "waitlist_entries"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = db.Column(db.Integer, db.ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     notified_at = db.Column(db.DateTime, nullable=True)
     is_fulfilled = db.Column(db.Boolean, nullable=False, default=False)
@@ -238,7 +249,7 @@ class AuditLog(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action = db.Column(db.String(100), nullable=False, index=True)
     target_type = db.Column(db.String(50), nullable=True)  # book, loan, user
     target_id = db.Column(db.Integer, nullable=True)
@@ -285,8 +296,8 @@ class Favorite(db.Model):
     __tablename__ = "favorites"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = db.Column(db.Integer, db.ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
 
     user = db.relationship("User", backref=db.backref("favorites", lazy="dynamic"))
@@ -302,8 +313,8 @@ class BookNote(db.Model):
     __tablename__ = "book_notes"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = db.Column(db.Integer, db.ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
@@ -320,13 +331,13 @@ class BookRequest(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(32), unique=True, nullable=False, default=_uuid)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = db.Column(db.String(500), nullable=False)
     author = db.Column(db.String(500), nullable=True)
     reason = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), nullable=False, default="pending")
     admin_notes = db.Column(db.Text, nullable=True)
-    resolved_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    resolved_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
 
@@ -351,7 +362,7 @@ class ReadingList(db.Model):
     is_public = db.Column(db.Boolean, nullable=False, default=True)
     is_featured = db.Column(db.Boolean, nullable=False, default=False)
     season = db.Column(db.String(50), nullable=True)
-    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
@@ -374,11 +385,11 @@ class ReadingListItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     reading_list_id = db.Column(
         db.Integer,
-        db.ForeignKey("reading_lists.id"),
+        db.ForeignKey("reading_lists.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=False, index=True)
+    book_id = db.Column(db.Integer, db.ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
     position = db.Column(db.Integer, nullable=False, default=0)
     note = db.Column(db.Text, nullable=True)
     added_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
@@ -424,7 +435,7 @@ class StagedBook(db.Model):
     error_message = db.Column(db.Text, nullable=True)
 
     # Duplicate detection
-    duplicate_of_book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=True)
+    duplicate_of_book_id = db.Column(db.Integer, db.ForeignKey("books.id", ondelete="SET NULL"), nullable=True)
     duplicate_type = db.Column(db.String(20), nullable=True)
 
     # Scan tracking
@@ -434,7 +445,7 @@ class StagedBook(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
 
     # After approval
-    imported_book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=True)
+    imported_book_id = db.Column(db.Integer, db.ForeignKey("books.id", ondelete="SET NULL"), nullable=True)
 
     duplicate_book = db.relationship("Book", foreign_keys=[duplicate_of_book_id])
     imported_book = db.relationship("Book", foreign_keys=[imported_book_id])

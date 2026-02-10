@@ -72,6 +72,11 @@ class Config:
 
     # Scheduler
     SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
+    SCHEDULER_EXPIRY_INTERVAL_MINUTES = int(os.environ.get("SCHEDULER_EXPIRY_INTERVAL_MINUTES", "5"))
+    SCHEDULER_REMINDER_INTERVAL_MINUTES = int(os.environ.get("SCHEDULER_REMINDER_INTERVAL_MINUTES", "60"))
+
+    # Scanner
+    SCAN_FILE_TIMEOUT_SECONDS = int(os.environ.get("SCAN_FILE_TIMEOUT_SECONDS", "300"))
 
 
 class DevelopmentConfig(Config):

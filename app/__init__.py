@@ -206,8 +206,9 @@ def create_app(config_name=None):
         try:
             db.session.execute(db.text("SELECT 1"))
             result["database"] = {"status": "ok"}
-        except Exception as e:
-            result["database"] = {"status": "error", "error": str(e)}
+        except Exception:
+            app.logger.exception("Health check database probe failed.")
+            result["database"] = {"status": "error", "error": "unavailable"}
 
         scheduler_ok = scheduler is None or scheduler.running
         db_ok = result.get("database", {}).get("status") == "ok"

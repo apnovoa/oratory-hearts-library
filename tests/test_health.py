@@ -24,3 +24,19 @@ def test_health_scheduler_disabled(client):
     data = rv.get_json()
     assert data["scheduler"]["running"] is False
     assert data["scheduler"]["reason"] == "disabled"
+
+
+def test_health_database_error_is_sanitized(client, monkeypatch):
+    from app.models import db
+
+    def _raise_db_error(*args, **kwargs):
+        raise RuntimeError("sqlite:///private/path/db.sqlite is unreachable")
+
+    monkeypatch.setattr(db.session, "execute", _raise_db_error)
+
+    rv = client.get("/health")
+    data = rv.get_json()
+
+    assert rv.status_code == 503
+    assert data["database"]["status"] == "error"
+    assert data["database"]["error"] == "unavailable"

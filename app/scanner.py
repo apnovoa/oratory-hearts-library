@@ -36,6 +36,7 @@ _PROGRESS_DEFAULTS = {
 }
 
 _progress_lock = threading.Lock()
+_SCAN_FILE_TIMEOUT_DEFAULT_SECONDS = 300
 
 
 def _progress_file_path():
@@ -561,6 +562,7 @@ def _scan_single_file(filepath, batch_id, app):
             db.session.add(staged)
             db.session.commit()
         except Exception:
+            logger.exception("Failed to persist scan error row for %s", filename)
             db.session.rollback()
 
         return False
@@ -578,6 +580,39 @@ def _is_valid_pdf(path):
             return f.read(5) == b"%PDF-"
     except OSError:
         return False
+
+
+def _scan_single_file_with_timeout(filepath, batch_id, app, timeout_seconds):
+    """Run one file scan with a watchdog timeout.
+
+    The scan executes in a daemon thread so a hung parser/API call does not
+    stall the batch indefinitely.
+    """
+    result = {"success": False}
+    finished = threading.Event()
+
+    def _target():
+        with app.app_context():
+            try:
+                result["success"] = _scan_single_file(filepath, batch_id, app)
+            except Exception:
+                logger.exception("Unhandled scanner crash for %s", filepath)
+                result["success"] = False
+            finally:
+                finished.set()
+
+    worker = threading.Thread(
+        target=_target,
+        daemon=True,
+        name=f"scan-file-{Path(filepath).stem[:16]}",
+    )
+    worker.start()
+
+    if not finished.wait(timeout=timeout_seconds):
+        logger.error("Timed out scanning %s after %s seconds", os.path.basename(filepath), timeout_seconds)
+        return False
+
+    return result["success"]
 
 
 def _scan_worker(staging_dir, batch_id, app):
@@ -598,12 +633,23 @@ def _scan_worker(staging_dir, batch_id, app):
 
             logger.info("Scan batch %s started: %d PDF(s) in %s", batch_id, len(pdf_files), staging_dir)
 
+            configured_timeout = app.config.get("SCAN_FILE_TIMEOUT_SECONDS", _SCAN_FILE_TIMEOUT_DEFAULT_SECONDS)
+            try:
+                timeout_seconds = max(30, int(configured_timeout))
+            except (TypeError, ValueError):
+                timeout_seconds = _SCAN_FILE_TIMEOUT_DEFAULT_SECONDS
+                logger.warning(
+                    "Invalid SCAN_FILE_TIMEOUT_SECONDS value %r; defaulting to %s seconds.",
+                    configured_timeout,
+                    timeout_seconds,
+                )
+
             for filepath in pdf_files:
                 progress = _read_progress(progress_path)
                 progress["current_file"] = filepath.name
                 _write_progress(progress, progress_path)
 
-                success = _scan_single_file(str(filepath), batch_id, app)
+                success = _scan_single_file_with_timeout(str(filepath), batch_id, app, timeout_seconds)
 
                 progress = _read_progress(progress_path)
                 progress["processed"] += 1

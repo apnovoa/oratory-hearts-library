@@ -1,7 +1,9 @@
 import time
 from datetime import UTC
 
+import httpx
 from flask import current_app, render_template
+from jinja2 import TemplateError
 
 # Seconds to pause between emails in bulk sends to avoid rate limits
 _BULK_SEND_DELAY = 0.2
@@ -11,16 +13,25 @@ def _logo_url():
     return current_app.config["LIBRARY_DOMAIN"] + "/static/img/logo.png"
 
 
+def _render_email_template(template_name, **context):
+    try:
+        return render_template(template_name, **context)
+    except TemplateError:
+        current_app.logger.exception("Failed to render email template: %s", template_name)
+        return None
+
+
 def _send_email(subject, recipient, html_body):
     brevo_key = current_app.config.get("BREVO_API_KEY")
     sender = current_app.config.get("MAIL_DEFAULT_SENDER")
     sender_name = current_app.config.get("MAIL_DEFAULT_SENDER_NAME")
     if not brevo_key:
         current_app.logger.debug("Email skipped (BREVO_API_KEY not configured): %s", subject)
-        return
+        return False
+    if not html_body:
+        current_app.logger.warning("Email skipped because HTML body is empty: %s", subject)
+        return False
     try:
-        import httpx
-
         resp = httpx.post(
             "https://api.brevo.com/v3/smtp/email",
             headers={
@@ -37,14 +48,18 @@ def _send_email(subject, recipient, html_body):
             timeout=15,
         )
         resp.raise_for_status()
-    except Exception as e:
-        current_app.logger.error(f"Failed to send email to {recipient}: {e}")
+        return True
+    except httpx.HTTPError as exc:
+        current_app.logger.error("Failed to send email to %s: %s", recipient, exc)
+    except Exception:
+        current_app.logger.exception("Unexpected error sending email to %s", recipient)
+    return False
 
 
 def send_loan_email(loan, user, book):
     domain = current_app.config["LIBRARY_DOMAIN"]
     download_url = f"{domain}/loan/{loan.access_token}/download"
-    html = render_template(
+    html = _render_email_template(
         "email/loan_issued.html",
         user=user,
         book=book,
@@ -54,7 +69,9 @@ def send_loan_email(loan, user, book):
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
-    _send_email(
+    if not html:
+        return False
+    return _send_email(
         subject=f"Loan Issued: {book.title}",
         recipient=user.email,
         html_body=html,
@@ -64,7 +81,7 @@ def send_loan_email(loan, user, book):
 def send_reminder_email(loan, user, book):
     domain = current_app.config["LIBRARY_DOMAIN"]
     download_url = f"{domain}/loan/{loan.access_token}/download"
-    html = render_template(
+    html = _render_email_template(
         "email/reminder.html",
         user=user,
         book=book,
@@ -74,7 +91,9 @@ def send_reminder_email(loan, user, book):
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
-    _send_email(
+    if not html:
+        return False
+    return _send_email(
         subject=f"Reminder: {book.title} due soon",
         recipient=user.email,
         html_body=html,
@@ -82,7 +101,7 @@ def send_reminder_email(loan, user, book):
 
 
 def send_expiration_email(loan, user, book):
-    html = render_template(
+    html = _render_email_template(
         "email/expired.html",
         user=user,
         book=book,
@@ -91,7 +110,9 @@ def send_expiration_email(loan, user, book):
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
-    _send_email(
+    if not html:
+        return False
+    return _send_email(
         subject=f"Loan Expired: {book.title}",
         recipient=user.email,
         html_body=html,
@@ -101,7 +122,7 @@ def send_expiration_email(loan, user, book):
 def send_waitlist_notification(user, book):
     domain = current_app.config["LIBRARY_DOMAIN"]
     catalog_url = f"{domain}/catalog/{book.public_id}"
-    html = render_template(
+    html = _render_email_template(
         "email/waitlist_available.html",
         user=user,
         book=book,
@@ -110,7 +131,9 @@ def send_waitlist_notification(user, book):
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
-    _send_email(
+    if not html:
+        return False
+    return _send_email(
         subject=f"Now Available: {book.title}",
         recipient=user.email,
         html_body=html,
@@ -118,7 +141,7 @@ def send_waitlist_notification(user, book):
 
 
 def send_password_reset_email(user, reset_url):
-    html = render_template(
+    html = _render_email_template(
         "email/password_reset.html",
         user=user,
         reset_url=reset_url,
@@ -126,7 +149,9 @@ def send_password_reset_email(user, reset_url):
         library_name=current_app.config["LIBRARY_NAME_LATIN"],
         library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
     )
-    _send_email(
+    if not html:
+        return False
+    return _send_email(
         subject="Password Reset Request",
         recipient=user.email,
         html_body=html,
@@ -156,13 +181,15 @@ def send_birthday_greetings():
 
     sent_count = 0
     for patron in birthday_patrons:
-        html = render_template(
+        html = _render_email_template(
             "email/birthday.html",
             user=patron,
             logo_url=_logo_url(),
             library_name=current_app.config["LIBRARY_NAME_LATIN"],
             library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
         )
+        if not html:
+            continue
         _send_email(
             subject="Happy Birthday from the Library!",
             recipient=patron.email,
@@ -207,7 +234,7 @@ def send_new_acquisitions_digest():
 
     sent_count = 0
     for patron in active_patrons:
-        html = render_template(
+        html = _render_email_template(
             "email/new_acquisitions.html",
             user=patron,
             books=new_books,
@@ -216,6 +243,8 @@ def send_new_acquisitions_digest():
             library_name=current_app.config["LIBRARY_NAME_LATIN"],
             library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
         )
+        if not html:
+            continue
         _send_email(
             subject="New Acquisitions This Week",
             recipient=patron.email,

@@ -21,6 +21,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.utils import secure_filename
 
 from .. import limiter
@@ -807,7 +808,7 @@ def books_import_csv():
             return render_template("admin/import_csv.html")
         stream = io.StringIO(raw.decode("utf-8-sig"))
         reader = csv.DictReader(stream)
-    except Exception:
+    except (OSError, UnicodeDecodeError, csv.Error):
         flash("Could not read the CSV file. Please check the encoding (UTF-8 expected).", "danger")
         return render_template("admin/import_csv.html")
 
@@ -872,7 +873,7 @@ def books_import_csv():
     try:
         db.session.commit()
         log_event("csv_import", detail=f"Imported {imported} books, skipped {skipped}")
-    except Exception as exc:
+    except SQLAlchemyError as exc:
         db.session.rollback()
         current_app.logger.error(f"CSV import database error: {exc}")
         flash("A database error occurred during import. Please check the server logs for details.", "danger")
@@ -1384,7 +1385,7 @@ def import_pdf_staged_approve(staged_id):
     shutil.move(str(src_path), str(dst_path))
     try:
         db.session.commit()
-    except Exception:
+    except SQLAlchemyError:
         # Roll back the file move on DB failure
         shutil.move(str(dst_path), str(src_path))
         db.session.rollback()
@@ -1474,7 +1475,7 @@ def import_pdf_bulk_approve():
             shutil.move(str(src_path), str(dst_path))
             try:
                 db.session.commit()
-            except Exception:
+            except SQLAlchemyError:
                 shutil.move(str(dst_path), str(src_path))
                 raise
 
@@ -1486,7 +1487,7 @@ def import_pdf_bulk_approve():
                 target_id=book.id,
                 detail=f"Bulk imported from staging: {staged.original_filename}",
             )
-        except Exception as exc:
+        except (OSError, SQLAlchemyError, ValueError) as exc:
             db.session.rollback()
             current_app.logger.error(f"Bulk approve failed for '{staged.original_filename}': {exc}")
             skipped_count += 1

@@ -4,6 +4,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 def init_scheduler(app):
     scheduler = BackgroundScheduler()
+    expiry_interval_minutes = max(1, int(app.config.get("SCHEDULER_EXPIRY_INTERVAL_MINUTES", 5)))
+    reminder_interval_minutes = max(1, int(app.config.get("SCHEDULER_REMINDER_INTERVAL_MINUTES", 60)))
 
     def job_listener(event):
         if event.exception:
@@ -28,7 +30,7 @@ def init_scheduler(app):
     scheduler.add_job(
         func=run_expiry,
         trigger="interval",
-        minutes=5,
+        minutes=expiry_interval_minutes,
         id="expire_loans",
         max_instances=1,
         coalesce=True,
@@ -36,7 +38,7 @@ def init_scheduler(app):
     scheduler.add_job(
         func=run_reminders,
         trigger="interval",
-        minutes=60,
+        minutes=reminder_interval_minutes,
         id="send_reminders",
         max_instances=1,
         coalesce=True,
