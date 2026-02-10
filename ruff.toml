@@ -32,3 +32,4 @@ ignore = [
 [lint.per-file-ignores]
 "run.py" = ["T20", "E402"]     # print() is fine; dotenv must load before app import
 "app/liturgical.py" = ["E741"] # single-letter variable `l` is domain-appropriate
+"tests/**" = ["S101", "S106", "S107"]  # assert and hardcoded passwords are fine in tests

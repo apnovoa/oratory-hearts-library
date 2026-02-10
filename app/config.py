@@ -105,7 +105,19 @@ class ProductionConfig(Config):
             )
 
 
+class TestingConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    WTF_CSRF_ENABLED = False
+    RATELIMIT_ENABLED = False
+    SCHEDULER_ENABLED = False
+    BREVO_API_KEY = ""
+    SERVER_NAME = "localhost"
+    SECRET_KEY = "testing-secret-key"
+
+
 config_by_name = {
     "development": DevelopmentConfig,
     "production": ProductionConfig,
+    "testing": TestingConfig,
 }
