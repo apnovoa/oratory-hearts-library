@@ -20,10 +20,10 @@ class BookForm(FlaskForm):
         validators=[DataRequired(), Length(max=500)],
         render_kw={"placeholder": "Book title"},
     )
-    author = StringField(
+    author = TextAreaField(
         "Author",
         validators=[DataRequired(), Length(max=500)],
-        render_kw={"placeholder": "Author name"},
+        render_kw={"placeholder": "One author per line", "rows": 2},
     )
     description = TextAreaField(
         "Description",
@@ -271,7 +271,7 @@ class ReadingListForm(FlaskForm):
 
 class StagedBookForm(FlaskForm):
     title = StringField("Title", validators=[Optional(), Length(max=500)])
-    author = StringField("Author", validators=[Optional(), Length(max=500)])
+    author = TextAreaField("Author", validators=[Optional(), Length(max=500)], render_kw={"placeholder": "One author per line", "rows": 2})
     description = TextAreaField("Description", validators=[Optional(), Length(max=5000)], render_kw={"rows": 4})
     language = StringField("Language", validators=[Optional(), Length(max=50)], default="en")
     publication_year = IntegerField("Publication Year", validators=[Optional(), NumberRange(min=1, max=2100)])

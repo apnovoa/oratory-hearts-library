@@ -8,7 +8,7 @@
     <div class="auth-header">
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library crest" class="auth-cross-logo">
       <h1 class="auth-title lending-title">{{ book.title }}</h1>
-      <p class="auth-subtitle">by {{ book.author }}</p>
+      <p class="auth-subtitle">by {{ book.formatted_authors }}</p>
     </div>
 
     <div class="warning-box">

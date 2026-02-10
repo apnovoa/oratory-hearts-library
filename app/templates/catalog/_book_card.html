@@ -17,7 +17,7 @@
     </div>
     <div class="book-card-info">
       <h3 class="book-card-title">{{ book.title }}</h3>
-      <p class="book-card-author">{{ book.author }}</p>
+      <p class="book-card-author">{{ book.formatted_authors }}</p>
       <div class="book-card-meta">
         {% if book.tags %}
         <span class="book-card-tag">{{ book.tags[0].name }}</span>

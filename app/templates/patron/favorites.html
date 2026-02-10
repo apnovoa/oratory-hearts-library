@@ -24,7 +24,7 @@
       </div>
       <div class="book-card-info">
         <h3 class="book-card-title">{{ book.title }}</h3>
-        <p class="book-card-author">{{ book.author }}</p>
+        <p class="book-card-author">{{ book.formatted_authors }}</p>
         {% if book.restricted_access %}
         <span class="badge badge-unavailable">Restricted</span>
         {% elif book.is_available %}

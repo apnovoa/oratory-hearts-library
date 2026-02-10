@@ -5,7 +5,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..models import Book, BookNote, Favorite, Loan, Tag, db
+from ..models import LANGUAGE_LABELS, Book, BookNote, Favorite, Loan, Tag, db
 from .forms import CatalogSearchForm
 from .helpers import get_related_books
 
@@ -31,17 +31,6 @@ catalog_bp = Blueprint("catalog", __name__)
 
 ITEMS_PER_PAGE = 20
 
-# Language code -> display name mapping
-LANGUAGE_LABELS = {
-    "en": "English",
-    "la": "Latin",
-    "es": "Spanish",
-    "fr": "French",
-    "it": "Italian",
-    "de": "German",
-    "pt": "Portuguese",
-    "pl": "Polish",
-}
 
 
 @catalog_bp.route("/")

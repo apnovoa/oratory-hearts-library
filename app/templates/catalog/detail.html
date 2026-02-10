@@ -33,7 +33,7 @@
         </form>
         {% endif %}
       </div>
-      <p class="book-detail-author">by {{ book.author }}</p>
+      <p class="book-detail-author">by {{ book.formatted_authors }}</p>
 
       {% if book.tags %}
       <div class="book-tags">
@@ -89,7 +89,7 @@
         {% if book.language %}
         <tr>
           <th>Language</th>
-          <td>{{ book.language }}</td>
+          <td>{{ book.language_name }}</td>
         </tr>
         {% endif %}
         {% if book.publication_year %}
@@ -209,7 +209,7 @@
           </div>
           <div class="book-card-info">
             <h3 class="book-card-title">{{ rbook.title }}</h3>
-            <p class="book-card-author">{{ rbook.author }}</p>
+            <p class="book-card-author">{{ rbook.formatted_authors }}</p>
             {% if rbook.restricted_access %}
             <span class="badge badge-unavailable">Restricted</span>
             {% elif rbook.is_available %}

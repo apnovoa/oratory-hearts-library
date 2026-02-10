@@ -105,6 +105,18 @@ class Tag(db.Model):
         return f"<Tag {self.name}>"
 
 
+# Language code -> display name mapping (shared across modules)
+LANGUAGE_LABELS = {
+    "en": "English",
+    "la": "Latin",
+    "es": "Spanish",
+    "fr": "French",
+    "it": "Italian",
+    "de": "German",
+    "pt": "Portuguese",
+    "pl": "Polish",
+}
+
 # ── Book ────────────────────────────────────────────────────────────
 
 
@@ -170,6 +182,26 @@ class Book(db.Model):
         if self.loan_duration_override:
             return self.loan_duration_override
         return current_app.config.get("DEFAULT_LOAN_DAYS", 14)
+
+    @property
+    def authors_list(self):
+        """Split ``||``-delimited author string into a list."""
+        if not self.author:
+            return []
+        return [a.strip() for a in self.author.split("||") if a.strip()]
+
+    @property
+    def formatted_authors(self):
+        """Human-readable author string: 'A & B' or 'A, B & C'."""
+        names = self.authors_list
+        if len(names) <= 1:
+            return self.author or ""
+        return ", ".join(names[:-1]) + " & " + names[-1]
+
+    @property
+    def language_name(self):
+        """Full language name with fallback to raw code."""
+        return LANGUAGE_LABELS.get(self.language, self.language or "")
 
     def __repr__(self):
         return f"<Book {self.title[:40]}>"

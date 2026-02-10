@@ -14,6 +14,7 @@ from ..models import Book, StagedBook, db
 from .book_helpers import sync_tags
 from .common import _PDF_MAGIC, _uploaded_file_size, _utcnow, admin_bp, admin_required
 from .forms import StagedBookForm
+from .routes_books import _normalize_authors
 
 # ── Bulk PDF Import ──────────────────────────────────────────────
 
@@ -195,10 +196,12 @@ def import_pdf_staged_edit(staged_id):
         abort(404)
 
     form = StagedBookForm(obj=staged)
+    if request.method == "GET" and staged.author:
+        form.author.data = staged.author.replace("||", "\n")
 
     if form.validate_on_submit():
         staged.title = form.title.data.strip() if form.title.data else None
-        staged.author = form.author.data.strip() if form.author.data else None
+        staged.author = _normalize_authors(form.author.data) if form.author.data else None
         staged.description = form.description.data or None
         staged.language = form.language.data.strip() if form.language.data else None
         staged.publication_year = form.publication_year.data

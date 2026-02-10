@@ -72,7 +72,7 @@ def checkout_book(user, book):
                 due_at=due_date,
                 max_renewals=current_app.config.get("MAX_RENEWALS", 2),
                 book_title_snapshot=book.title,
-                book_author_snapshot=book.author,
+                book_author_snapshot=book.formatted_authors,
             )
             db.session.add(loan)
             db.session.commit()

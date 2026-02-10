@@ -63,7 +63,7 @@
           <tr>
             <td>{{ book.id }}</td>
             <td>{{ book.title }}</td>
-            <td>{{ book.author }}</td>
+            <td>{{ book.formatted_authors }}</td>
             <td>{{ book.owned_copies }}</td>
             <td>{{ book.active_loan_count }}</td>
             <td>{{ "Yes" if book.is_visible else "No" }}</td>

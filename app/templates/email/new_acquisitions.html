@@ -39,7 +39,7 @@
                                 <tr>
                                     <td style="padding:16px 20px;">
                                         <p style="font-size:16px; font-weight:bold; color:#1a1412; margin:0 0 4px;">{{ book.title }}</p>
-                                        <p style="font-size:14px; color:#5c534d; font-style:italic; margin:0 0 8px;">{{ book.author }}</p>
+                                        <p style="font-size:14px; color:#5c534d; font-style:italic; margin:0 0 8px;">{{ book.formatted_authors }}</p>
                                         {% if book.description %}
                                         <p style="font-size:13px; color:#5c534d; margin:0; line-height:1.5;">{{ book.description|truncate(200) }}</p>
                                         {% endif %}

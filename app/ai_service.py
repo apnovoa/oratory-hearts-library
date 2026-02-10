@@ -96,7 +96,7 @@ def _build_metadata_prompt(text, include_description=True):
 
     fields = [
         '"title": "exact title as printed"',
-        '"author": "full author name(s), comma-separated if multiple"',
+        '"author": "full author name(s), separated by || if multiple (e.g. Author One||Author Two)"',
         '"publication_year": integer or null',
         '"isbn": "ISBN-10 or ISBN-13 if found, else null"',
         '"language": "ISO 639-1 two-letter code (e.g. en, la, es, fr, de, it)"',
@@ -128,7 +128,7 @@ def _build_vision_prompt(include_description=True):
 
     fields = [
         '"title": "exact title as printed"',
-        '"author": "full author name(s), comma-separated if multiple"',
+        '"author": "full author name(s), separated by || if multiple (e.g. Author One||Author Two)"',
         '"publication_year": integer or null',
         '"isbn": "ISBN-10 or ISBN-13 if found, else null"',
         '"language": "ISO 639-1 two-letter code (e.g. en, la, es, fr, de, it)"',

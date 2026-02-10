@@ -29,9 +29,15 @@
                 {% for loan in active_loans %}
                 <tr>
                     <td>
-                        <strong>{{ loan.book_title_snapshot or loan.book.title }}</strong>
+                        {% if loan.book %}
+                        <a href="{{ url_for('catalog.detail', public_id=loan.book.public_id) }}">
+                            <strong>{{ loan.book_title_snapshot or loan.book.title }}</strong>
+                        </a>
+                        {% else %}
+                        <strong>{{ loan.book_title_snapshot or 'Unknown Title' }}</strong>
+                        {% endif %}
                     </td>
-                    <td>{{ loan.book_author_snapshot or loan.book.author }}</td>
+                    <td>{{ loan.book_author_snapshot or loan.book.formatted_authors }}</td>
                     <td class="text-sans text-small">{{ loan.borrowed_at.strftime('%d %b %Y') }}</td>
                     <td class="text-sans text-small">
                         {{ loan.due_at.strftime('%d %b %Y, %H:%M UTC') }}
@@ -103,8 +109,16 @@
             <tbody>
                 {% for loan in past_loans %}
                 <tr>
-                    <td>{{ loan.book_title_snapshot or loan.book.title }}</td>
-                    <td>{{ loan.book_author_snapshot or loan.book.author }}</td>
+                    <td>
+                        {% if loan.book %}
+                        <a href="{{ url_for('catalog.detail', public_id=loan.book.public_id) }}">
+                            {{ loan.book_title_snapshot or loan.book.title }}
+                        </a>
+                        {% else %}
+                        {{ loan.book_title_snapshot or 'Unknown Title' }}
+                        {% endif %}
+                    </td>
+                    <td>{{ loan.book_author_snapshot or (loan.book.formatted_authors if loan.book else '—') }}</td>
                     <td class="text-sans text-small">{{ loan.borrowed_at.strftime('%d %b %Y') }}</td>
                     <td class="text-sans text-small">
                         {% if loan.returned_at %}

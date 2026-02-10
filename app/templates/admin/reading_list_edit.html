@@ -92,7 +92,7 @@
                 <input type="number" name="position_{{ item.id }}" value="{{ item.position }}" min="1" class="form-control form-control-w50">
               </td>
               <td>{{ item.book.title }}</td>
-              <td>{{ item.book.author }}</td>
+              <td>{{ item.book.formatted_authors }}</td>
               <td>
                 <input type="text" name="note_{{ item.id }}" value="{{ item.note or '' }}" class="form-control text-small" placeholder="Optional curator note">
               </td>
@@ -114,7 +114,7 @@
           <select name="add_book_id" id="add_book_id" class="form-control">
             <option value="">-- Select a book to add --</option>
             {% for book in all_books %}
-              <option value="{{ book.id }}">{{ book.title }} &mdash; {{ book.author }}</option>
+              <option value="{{ book.id }}">{{ book.title }} &mdash; {{ book.formatted_authors }}</option>
             {% endfor %}
           </select>
           <small>Select a book and save to add it to the list.</small>

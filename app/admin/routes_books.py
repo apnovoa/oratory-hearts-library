@@ -15,6 +15,25 @@ from .book_helpers import sync_tags
 from .common import _PDF_MAGIC, _is_valid_cover_image, _uploaded_file_size, admin_bp, admin_required
 from .forms import BookForm, BookSearchForm
 
+def _normalize_authors(raw):
+    """Convert newline-separated author input to ``||``-delimited storage.
+
+    Also accepts ``;`` as a delimiter (useful for CSV import).  Single-author
+    values pass through unchanged.
+    """
+    if not raw:
+        return raw
+    # Prefer newlines, fall back to semicolons
+    if "\n" in raw:
+        parts = raw.split("\n")
+    elif ";" in raw:
+        parts = raw.split(";")
+    else:
+        return raw.strip()
+    cleaned = [p.strip() for p in parts if p.strip()]
+    return "||".join(cleaned) if cleaned else raw.strip()
+
+
 # ── Books ──────────────────────────────────────────────────────────
 
 
@@ -48,7 +67,7 @@ def book_add():
     if form.validate_on_submit():
         book = Book(
             title=form.title.data.strip(),
-            author=form.author.data.strip(),
+            author=_normalize_authors(form.author.data),
             description=form.description.data or None,
             language=form.language.data.strip(),
             publication_year=form.publication_year.data,
@@ -131,10 +150,13 @@ def book_edit(book_id):
     form = BookForm(obj=book)
     if request.method == "GET":
         form.tags_text.data = ", ".join(t.name for t in book.tags)
+        # Show ||‑delimited authors as one-per-line in the textarea
+        if book.author:
+            form.author.data = book.author.replace("||", "\n")
 
     if form.validate_on_submit():
         book.title = form.title.data.strip()
-        book.author = form.author.data.strip()
+        book.author = _normalize_authors(form.author.data)
         book.description = form.description.data or None
         book.language = form.language.data.strip()
         book.publication_year = form.publication_year.data
@@ -310,7 +332,7 @@ def books_import_csv():
         row_count += 1
 
         title = (row.get("title") or "").strip()[:500]
-        author = (row.get("author") or "").strip()[:300]
+        author = _normalize_authors((row.get("author") or "").strip()[:500])
         description = (row.get("description") or "").strip()[:5000]
         isbn = (row.get("isbn") or "").strip()[:20]
         language = (row.get("language") or "en").strip()[:10]

@@ -38,7 +38,7 @@
                                 <tr>
                                     <td style="padding:20px;">
                                         <p style="font-size:18px; font-weight:bold; color:#1a1412; margin:0 0 4px;">{{ book.title }}</p>
-                                        <p style="font-size:14px; color:#5c534d; font-style:italic; margin:0 0 12px;">{{ book.author }}</p>
+                                        <p style="font-size:14px; color:#5c534d; font-style:italic; margin:0 0 12px;">{{ book.formatted_authors }}</p>
                                         <p style="font-size:13px; color:#5c534d; margin:0;">
                                             <strong>Borrowed:</strong> {{ loan.borrowed_at.strftime('%d %B %Y') }}<br>
                                             <strong>Due:</strong> {{ loan.due_at.strftime('%d %B %Y at %H:%M UTC') }}

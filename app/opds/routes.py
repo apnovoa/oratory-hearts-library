@@ -80,8 +80,14 @@ def all_books():
         entry_updated = book.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if book.updated_at else updated
         summary = _escape_xml(book.description or "")
         title = _escape_xml(book.title)
-        author = _escape_xml(book.author)
         lang = _escape_xml(book.language or "en")
+
+        # OPDS supports multiple <author> elements
+        author_elements = ""
+        for author_name in book.authors_list:
+            author_elements += f"    <author>\n      <name>{_escape_xml(author_name)}</name>\n    </author>\n"
+        if not author_elements:
+            author_elements = f"    <author>\n      <name>{_escape_xml(book.author or '')}</name>\n    </author>\n"
 
         links = ""
         if book.cover_filename:
@@ -93,9 +99,7 @@ def all_books():
     <title>{title}</title>
     <id>urn:bibliotheca:oratorii:book:{_escape_xml(book.public_id)}</id>
     <updated>{entry_updated}</updated>
-    <author>
-      <name>{author}</name>
-    </author>
+{author_elements}
     <dc:language>{lang}</dc:language>
     <summary>{summary}</summary>
     <link rel="alternate" href="/catalog/{_escape_xml(book.public_id)}" type="text/html"/>
