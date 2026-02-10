@@ -48,6 +48,18 @@ class Config:
     LIBRARY_CONTACT_EMAIL = os.environ.get("LIBRARY_CONTACT_EMAIL", "library@oratory.example.org")
     LIBRARY_DOMAIN = os.environ.get("LIBRARY_DOMAIN", "http://localhost:8080")
 
+    # Donation methods (leave blank to hide from donate page)
+    DONATE_PAYPAL_URL = os.environ.get("DONATE_PAYPAL_URL", "")
+    DONATE_ZELLE_ADDRESS = os.environ.get("DONATE_ZELLE_ADDRESS", "")
+    DONATE_BTC_ADDRESS = os.environ.get("DONATE_BTC_ADDRESS", "")
+    DONATE_ETH_ADDRESS = os.environ.get("DONATE_ETH_ADDRESS", "")
+    DONATE_XMR_ADDRESS = os.environ.get("DONATE_XMR_ADDRESS", "")
+    DONATE_LTC_ADDRESS = os.environ.get("DONATE_LTC_ADDRESS", "")
+    DONATE_MAILING_ADDRESS = os.environ.get(
+        "DONATE_MAILING_ADDRESS",
+        "Library of the Oratory of the Most Sacred Hearts\nPO Box 431521\nMiami, FL 33243-1521",
+    )
+
     # Bulk PDF import staging
     STAGING_STORAGE = os.environ.get("STAGING_STORAGE", str(STORAGE_DIR / "staging"))
 

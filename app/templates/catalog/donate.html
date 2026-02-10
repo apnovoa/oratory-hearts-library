@@ -3,24 +3,16 @@
 {% block title %}Support the Library — {{ library_name_latin }}{% endblock %}
 
 {% block content %}
-<div class="policy-page">
+<div class="donate-page">
 
-  {# ── Header ────────────────────────────────────────────────────── #}
-  <div class="policy-header">
-    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library seal" class="policy-header-seal">
-    <h1 class="policy-header-title">Support Our Library</h1>
-    <p class="policy-header-subtitle">{{ library_name_latin }}</p>
-    <p class="policy-header-english">{{ library_name_english }}</p>
-    <div class="policy-header-ornament" aria-hidden="true">&#x2726;</div>
-  </div>
-
-  {# ── Heart of the Appeal ──────────────────────────────────────── #}
-  <section class="policy-section">
-    <div class="donate-hero">
-      <p class="donate-hero-lead">
-        Every volume in this library exists because someone believed it was
-        worth preserving.
-      </p>
+  {# ── Hero Banner ─────────────────────────────────────────────── #}
+  <div class="donate-hero-banner">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library seal" class="donate-hero-seal">
+    <h1 class="donate-hero-title">Support Our Library</h1>
+    <p class="donate-hero-tagline">
+      Every volume exists because someone believed it was worth preserving.
+    </p>
+    <div class="donate-hero-body">
       <p>
         The Oratory's collection&mdash;patristic commentaries, manuals of
         ascetical theology, children's catechisms, rare pre-conciliar
@@ -34,101 +26,270 @@
         continue this work?
       </p>
     </div>
-  </section>
+    <div class="donate-hero-ornament" aria-hidden="true">&#x2726;</div>
+  </div>
 
-  {# ── How to Give ──────────────────────────────────────────────── #}
-  <section class="policy-section">
-    <h2 class="policy-section-title">How You Can Help</h2>
+  {# ── Give Online ─────────────────────────────────────────────── #}
+  {% if has_digital_donations %}
+  <section class="donate-section">
+    <h2 class="donate-section-title">Give Online</h2>
+    <div class="donate-method-grid">
 
-    <div class="donate-cards">
-      {# ── Card: Financial Gift ──────────────────────────────────── #}
-      <div class="donate-card">
-        <div class="donate-card-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
-        </div>
-        <h3 class="donate-card-title">Make a Donation</h3>
-        <p>
+      {% if donate_paypal_url %}
+      <div class="donate-method-card donate-method-card--featured">
+        <div class="donate-method-label">Recommended</div>
+        <h3 class="donate-method-title">PayPal</h3>
+        <p class="donate-method-desc">
           A financial gift of any size goes directly toward acquiring new
           titles, digitising physical volumes, and keeping our servers running.
-          No amount is too small.
         </p>
-        <p>
-          To contribute, please write to us at
-          <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
-          and we will provide instructions.
-        </p>
+        <a href="{{ donate_paypal_url }}" class="donate-paypal-btn" rel="noopener noreferrer" target="_blank">
+          Donate via PayPal
+        </a>
       </div>
+      {% endif %}
 
-      {# ── Card: Donate Books ────────────────────────────────────── #}
-      <div class="donate-card">
-        <div class="donate-card-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+      {% if donate_zelle_address %}
+      <div class="donate-method-card">
+        <h3 class="donate-method-title">Zelle</h3>
+        <p class="donate-method-desc">
+          Send directly from your bank app&mdash;no fees, instant transfer.
+        </p>
+        <div class="donate-address-block">
+          <span class="donate-address-value" id="zelle-addr">{{ donate_zelle_address }}</span>
+          <button type="button" class="donate-copy-btn" data-copy-target="zelle-addr">Copy</button>
         </div>
-        <h3 class="donate-card-title">Donate a Book</h3>
-        <p>
+      </div>
+      {% endif %}
+
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Cryptocurrency ──────────────────────────────────────────── #}
+  {% if has_crypto_donations %}
+  <section class="donate-section">
+    <h2 class="donate-section-title">Cryptocurrency</h2>
+    <div class="donate-method-grid">
+
+      {% if donate_btc_address %}
+      <div class="donate-method-card">
+        <h3 class="donate-method-title">Bitcoin (BTC)</h3>
+        <div class="donate-crypto-body">
+          <div class="donate-qr" data-qr-value="bitcoin:{{ donate_btc_address }}"></div>
+          <div class="donate-crypto-info">
+            <div class="donate-address-block">
+              <span class="donate-address-value donate-address-value--mono" id="btc-addr">{{ donate_btc_address }}</span>
+              <button type="button" class="donate-copy-btn" data-copy-target="btc-addr">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if donate_eth_address %}
+      <div class="donate-method-card">
+        <h3 class="donate-method-title">Ethereum (ETH)</h3>
+        <div class="donate-crypto-body">
+          <div class="donate-qr" data-qr-value="ethereum:{{ donate_eth_address }}"></div>
+          <div class="donate-crypto-info">
+            <div class="donate-address-block">
+              <span class="donate-address-value donate-address-value--mono" id="eth-addr">{{ donate_eth_address }}</span>
+              <button type="button" class="donate-copy-btn" data-copy-target="eth-addr">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if donate_xmr_address %}
+      <div class="donate-method-card">
+        <h3 class="donate-method-title">Monero (XMR)</h3>
+        <div class="donate-crypto-body">
+          <div class="donate-qr" data-qr-value="monero:{{ donate_xmr_address }}"></div>
+          <div class="donate-crypto-info">
+            <div class="donate-address-block">
+              <span class="donate-address-value donate-address-value--mono" id="xmr-addr">{{ donate_xmr_address }}</span>
+              <button type="button" class="donate-copy-btn" data-copy-target="xmr-addr">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if donate_ltc_address %}
+      <div class="donate-method-card">
+        <h3 class="donate-method-title">Litecoin (LTC)</h3>
+        <div class="donate-crypto-body">
+          <div class="donate-qr" data-qr-value="litecoin:{{ donate_ltc_address }}"></div>
+          <div class="donate-crypto-info">
+            <div class="donate-address-block">
+              <span class="donate-address-value donate-address-value--mono" id="ltc-addr">{{ donate_ltc_address }}</span>
+              <button type="button" class="donate-copy-btn" data-copy-target="ltc-addr">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Donate a Book ───────────────────────────────────────────── #}
+  {% if has_book_donations %}
+  <section class="donate-section">
+    <h2 class="donate-section-title">Donate a Book</h2>
+    <div class="donate-method-grid">
+      <div class="donate-method-card donate-method-card--full">
+        <p class="donate-method-desc">
           If you possess Catholic works you would like to see preserved&mdash;theology,
           Sacred Scripture, spirituality, Church history, canon law, liturgy, or
           hagiography&mdash;we warmly welcome them. We are especially grateful for
           works with an imprimatur, editions of the Fathers, and titles our
           patrons have requested.
         </p>
-        <p>Books in good condition may be mailed to:</p>
-        <div class="donate-address">
-          <strong>Library of the Oratory of the Most Sacred Hearts</strong><br>
-          PO Box 431521<br>
-          Miami, FL 33243-1521
-        </div>
-        <p class="text-small text-subdued">
-          Unsure whether a volume is a good fit? Write to
-          <a href="mailto:{{ library_contact_email }}">{{ library_contact_email }}</a>
-          before sending.
+        <p class="donate-method-desc" style="margin-top: -0.5rem;">
+          Books in good condition may be mailed to:
         </p>
-      </div>
-
-      {# ── Card: Prayer ──────────────────────────────────────────── #}
-      <div class="donate-card">
-        <div class="donate-card-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
+        <div class="donate-address-block">
+          <span class="donate-address-value donate-address-value--multiline">{% for line in donate_mailing_lines %}{{ line }}{% if not loop.last %}
+{% endif %}{% endfor %}</span>
         </div>
-        <h3 class="donate-card-title">Pray for Us</h3>
-        <p>
-          Above all, we ask for your prayers. The Oratory remembers its
-          benefactors at every Mass and in our daily Office. A Hail Mary for
-          the success of this apostolate is the greatest gift you can offer.
+        <p class="donate-method-desc" style="margin-top: 1rem; font-size: 0.85rem; color: #5c534d;">
+          Unsure whether a volume is a good fit? Write to
+          <a href="mailto:{{ library_contact_email }}" style="color: #6b1d2a;">{{ library_contact_email }}</a>
+          before sending.
         </p>
       </div>
     </div>
   </section>
+  {% endif %}
 
-  {# ── Where Your Gift Goes ─────────────────────────────────────── #}
-  <section class="policy-section">
-    <h2 class="policy-section-title">Where Your Gift Goes</h2>
-    <ul class="donate-list">
-      <li>Purchasing books requested by our patrons</li>
-      <li>Digitising and preserving rare Catholic texts</li>
-      <li>Hosting and maintaining the digital lending system</li>
-      <li>Expanding the public domain collection for free access</li>
-    </ul>
+  {# ── Where Your Gift Goes ────────────────────────────────────── #}
+  <section class="donate-section">
+    <h2 class="donate-section-title">Where Your Gift Goes</h2>
+    <div class="donate-impact-grid">
+      <div class="donate-impact-item">
+        <span class="donate-impact-icon" aria-hidden="true">&#x1F4DA;</span>
+        <div class="donate-impact-label">Acquiring</div>
+        <div class="donate-impact-desc">Purchasing books requested by our patrons</div>
+      </div>
+      <div class="donate-impact-item">
+        <span class="donate-impact-icon" aria-hidden="true">&#x1F4F7;</span>
+        <div class="donate-impact-label">Digitisation</div>
+        <div class="donate-impact-desc">Digitising and preserving rare Catholic texts</div>
+      </div>
+      <div class="donate-impact-item">
+        <span class="donate-impact-icon" aria-hidden="true">&#x1F5A5;</span>
+        <div class="donate-impact-label">Infrastructure</div>
+        <div class="donate-impact-desc">Hosting and maintaining the digital lending system</div>
+      </div>
+      <div class="donate-impact-item">
+        <span class="donate-impact-icon" aria-hidden="true">&#x1F310;</span>
+        <div class="donate-impact-label">Public Access</div>
+        <div class="donate-impact-desc">Expanding the public domain collection for free access</div>
+      </div>
+    </div>
   </section>
 
-  {# ── Closing ───────────────────────────────────────────────────── #}
-  <section class="policy-section">
+  {# ── Closing ─────────────────────────────────────────────────── #}
+  <section class="donate-section">
+    <div class="donate-prayer-card">
+      <h3>Pray for Us</h3>
+      <p>
+        Above all, we ask for your prayers. The Oratory remembers its
+        benefactors at every Mass and in our daily Office. A Hail Mary for
+        the success of this apostolate is the greatest gift you can offer.
+      </p>
+    </div>
+
     <p class="donate-scripture">
       <em>&ldquo;Each one must give as he has decided in his heart, not
       reluctantly or under compulsion, for God loves a cheerful
       giver.&rdquo;</em><br>
       <span class="donate-citation">&mdash; 2 Corinthians 9:7</span>
     </p>
+
     <p class="donate-gratitude">
       May God reward your generosity and may the saints whose words fill
       these pages intercede for you and your families.
     </p>
+
+    <div class="donate-closing-ornament" aria-hidden="true">&#x271D;</div>
   </section>
 
-  {# ── Footer ornament ──────────────────────────────────────────── #}
-  <div class="policy-footer-ornament" aria-hidden="true">
-    <span>&#x271D;</span>
-  </div>
-
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if has_crypto_donations %}
+<script src="{{ url_for('static', filename='vendor/qrcode-svg.min.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endif %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  /* ── QR Code Generation ──────────────────────────────────────── */
+  if (typeof QRCode !== 'undefined') {
+    document.querySelectorAll('[data-qr-value]').forEach(function(el) {
+      try {
+        var qr = new QRCode({
+          content: el.getAttribute('data-qr-value'),
+          width: 120,
+          height: 120,
+          padding: 2,
+          color: '#1a1412',
+          background: '#ffffff',
+          ecl: 'M',
+          join: true
+        });
+        el.innerHTML = qr.svg({ container: 'svg-viewbox' });
+      } catch (e) {
+        el.style.display = 'none';
+      }
+    });
+  }
+
+  /* ── Copy to Clipboard ───────────────────────────────────────── */
+  document.querySelectorAll('.donate-copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var targetId = btn.getAttribute('data-copy-target');
+      var target = document.getElementById(targetId);
+      if (!target) return;
+
+      var text = target.textContent.trim();
+
+      function onSuccess() {
+        btn.textContent = 'Copied!';
+        btn.classList.add('donate-copy-btn--copied');
+        setTimeout(function() {
+          btn.textContent = 'Copy';
+          btn.classList.remove('donate-copy-btn--copied');
+        }, 2000);
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(function() {
+          fallbackCopy(text, onSuccess);
+        });
+      } else {
+        fallbackCopy(text, onSuccess);
+      }
+    });
+  });
+
+  function fallbackCopy(text, callback) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      callback();
+    } catch (e) { /* silently fail */ }
+    document.body.removeChild(textarea);
+  }
+})();
+</script>
 {% endblock %}

@@ -207,11 +207,32 @@ def create_app(config_name=None):
     def inject_library_branding():
         from flask import g
 
+        # Donation config
+        paypal = app.config.get("DONATE_PAYPAL_URL", "")
+        zelle = app.config.get("DONATE_ZELLE_ADDRESS", "")
+        btc = app.config.get("DONATE_BTC_ADDRESS", "")
+        eth = app.config.get("DONATE_ETH_ADDRESS", "")
+        xmr = app.config.get("DONATE_XMR_ADDRESS", "")
+        ltc = app.config.get("DONATE_LTC_ADDRESS", "")
+        mailing = app.config.get("DONATE_MAILING_ADDRESS", "")
+
         return {
             "library_name_latin": app.config["LIBRARY_NAME_LATIN"],
             "library_name_english": app.config["LIBRARY_NAME_ENGLISH"],
             "library_contact_email": app.config["LIBRARY_CONTACT_EMAIL"],
             "csp_nonce": getattr(g, "csp_nonce", ""),
+            # Donation values
+            "donate_paypal_url": paypal,
+            "donate_zelle_address": zelle,
+            "donate_btc_address": btc,
+            "donate_eth_address": eth,
+            "donate_xmr_address": xmr,
+            "donate_ltc_address": ltc,
+            "donate_mailing_lines": [l for l in mailing.split("\n") if l.strip()] if mailing else [],
+            # Section visibility
+            "has_digital_donations": bool(paypal or zelle),
+            "has_crypto_donations": bool(btc or eth or xmr or ltc),
+            "has_book_donations": bool(mailing),
         }
 
     # Start scheduler for loan expiration
