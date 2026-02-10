@@ -10,3 +10,4 @@ Built with Flask, SQLite, and server-side rendering.
 
 - [Setup & Operations Guide](docs/SETUP.md)
 - [Architecture Overview](docs/ARCHITECTURE.md)
+- [Operational Runbook](docs/RUNBOOK.md)

@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from app.models import Favorite
+from app.models import BookNote, Favorite
 from tests.conftest import _make_book
 
 # ── Dashboard ──────────────────────────────────────────────────────
@@ -54,6 +54,31 @@ def test_favorite_toggle_remove(patron_client, patron, db):
     patron_client.post(f"/patron/favorites/{book.public_id}/toggle", follow_redirects=True)
     fav = Favorite.query.filter_by(user_id=patron.id, book_id=book.id).first()
     assert fav is None
+
+
+def test_favorite_toggle_hidden_book_returns_404(patron_client, db):
+    hidden = _make_book(title="Hidden Favorite", is_visible=False)
+    rv = patron_client.post(f"/patron/favorites/{hidden.public_id}/toggle", follow_redirects=False)
+    assert rv.status_code == 404
+
+
+def test_save_note_hidden_book_returns_404(patron_client):
+    hidden = _make_book(title="Hidden Note", is_visible=False)
+    rv = patron_client.post(
+        f"/patron/notes/{hidden.public_id}",
+        data={"content": "note"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 404
+
+
+def test_delete_note_hidden_book_returns_404(patron_client, patron, db):
+    hidden = _make_book(title="Hidden Delete Note", is_visible=False)
+    db.session.add(BookNote(user_id=patron.id, book_id=hidden.id, content="note"))
+    db.session.commit()
+
+    rv = patron_client.post(f"/patron/notes/{hidden.public_id}/delete", follow_redirects=False)
+    assert rv.status_code == 404
 
 
 # ── Profile ────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import re
 from flask import Blueprint, abort, current_app, redirect, render_template, request, send_from_directory, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..models import Book, BookNote, Favorite, Loan, Tag, db
 from .forms import CatalogSearchForm
@@ -77,36 +78,44 @@ def browse():
     )
 
     # Search by title or author (FTS5 with LIKE fallback)
-    search_query = form.q.data
-    if search_query:
-        search_query = _sanitize_fts5_query(search_query)
-    if search_query:
+    raw_search_query = (form.q.data or "").strip()
+    fts_query = _sanitize_fts5_query(raw_search_query) if raw_search_query else None
+    if fts_query:
         try:
             fts_results = db.session.execute(
                 text("SELECT rowid FROM books_fts WHERE books_fts MATCH :q"),
-                {"q": search_query},
+                {"q": fts_query},
             )
             matching_ids = [row[0] for row in fts_results]
             if matching_ids:
                 query = query.filter(Book.id.in_(matching_ids))
             else:
                 # FTS returned no results — fall back to LIKE
-                pattern = f"%{search_query}%"
+                pattern = f"%{raw_search_query}%"
                 query = query.filter(
                     db.or_(
                         Book.title.ilike(pattern),
                         Book.author.ilike(pattern),
                     )
                 )
-        except Exception:
+        except SQLAlchemyError:
             # FTS5 not available — fall back to LIKE
-            pattern = f"%{search_query}%"
+            pattern = f"%{raw_search_query}%"
             query = query.filter(
                 db.or_(
                     Book.title.ilike(pattern),
                     Book.author.ilike(pattern),
                 )
             )
+    elif raw_search_query:
+        # If FTS sanitization removes everything, still support plain LIKE search.
+        pattern = f"%{raw_search_query}%"
+        query = query.filter(
+            db.or_(
+                Book.title.ilike(pattern),
+                Book.author.ilike(pattern),
+            )
+        )
 
     # Filter by tag
     tag_filter = form.tag.data
@@ -301,6 +310,8 @@ def serve_cover(filename):
     # send_from_directory rejects path traversal (e.g. "../") internally.
     book = Book.query.filter_by(cover_filename=filename).first()
     if not book:
+        abort(404)
+    if (not current_user.is_admin) and (not book.is_visible or book.is_disabled):
         abort(404)
     return send_from_directory(current_app.config["COVER_STORAGE"], filename)
 

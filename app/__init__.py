@@ -1,6 +1,7 @@
 import logging
 import os
 import secrets
+import sqlite3
 from datetime import UTC
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -12,6 +13,9 @@ from flask_limiter.util import get_remote_address
 from flask_login import LoginManager
 from flask_migrate import Migrate, upgrade
 from flask_wtf.csrf import CSRFProtect
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
 
 from .config import config_by_name
 from .models import db
@@ -28,6 +32,23 @@ limiter = Limiter(key_func=get_remote_address)
 migrate = Migrate()
 csrf = CSRFProtect()
 oauth = OAuth()
+_SQLITE_FK_PRAGMA_REGISTERED = False
+
+
+def _register_sqlite_fk_pragma_once():
+    """Ensure SQLite connections enforce foreign-key constraints."""
+    global _SQLITE_FK_PRAGMA_REGISTERED
+    if _SQLITE_FK_PRAGMA_REGISTERED:
+        return
+
+    @event.listens_for(Engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        if isinstance(dbapi_connection, sqlite3.Connection):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+    _SQLITE_FK_PRAGMA_REGISTERED = True
 
 
 def create_app(config_name=None):
@@ -55,6 +76,9 @@ def create_app(config_name=None):
     # Ensure storage directories exist
     for d in ("MASTER_STORAGE", "CIRCULATION_STORAGE", "COVER_STORAGE", "BACKUP_STORAGE", "STAGING_STORAGE"):
         Path(app.config[d]).mkdir(parents=True, exist_ok=True)
+
+    # SQLite disables FK checks by default; enforce them for every connection.
+    _register_sqlite_fk_pragma_once()
 
     # Init extensions
     db.init_app(app)
@@ -89,7 +113,10 @@ def create_app(config_name=None):
             if not login_time:
                 return None  # No login_time = stale session
             if login_time:
-                lt = datetime.fromisoformat(login_time)
+                try:
+                    lt = datetime.fromisoformat(login_time)
+                except (TypeError, ValueError):
+                    return None
                 flo = user.force_logout_before
                 # Ensure both are aware or both naive for comparison
                 if lt.tzinfo is None:
@@ -133,11 +160,15 @@ def create_app(config_name=None):
     @app.after_request
     def set_security_headers(response):
         from flask import g
+        from flask_login import current_user
 
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
         if not app.debug:
             nonce = getattr(g, "csp_nonce", "")
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -154,6 +185,16 @@ def create_app(config_name=None):
                 "base-uri 'self'; "
                 "form-action 'self'"
             )
+
+        # Prevent browser/proxy caching of authenticated private content.
+        if (
+            current_user.is_authenticated
+            and response.mimetype in {"text/html", "application/pdf", "application/atom+xml"}
+            and response.status_code < 400
+        ):
+            response.headers["Cache-Control"] = "private, no-store"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         return response
 
     # Register template context
@@ -189,16 +230,66 @@ def create_app(config_name=None):
         from datetime import datetime
 
         result = {"timestamp": datetime.now(UTC).isoformat()}
+        scheduler_failures = []
+        scheduler_probe_failed = False
 
         # Check scheduler liveness
         scheduler = getattr(app, "scheduler", None)
         if scheduler is not None:
-            running = scheduler.running
-            jobs = []
-            for job in scheduler.get_jobs():
-                job_info = {"id": job.id, "next_run": job.next_run_time.isoformat() if job.next_run_time else None}
-                jobs.append(job_info)
-            result["scheduler"] = {"running": running, "jobs": jobs}
+            try:
+                running = scheduler.running
+                jobs = []
+                for job in scheduler.get_jobs():
+                    job_info = {"id": job.id, "next_run": job.next_run_time.isoformat() if job.next_run_time else None}
+                    jobs.append(job_info)
+                failure_threshold = max(1, int(app.config.get("SCHEDULER_MAX_CONSECUTIVE_FAILURES", 3)))
+
+                state_snapshot = {"updated_at": None, "jobs": {}}
+                state_ref = getattr(app, "scheduler_state", None)
+                state_lock = getattr(app, "scheduler_state_lock", None)
+                if isinstance(state_ref, dict):
+                    if state_lock is not None:
+                        with state_lock:
+                            state_data = dict(state_ref)
+                            jobs_data = dict(state_ref.get("jobs") or {})
+                    else:
+                        state_data = dict(state_ref)
+                        jobs_data = dict(state_ref.get("jobs") or {})
+
+                    state_snapshot["updated_at"] = state_data.get("updated_at")
+                    for job_id, info in jobs_data.items():
+                        if not isinstance(info, dict):
+                            continue
+                        try:
+                            consecutive_failures = int(info.get("consecutive_failures", 0))
+                        except (TypeError, ValueError):
+                            consecutive_failures = 0
+                        entry = {
+                            "last_status": info.get("last_status"),
+                            "last_run_at": info.get("last_run_at"),
+                            "last_success_at": info.get("last_success_at"),
+                            "last_error_at": info.get("last_error_at"),
+                            "last_error": info.get("last_error"),
+                            "last_duration_ms": info.get("last_duration_ms"),
+                            "consecutive_failures": consecutive_failures,
+                        }
+                        state_snapshot["jobs"][job_id] = entry
+                        if entry["consecutive_failures"] >= failure_threshold:
+                            scheduler_failures.append(job_id)
+
+                result["scheduler"] = {
+                    "running": running,
+                    "jobs": jobs,
+                    "state": state_snapshot,
+                    "failing_jobs": scheduler_failures,
+                    "failure_threshold": failure_threshold,
+                }
+            except Exception:
+                # Keep this broad so /health remains responsive even if the
+                # scheduler object is in a bad state after a runtime failure.
+                app.logger.exception("Health check scheduler probe failed.")
+                scheduler_probe_failed = True
+                result["scheduler"] = {"running": False, "reason": "probe_failed"}
         else:
             result["scheduler"] = {"running": False, "reason": "disabled"}
 
@@ -207,10 +298,14 @@ def create_app(config_name=None):
             db.session.execute(db.text("SELECT 1"))
             result["database"] = {"status": "ok"}
         except Exception:
+            # Keep this broad so /health never leaks internal exception types
+            # and always reports a sanitized degraded state.
             app.logger.exception("Health check database probe failed.")
             result["database"] = {"status": "error", "error": "unavailable"}
 
-        scheduler_ok = scheduler is None or scheduler.running
+        scheduler_ok = scheduler is None or (
+            not scheduler_probe_failed and result["scheduler"].get("running") and not scheduler_failures
+        )
         db_ok = result.get("database", {}).get("status") == "ok"
         all_ok = scheduler_ok and db_ok
         result["status"] = "ok" if all_ok else "degraded"
@@ -260,7 +355,7 @@ def create_app(config_name=None):
             # Rebuild FTS index from existing data
             db.session.execute(db.text("INSERT OR IGNORE INTO books_fts(books_fts) VALUES('rebuild')"))
             db.session.commit()
-        except Exception:
+        except SQLAlchemyError:
             app.logger.warning("FTS5 setup skipped (may not be supported by this SQLite build)")
             db.session.rollback()
 
@@ -287,6 +382,7 @@ def _configure_logging(app):
 
 
 def _seed_admin_if_needed(app):
+    import re
     import secrets
 
     from .models import User
@@ -297,8 +393,37 @@ def _seed_admin_if_needed(app):
         admin_password = os.environ.get("ADMIN_PASSWORD")
         generated = False
         if not admin_password:
-            admin_password = secrets.token_urlsafe(16)
-            generated = True
+            if app.config.get("DEBUG"):
+                admin_password = secrets.token_urlsafe(16)
+                generated = True
+            else:
+                raise RuntimeError("ADMIN_PASSWORD must be set for first-run admin account in non-debug environments.")
+
+        def _is_strong_seed_password(password):
+            if not password or len(password) < 12 or len(password) > 72:
+                return False
+            lowered = password.lower()
+            weak_markers = ("changeme", "password", "admin123", "replace", "example", "default")
+            if any(marker in lowered for marker in weak_markers):
+                return False
+            return (
+                re.search(r"[A-Z]", password) is not None
+                and re.search(r"[a-z]", password) is not None
+                and re.search(r"[0-9]", password) is not None
+            )
+
+        if not generated and not _is_strong_seed_password(admin_password):
+            if app.config.get("DEBUG"):
+                app.logger.warning(
+                    "ADMIN_PASSWORD does not meet recommended strength policy for seed admin account "
+                    "(12-72 chars with upper/lower/number)."
+                )
+            else:
+                raise RuntimeError(
+                    "ADMIN_PASSWORD for first-run admin account is too weak. "
+                    "Use 12-72 characters with upper/lowercase letters and numbers."
+                )
+
         admin = User(
             email=admin_email,
             display_name="Administrator",

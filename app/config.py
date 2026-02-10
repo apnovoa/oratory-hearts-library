@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STORAGE_DIR = BASE_DIR / "storage"
@@ -44,7 +45,7 @@ class Config:
     LIBRARY_NAME_LATIN = "Bibliotheca Oratorii Sacratissimorum Cordium"
     LIBRARY_NAME_ENGLISH = "Library of the Oratory of the Most Sacred Hearts"
     LIBRARY_CONTACT_EMAIL = os.environ.get("LIBRARY_CONTACT_EMAIL", "library@oratory.example.org")
-    LIBRARY_DOMAIN = os.environ.get("LIBRARY_DOMAIN", "http://localhost:5000")
+    LIBRARY_DOMAIN = os.environ.get("LIBRARY_DOMAIN", "http://localhost:8080")
 
     # Bulk PDF import staging
     STAGING_STORAGE = os.environ.get("STAGING_STORAGE", str(STORAGE_DIR / "staging"))
@@ -77,6 +78,7 @@ class Config:
     SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
     SCHEDULER_EXPIRY_INTERVAL_MINUTES = int(os.environ.get("SCHEDULER_EXPIRY_INTERVAL_MINUTES", "5"))
     SCHEDULER_REMINDER_INTERVAL_MINUTES = int(os.environ.get("SCHEDULER_REMINDER_INTERVAL_MINUTES", "60"))
+    SCHEDULER_MAX_CONSECUTIVE_FAILURES = int(os.environ.get("SCHEDULER_MAX_CONSECUTIVE_FAILURES", "3"))
 
     # Scanner
     SCAN_FILE_TIMEOUT_SECONDS = int(os.environ.get("SCAN_FILE_TIMEOUT_SECONDS", "300"))
@@ -101,14 +103,32 @@ class ProductionConfig(Config):
         if not os.environ.get("SECRET_KEY"):
             raise RuntimeError("SECRET_KEY environment variable must be set in production")
 
-        # Guard against multi-worker deployments: the checkout lock in
-        # lending/service.py is process-local, so >1 worker would allow
-        # double-checkouts.  PaaS platforms often set WEB_CONCURRENCY.
+        library_domain = os.environ.get("LIBRARY_DOMAIN", "").strip()
+        parsed_domain = urlparse(library_domain)
+        if parsed_domain.scheme != "https" or not parsed_domain.netloc:
+            raise RuntimeError(
+                "LIBRARY_DOMAIN must be set to a valid https:// URL in production (e.g. https://library.oratory.org)."
+            )
+
+        # Guard against multi-worker deployments: this app runs an in-process
+        # APScheduler and in-memory limiter state; >1 worker would duplicate
+        # scheduler jobs and split rate-limit counters. PaaS platforms often
+        # set WEB_CONCURRENCY automatically.
         web_concurrency = os.environ.get("WEB_CONCURRENCY")
-        if web_concurrency and int(web_concurrency) > 1:
+        if web_concurrency:
+            try:
+                worker_count = int(web_concurrency)
+            except ValueError as exc:
+                raise RuntimeError("WEB_CONCURRENCY must be an integer when set.") from exc
+            if worker_count <= 0:
+                raise RuntimeError("WEB_CONCURRENCY must be at least 1 when set.")
+        else:
+            worker_count = 1
+
+        if worker_count > 1:
             raise RuntimeError(
                 f"WEB_CONCURRENCY is set to {web_concurrency} but this application "
-                "requires a single worker (the lending lock is process-local). "
+                "requires a single worker (in-process scheduler + in-memory rate limiting). "
                 "Set WEB_CONCURRENCY=1 or remove it."
             )
 

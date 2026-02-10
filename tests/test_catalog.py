@@ -1,5 +1,9 @@
 """Tests for catalog browsing and book detail."""
 
+import os
+
+from sqlalchemy.exc import SQLAlchemyError
+
 from tests.conftest import _make_book
 
 # ── Auth-required redirects ────────────────────────────────────────
@@ -49,6 +53,19 @@ def test_search_returns_200(patron_client, db):
     assert rv.status_code == 200
 
 
+def test_search_like_fallback_uses_raw_query_text(patron_client, monkeypatch):
+    _make_book(title="Mystic Theology")
+
+    def _raise_fts_unavailable(*args, **kwargs):
+        raise SQLAlchemyError("fts unavailable")
+
+    monkeypatch.setattr("app.catalog.routes.db.session.execute", _raise_fts_unavailable)
+
+    rv = patron_client.get("/catalog?q=Mystic Theology")
+    assert rv.status_code == 200
+    assert b"Mystic Theology" in rv.data
+
+
 # ── Detail ─────────────────────────────────────────────────────────
 
 
@@ -63,3 +80,27 @@ def test_detail_shows_book_info(patron_client, db):
 def test_detail_404_for_nonexistent(patron_client):
     rv = patron_client.get("/catalog/nonexistent-id-12345")
     assert rv.status_code == 404
+
+
+def test_patron_cannot_access_hidden_book_cover(patron_client, app, db):
+    filename = "hidden-cover.jpg"
+    with open(os.path.join(app.config["COVER_STORAGE"], filename), "wb") as f:
+        f.write(b"fake-image")
+
+    book = _make_book(title="Hidden Cover", is_visible=False)
+    book.cover_filename = filename
+    db.session.commit()
+    rv = patron_client.get(f"/covers/{filename}")
+    assert rv.status_code == 404
+
+
+def test_admin_can_access_hidden_book_cover(admin_client, app, db):
+    filename = "hidden-cover-admin.jpg"
+    with open(os.path.join(app.config["COVER_STORAGE"], filename), "wb") as f:
+        f.write(b"fake-image")
+
+    book = _make_book(title="Hidden Cover Admin", is_visible=False)
+    book.cover_filename = filename
+    db.session.commit()
+    rv = admin_client.get(f"/covers/{filename}")
+    assert rv.status_code == 200

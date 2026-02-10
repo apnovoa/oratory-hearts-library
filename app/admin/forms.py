@@ -11,6 +11,8 @@ from wtforms import (
 )
 from wtforms.validators import DataRequired, EqualTo, Length, NumberRange, Optional
 
+from ..auth.forms import _validate_password_strength
+
 
 class BookForm(FlaskForm):
     title = StringField(
@@ -228,7 +230,7 @@ class AdminChangePasswordForm(FlaskForm):
     )
     new_password = PasswordField(
         "New Password",
-        validators=[DataRequired(), Length(min=8, max=72)],
+        validators=[DataRequired(), Length(min=8, max=72), _validate_password_strength],
     )
     confirm_password = PasswordField(
         "Confirm New Password",

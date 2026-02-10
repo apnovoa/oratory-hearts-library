@@ -1,8 +1,9 @@
 import secrets
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import bcrypt
+from authlib.integrations.base_client.errors import OAuthError
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -10,6 +11,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from .. import limiter, oauth
 from ..audit import log_event
 from ..models import User, db
+from ..url_utils import public_base_url
 from .forms import LoginForm, RegistrationForm, RequestPasswordResetForm, ResetPasswordForm
 
 auth_bp = Blueprint("auth", __name__)
@@ -35,6 +37,27 @@ def _verify_reset_token(token):
     except (BadSignature, SignatureExpired):
         return None
     return email
+
+
+def _is_safe_redirect_target(target):
+    """Allow only same-origin redirect targets."""
+    if not target:
+        return False
+    if "\\" in target:
+        return False
+    if any(ord(ch) < 32 for ch in target):
+        return False
+    if not target.startswith("/") or target.startswith("//"):
+        return False
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in {"http", "https"} and ref_url.netloc == test_url.netloc
+
+
+def _library_absolute_url(endpoint, **values):
+    """Build absolute URLs from configured public domain only."""
+    path = url_for(endpoint, _external=False, **values)
+    return f"{public_base_url(current_app.config, current_app.logger)}{path}"
 
 
 # ── Login ──────────────────────────────────────────────────────────
@@ -115,10 +138,8 @@ def login():
         log_event("login_success", "user", user.id)
 
         next_page = request.args.get("next")
-        if next_page:
-            parsed = urlparse(next_page)
-            if parsed.netloc or parsed.scheme or next_page.startswith("//"):
-                next_page = None
+        if not _is_safe_redirect_target(next_page):
+            next_page = None
         return redirect(next_page or url_for("catalog.index"))
 
     return render_template("auth/login.html", form=form)
@@ -144,25 +165,19 @@ def register():
         existing_user = User.query.filter_by(email=form.email.data.lower().strip()).first()
         if existing_user:
             # Silently handle — send a notification email to the existing address
-            try:
-                from flask import current_app as _ca
+            login_url = _library_absolute_url("auth.login")
+            reset_url = _library_absolute_url("auth.reset_password")
+            from ..email_service import _send_email
 
-                _ca.config.get("LIBRARY_DOMAIN", "")
-                login_url = url_for("auth.login", _external=True)
-                reset_url = url_for("auth.reset_password", _external=True)
-                from ..email_service import _send_email
-
-                _send_email(
-                    subject="Registration Attempt",
-                    recipient=existing_user.email,
-                    html_body=(
-                        f"<p>Someone tried to register an account with your email address.</p>"
-                        f'<p>If this was you, you can <a href="{login_url}">sign in</a> '
-                        f'or <a href="{reset_url}">reset your password</a>.</p>'
-                    ),
-                )
-            except Exception as exc:  # nosec B110 — intentional: suppress to prevent email enumeration
-                current_app.logger.debug("Registration-attempt email suppressed: %s", exc)
+            _send_email(
+                subject="Registration Attempt",
+                recipient=existing_user.email,
+                html_body=(
+                    f"<p>Someone tried to register an account with your email address.</p>"
+                    f'<p>If this was you, you can <a href="{login_url}">sign in</a> '
+                    f'or <a href="{reset_url}">reset your password</a>.</p>'
+                ),
+            )
             # Show the same success message to prevent email enumeration
             flash("Account created successfully. You may now sign in.", "success")
             return redirect(url_for("auth.login"))
@@ -214,16 +229,11 @@ def reset_password():
 
         if user:
             token = _generate_reset_token(user.email)
-            from flask import current_app
+            reset_url = _library_absolute_url("auth.reset_password_token", token=token)
+            from ..email_service import send_password_reset_email
 
-            reset_url = url_for("auth.reset_password_token", token=token, _external=True)
-
-            try:
-                from ..email_service import send_password_reset_email
-
-                send_password_reset_email(user, reset_url)
-            except Exception:
-                current_app.logger.exception("Failed to send password reset email")
+            if not send_password_reset_email(user, reset_url):
+                current_app.logger.warning("Password reset email was not sent for user id=%s", user.id)
 
             log_event("password_reset_requested", "user", user.id)
 
@@ -268,7 +278,7 @@ def reset_password_token(token):
             if token_ts.replace(tzinfo=None) < user.password_changed_at:
                 flash("This reset link has already been used.", "warning")
                 return redirect(url_for("auth.reset_password"))
-        except Exception:
+        except (BadSignature, SignatureExpired, TypeError, ValueError):
             flash("This reset link is invalid or has expired.", "warning")
             return redirect(url_for("auth.reset_password"))
 
@@ -288,15 +298,17 @@ def reset_password_token(token):
 
 
 @auth_bp.route("/auth/google")
+@limiter.limit("5 per minute")
 def google_login():
     if not current_app.config.get("GOOGLE_CLIENT_ID"):
         flash("Google sign-in is not configured.", "danger")
         return redirect(url_for("auth.login"))
-    redirect_uri = url_for("auth.google_callback", _external=True, _scheme="https")
+    redirect_uri = _library_absolute_url("auth.google_callback")
     return oauth.google.authorize_redirect(redirect_uri)
 
 
 @auth_bp.route("/auth/google/callback")
+@limiter.limit("5 per minute")
 def google_callback():
     if not current_app.config.get("GOOGLE_CLIENT_ID"):
         flash("Google sign-in is not configured.", "danger")
@@ -304,7 +316,7 @@ def google_callback():
 
     try:
         token = oauth.google.authorize_access_token()
-    except Exception:
+    except (OAuthError, BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
         flash("Google sign-in failed. Please try again.", "danger")
         return redirect(url_for("auth.login"))
 
@@ -312,9 +324,15 @@ def google_callback():
     if not userinfo or not userinfo.get("email"):
         flash("Could not retrieve your email from Google.", "danger")
         return redirect(url_for("auth.login"))
+    if userinfo.get("email_verified") is not True:
+        flash("Google account email is not verified.", "danger")
+        return redirect(url_for("auth.login"))
 
     email = userinfo["email"].lower().strip()
-    google_id = userinfo["sub"]
+    google_id = userinfo.get("sub")
+    if not google_id:
+        flash("Could not verify your Google account identity.", "danger")
+        return redirect(url_for("auth.login"))
     name = userinfo.get("name", email)
 
     # Look up by google_id first, then by email

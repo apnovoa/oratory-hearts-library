@@ -6,6 +6,8 @@ A private digital lending library for the Oratory of the Most Sacred Hearts, imp
 strict one-copy-one-loan controlled digital lending with automated checkout, PDF
 watermarking, expiration, and email notifications.
 
+For day-2 operations (deploy/rollback, health triage, backup restore drills), see `docs/RUNBOOK.md`.
+
 ---
 
 ## Quick Start
@@ -36,12 +38,12 @@ Edit `.env` with your actual values:
 |----------|---------|----------|
 | `SECRET_KEY` | Flask session encryption. Generate with `python -c "import secrets; print(secrets.token_hex(32))"` | **Yes** |
 | `ADMIN_EMAIL` | Email for the seed admin account | Yes |
-| `ADMIN_PASSWORD` | Password for the seed admin account | Yes |
+| `ADMIN_PASSWORD` | Password for the seed admin account (12-72 chars, upper/lower/number recommended) | Yes |
 | `BREVO_API_KEY` | Brevo HTTP API key for transactional email. If empty, emails are silently skipped. | Yes for email |
 | `MAIL_DEFAULT_SENDER` | From address on all emails | Yes for email |
 | `MAIL_DEFAULT_SENDER_NAME` | Display name on outgoing emails (default: `Custos Oratorii`) | No |
 | `LIBRARY_CONTACT_EMAIL` | Contact shown in policy and loan slips | Yes |
-| `LIBRARY_DOMAIN` | Public URL of the library (e.g. `https://library.oratory.org`) | Yes |
+| `LIBRARY_DOMAIN` | Public URL of the library (e.g. `https://library.oratory.org`). In production this must be HTTPS. | Yes |
 | `DEFAULT_LOAN_DAYS` | Default loan period in days (default: 7) | No |
 | `MAX_LOANS_PER_PATRON` | Max simultaneous loans per patron (default: 5) | No |
 | `MAX_RENEWALS` | Maximum renewals per loan (default: 2) | No |
@@ -53,6 +55,12 @@ Edit `.env` with your actual values:
 | `MAX_PDF_FILE_SIZE_MB` | Max PDF file size in MB (default: 25) | No |
 | `MAX_COVER_FILE_SIZE_MB` | Max cover image size in MB (default: 10) | No |
 | `SCAN_FILE_TIMEOUT_SECONDS` | Scanner per-file processing timeout in seconds (default: 300) | No |
+| `SCHEDULER_ENABLED` | Enable background scheduler jobs (default: `true`) | No |
+| `SCHEDULER_EXPIRY_INTERVAL_MINUTES` | Interval for expiry processing job (default: 5) | No |
+| `SCHEDULER_REMINDER_INTERVAL_MINUTES` | Interval for reminder job (default: 60) | No |
+| `SCHEDULER_MAX_CONSECUTIVE_FAILURES` | Consecutive failure count before `/health` reports scheduler degraded (default: 3) | No |
+| `BACKUP_REMOTE` | Optional rsync destination for offsite backup sync | No |
+| `WEB_CONCURRENCY` | Worker count guard; must be unset or `1` for SQLite safety | No |
 
 ### 4. Run (Development)
 
@@ -61,19 +69,19 @@ source venv/bin/activate
 python run.py
 ```
 
-The app starts at `http://localhost:5000`. On first run, it creates the database
+The app starts at `http://localhost:8080`. On first run, it creates the database
 and seeds the admin account from your `.env` values.
 
 ### 5. Run (Production)
 
 ```bash
 source venv/bin/activate
-gunicorn -w 1 -b 0.0.0.0:8000 "app:create_app('production')"
+gunicorn -c gunicorn.conf.py "app:create_app('production')"
 ```
 
 Place behind a reverse proxy (nginx, Caddy) with HTTPS.
 
-**Important**: Use `--workers 1` (required for SQLite checkout locking). Set `FLASK_ENV=production` and ensure `SECRET_KEY` is a strong random value.
+**Important**: Use `--workers 1` (required because scheduler and rate-limiter state are in-process). Set `FLASK_ENV=production`, `SECRET_KEY`, and an HTTPS `LIBRARY_DOMAIN`.
 
 ---
 
@@ -116,7 +124,7 @@ Oratory Hearts Library/
 | Role | Capabilities |
 |------|-------------|
 | **Admin** | Full system access. Manages books, users, loans, configuration. |
-| **Librarian** | Edits metadata, descriptions, tags. Cannot change ownership counts or system policies. |
+| **Librarian** | Reserved role (assignable in UI) with no privileged routes in the current release. |
 | **Patron** | Browses catalog, borrows books, views own loans, returns early. |
 
 The first admin is created automatically from `ADMIN_EMAIL`/`ADMIN_PASSWORD` on first run.
@@ -139,7 +147,7 @@ Additional users register themselves (or admin can change roles from the admin p
 
 **Upload limits**: Bulk uploads are capped at `MAX_FILES_PER_UPLOAD` files (default 20) and
 `MAX_PDF_FILE_SIZE_MB` per file (default 25 MB). Cover images are validated by magic-byte
-check (JPEG, PNG, GIF, WebP, BMP only) and capped at `MAX_COVER_FILE_SIZE_MB` (default 10 MB).
+check (JPEG, PNG, WebP only) and capped at `MAX_COVER_FILE_SIZE_MB` (default 10 MB).
 
 ---
 
@@ -176,6 +184,9 @@ The scheduler runs automatically when the app starts:
 | `send_reminders` | Every 60 minutes | Sends due-date reminders for loans expiring within `REMINDER_DAYS_BEFORE_DUE` days |
 
 Disable with `SCHEDULER_ENABLED=false` if running in a multi-worker setup (to prevent duplicate jobs).
+
+The `/health` endpoint reports scheduler state, including `failing_jobs` when
+any job exceeds `SCHEDULER_MAX_CONSECUTIVE_FAILURES`.
 
 ---
 
@@ -234,7 +245,7 @@ preserved even if they have been pruned locally.
 
 ## Security Notes
 
-- **No anonymous access**: All pages except login, register, password reset, and the policy page require authentication.
+- **Public pages**: Splash (`/`), login/register/reset-password, policy, donate, and health checks (`/ping`, `/health`) are public; catalog/lending/admin/patron routes require authentication.
 - **Master scans**: Never served directly. Only watermarked circulation copies are downloadable.
 - **Access tokens**: 64-character random hex strings. Not guessable.
 - **Expired links**: Return 410 Gone. Cannot be revived.
@@ -252,15 +263,19 @@ preserved even if they have been pruned locally.
 
 ## Concurrency & Atomicity
 
-Checkout uses a `threading.Lock` to prevent race conditions on SQLite (which lacks
-`SELECT FOR UPDATE`). This is safe for single-process deployments and for gunicorn
-with `--preload` and a single worker. For multi-worker production, use:
+Checkout uses both a process-local `threading.Lock` and a SQLite `BEGIN IMMEDIATE`
+transaction to prevent race conditions across threads and processes. This hardens
+borrow atomicity on SQLite, but deployment should still use a single worker because
+the scheduler and rate limiting are in-process.
+
+Run production as:
 
 ```bash
-gunicorn -w 1 -b 0.0.0.0:8000 "app:create_app('production')"
+gunicorn -c gunicorn.conf.py "app:create_app('production')"
 ```
 
-Or migrate to PostgreSQL and replace the lock with `with_for_update()` in `service.py`.
+If you later migrate to PostgreSQL, replace SQLite locking with row-level locking
+(`SELECT ... FOR UPDATE`) in `service.py`.
 
 The bulk-import scanner also uses an `flock`-based file lock on the staging directory to
 prevent concurrent scans across processes or restarts.
@@ -271,7 +286,7 @@ prevent concurrent scans across processes or restarts.
 
 ### Loan Duration
 
-- **Global default**: `DEFAULT_LOAN_DAYS` in `.env` (default: 14)
+- **Global default**: `DEFAULT_LOAN_DAYS` in `.env` (default: 7)
 - **Per-title override**: Set in Admin → Edit Book → Loan Duration Override
 
 ### Branding

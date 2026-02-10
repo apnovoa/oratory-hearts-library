@@ -5,12 +5,14 @@ import httpx
 from flask import current_app, render_template
 from jinja2 import TemplateError
 
+from ..url_utils import public_base_url
+
 # Seconds to pause between emails in bulk sends to avoid rate limits
 _BULK_SEND_DELAY = 0.2
 
 
 def _logo_url():
-    return current_app.config["LIBRARY_DOMAIN"] + "/static/img/logo.png"
+    return f"{public_base_url(current_app.config, current_app.logger)}/static/img/logo.png"
 
 
 def _render_email_template(template_name, **context):
@@ -49,15 +51,13 @@ def _send_email(subject, recipient, html_body):
         )
         resp.raise_for_status()
         return True
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
         current_app.logger.error("Failed to send email to %s: %s", recipient, exc)
-    except Exception:
-        current_app.logger.exception("Unexpected error sending email to %s", recipient)
     return False
 
 
 def send_loan_email(loan, user, book):
-    domain = current_app.config["LIBRARY_DOMAIN"]
+    domain = public_base_url(current_app.config, current_app.logger)
     download_url = f"{domain}/loan/{loan.access_token}/download"
     html = _render_email_template(
         "email/loan_issued.html",
@@ -66,8 +66,8 @@ def send_loan_email(loan, user, book):
         loan=loan,
         download_url=download_url,
         logo_url=_logo_url(),
-        library_name=current_app.config["LIBRARY_NAME_LATIN"],
-        library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
+        library_name=current_app.config.get("LIBRARY_NAME_LATIN", ""),
+        library_name_en=current_app.config.get("LIBRARY_NAME_ENGLISH", ""),
     )
     if not html:
         return False
@@ -79,7 +79,7 @@ def send_loan_email(loan, user, book):
 
 
 def send_reminder_email(loan, user, book):
-    domain = current_app.config["LIBRARY_DOMAIN"]
+    domain = public_base_url(current_app.config, current_app.logger)
     download_url = f"{domain}/loan/{loan.access_token}/download"
     html = _render_email_template(
         "email/reminder.html",
@@ -88,8 +88,8 @@ def send_reminder_email(loan, user, book):
         loan=loan,
         download_url=download_url,
         logo_url=_logo_url(),
-        library_name=current_app.config["LIBRARY_NAME_LATIN"],
-        library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
+        library_name=current_app.config.get("LIBRARY_NAME_LATIN", ""),
+        library_name_en=current_app.config.get("LIBRARY_NAME_ENGLISH", ""),
     )
     if not html:
         return False
@@ -107,8 +107,8 @@ def send_expiration_email(loan, user, book):
         book=book,
         loan=loan,
         logo_url=_logo_url(),
-        library_name=current_app.config["LIBRARY_NAME_LATIN"],
-        library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
+        library_name=current_app.config.get("LIBRARY_NAME_LATIN", ""),
+        library_name_en=current_app.config.get("LIBRARY_NAME_ENGLISH", ""),
     )
     if not html:
         return False
@@ -120,7 +120,7 @@ def send_expiration_email(loan, user, book):
 
 
 def send_waitlist_notification(user, book):
-    domain = current_app.config["LIBRARY_DOMAIN"]
+    domain = public_base_url(current_app.config, current_app.logger)
     catalog_url = f"{domain}/catalog/{book.public_id}"
     html = _render_email_template(
         "email/waitlist_available.html",
@@ -128,8 +128,8 @@ def send_waitlist_notification(user, book):
         book=book,
         catalog_url=catalog_url,
         logo_url=_logo_url(),
-        library_name=current_app.config["LIBRARY_NAME_LATIN"],
-        library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
+        library_name=current_app.config.get("LIBRARY_NAME_LATIN", ""),
+        library_name_en=current_app.config.get("LIBRARY_NAME_ENGLISH", ""),
     )
     if not html:
         return False
@@ -146,8 +146,8 @@ def send_password_reset_email(user, reset_url):
         user=user,
         reset_url=reset_url,
         logo_url=_logo_url(),
-        library_name=current_app.config["LIBRARY_NAME_LATIN"],
-        library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
+        library_name=current_app.config.get("LIBRARY_NAME_LATIN", ""),
+        library_name_en=current_app.config.get("LIBRARY_NAME_ENGLISH", ""),
     )
     if not html:
         return False
@@ -185,8 +185,8 @@ def send_birthday_greetings():
             "email/birthday.html",
             user=patron,
             logo_url=_logo_url(),
-            library_name=current_app.config["LIBRARY_NAME_LATIN"],
-            library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
+            library_name=current_app.config.get("LIBRARY_NAME_LATIN", ""),
+            library_name_en=current_app.config.get("LIBRARY_NAME_ENGLISH", ""),
         )
         if not html:
             continue
@@ -227,7 +227,7 @@ def send_new_acquisitions_digest():
         current_app.logger.info("No new acquisitions in the last 7 days; digest skipped.")
         return
 
-    domain = current_app.config["LIBRARY_DOMAIN"]
+    domain = public_base_url(current_app.config, current_app.logger)
     catalog_url = f"{domain}/catalog"
 
     active_patrons = User.query.filter_by(role="patron", is_active_account=True, is_blocked=False).all()
@@ -240,8 +240,8 @@ def send_new_acquisitions_digest():
             books=new_books,
             catalog_url=catalog_url,
             logo_url=_logo_url(),
-            library_name=current_app.config["LIBRARY_NAME_LATIN"],
-            library_name_en=current_app.config["LIBRARY_NAME_ENGLISH"],
+            library_name=current_app.config.get("LIBRARY_NAME_LATIN", ""),
+            library_name_en=current_app.config.get("LIBRARY_NAME_ENGLISH", ""),
         )
         if not html:
             continue

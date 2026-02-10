@@ -116,7 +116,7 @@ Patron clicks "Borrow"
   checkout_book()          [lending/service.py]
         |
   +-----+-----+
-  | Lock       |  threading.Lock() -- process-local
+  | Lock       |  threading.Lock() + SQLite BEGIN IMMEDIATE
   +-----+-----+
         |
   Create Loan record       access_token, due_at, snapshots
@@ -269,6 +269,8 @@ Every significant action (login, logout, checkout, return, admin operations, pas
 
 APScheduler runs four recurring jobs: loan expiration checks (every 5 minutes), due-date reminder emails (every 60 minutes), weekly new acquisitions digest (Monday 8 AM), and daily birthday greetings (7 AM). All jobs run in the same process as the Flask app using a background thread scheduler.
 
+The app tracks per-job scheduler telemetry (`last_run_at`, `last_duration_ms`, `last_error`, `consecutive_failures`). `/health` reports `failing_jobs` when any job exceeds `SCHEDULER_MAX_CONSECUTIVE_FAILURES`.
+
 ### PWA & Offline Support
 
 The app is installable as a Progressive Web App with a service worker that caches static assets (CSS, JS, fonts, images) using a cache-first strategy and serves HTML pages network-first with an offline fallback. The manifest provides standalone display mode with the library's cream and maroon theme colors.
@@ -279,4 +281,13 @@ Defense-in-depth across multiple layers: bcrypt password hashing, CSRF tokens on
 
 ### Deployment
 
-Single-script deployment via `deploy.sh`: verifies `FLASK_ENV=production` on the remote server, creates a tarball excluding dev artifacts, uploads via SCP, extracts on the server, updates the service worker cache version, restarts the systemd service, and runs a health check against `/ping`.
+Single-script deployment via `deploy.sh` uses an atomic release pattern:
+
+- Uploads a release tarball to the server.
+- Extracts into a new timestamped `releases/<release>/` directory.
+- Symlinks shared resources (`.env`, `storage/`, `bibliotheca.db`) into that release.
+- Atomically swaps `current` to the new release.
+- Restarts the `bibliotheca` systemd service and checks `/ping`.
+- Automatically rolls back to the previous release if health checks fail.
+
+See `docs/RUNBOOK.md` for operational steps and manual rollback commands.

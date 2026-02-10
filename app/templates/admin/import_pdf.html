@@ -69,7 +69,7 @@
               or click to browse
             </p>
             <p class="drop-zone-hint">
-              Max 100 MB per file &middot; PDF only
+              Max {{ (config.MAX_PDF_FILE_SIZE // (1024 * 1024))|int }} MB per file &middot; PDF only
             </p>
           </div>
 

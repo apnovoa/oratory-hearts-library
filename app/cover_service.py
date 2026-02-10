@@ -247,7 +247,7 @@ def generate_cover(title=None, author=None, public_id=None, cover_storage_dir=No
         hearts_x = (_COVER_WIDTH - target_w) // 2
         hearts_y = _COVER_HEIGHT - target_h - 50
         img.paste(hearts, (hearts_x, hearts_y), hearts)
-    except Exception as exc:
+    except OSError as exc:
         logger.debug("Could not load Sacred Hearts image: %s", exc)
 
     # --- Save ---
@@ -256,6 +256,6 @@ def generate_cover(title=None, author=None, public_id=None, cover_storage_dir=No
     try:
         img.save(dest_path, "JPEG", quality=90)
         return filename
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("Failed to save generated cover to %s: %s", dest_path, exc)
         return None

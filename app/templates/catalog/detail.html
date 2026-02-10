@@ -44,13 +44,15 @@
       {% endif %}
 
       <div class="book-availability">
-        {% if book.is_available %}
+        {% if book.restricted_access %}
+        <span class="badge badge-unavailable">Restricted</span>
+        {% elif book.is_available %}
         <span class="badge badge-available">Available</span>
         {% else %}
         <span class="badge badge-unavailable">Checked Out</span>
         {% endif %}
         <span class="availability-count">{{ book.available_copies }} of {{ book.owned_copies }} cop{{ 'ies' if book.owned_copies != 1 else 'y' }} available</span>
-        {% if not book.is_available and next_available_date %}
+        {% if not book.restricted_access and not book.is_available and next_available_date %}
         <p class="expected-availability">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon-inline">
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -65,6 +67,8 @@
         {% if patron_has_loan %}
         <p class="action-note">You currently have this book on loan.</p>
         <a href="{{ url_for('patron.dashboard') }}" class="btn btn-secondary">View My Loans</a>
+        {% elif book.restricted_access %}
+        <p class="action-note">This title has restricted access. Please contact a librarian.</p>
         {% elif book.is_available %}
         <form method="post" action="{{ url_for('lending.borrow', book_public_id=book.public_id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -206,7 +210,9 @@
           <div class="book-card-info">
             <h3 class="book-card-title">{{ rbook.title }}</h3>
             <p class="book-card-author">{{ rbook.author }}</p>
-            {% if rbook.is_available %}
+            {% if rbook.restricted_access %}
+            <span class="badge badge-unavailable">Restricted</span>
+            {% elif rbook.is_available %}
             <span class="badge badge-available">Available</span>
             {% else %}
             <span class="badge badge-unavailable">Checked Out</span>

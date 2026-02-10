@@ -12,6 +12,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from werkzeug.utils import secure_filename
 
 from .. import limiter
 from ..audit import log_event
@@ -27,6 +28,13 @@ lending_bp = Blueprint("lending", __name__)
 def borrow(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
 
+    if not book.is_visible or book.is_disabled:
+        abort(404)
+
+    if book.restricted_access:
+        flash("This title has restricted access. Please contact a librarian.", "warning")
+        return redirect(url_for("catalog.detail", public_id=book.public_id))
+
     if not book.is_available:
         waitlist_position = WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False).count()
         return render_template(
@@ -41,13 +49,11 @@ def borrow(book_public_id):
         flash(str(exc), "warning")
         return redirect(url_for("catalog.detail", public_id=book.public_id))
 
-    # Send loan email
-    try:
-        from ..email_service import send_loan_email
+    # Send loan email (best-effort)
+    from ..email_service import send_loan_email
 
-        send_loan_email(loan, current_user, book)
-    except Exception:
-        current_app.logger.exception("Failed to send loan email")
+    if not send_loan_email(loan, current_user, book):
+        current_app.logger.warning("Loan email was not sent for loan %s", loan.public_id)
 
     return render_template("lending/borrow_confirm.html", loan=loan, book=book)
 
@@ -114,7 +120,9 @@ def download(access_token):
             user_id=current_user.id,
         )
 
-        download_name = f"{loan.book_title_snapshot or 'book'}.pdf"
+        raw_title = loan.book_title_snapshot or "book"
+        safe_stem = secure_filename(raw_title).strip("._") or "book"
+        download_name = f"{safe_stem}.pdf"
         return send_from_directory(
             str(circ_dir),
             loan.circulation_filename,
@@ -130,6 +138,21 @@ def download(access_token):
 @limiter.limit("10 per minute")
 def join_waitlist(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
+
+    if not book.is_visible or book.is_disabled:
+        abort(404)
+
+    if book.restricted_access:
+        flash("This title has restricted access and cannot be waitlisted.", "warning")
+        return redirect(url_for("catalog.detail", public_id=book.public_id))
+
+    if book.is_available:
+        flash("This book is currently available. You can borrow it now.", "info")
+        return redirect(url_for("catalog.detail", public_id=book.public_id))
+
+    if not book.master_filename:
+        flash("This title is not currently available for circulation.", "warning")
+        return redirect(url_for("catalog.detail", public_id=book.public_id))
 
     if not current_user.can_borrow:
         flash("Your account is not eligible to join the waitlist.", "warning")

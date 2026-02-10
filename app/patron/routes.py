@@ -155,6 +155,8 @@ def profile():
 @limiter.limit("30 per minute")
 def toggle_favorite(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
+    if not book.is_visible or book.is_disabled:
+        abort(404)
 
     existing = Favorite.query.filter_by(
         user_id=current_user.id,
@@ -255,6 +257,8 @@ def requests():
 @limiter.limit("20 per minute")
 def save_note(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
+    if not book.is_visible or book.is_disabled:
+        abort(404)
     form = BookNoteForm()
 
     if form.validate_on_submit():
@@ -285,6 +289,8 @@ def save_note(book_public_id):
 @limiter.limit("20 per minute")
 def delete_note(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
+    if not book.is_visible or book.is_disabled:
+        abort(404)
 
     note = BookNote.query.filter_by(
         user_id=current_user.id,

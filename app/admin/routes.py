@@ -225,6 +225,14 @@ def book_add():
         # Handle master PDF upload
         master_file = form.master_file.data
         if master_file and master_file.filename:
+            max_pdf_size = current_app.config.get("MAX_PDF_FILE_SIZE", 25 * 1024 * 1024)
+            master_size = _uploaded_file_size(master_file)
+            if master_size and master_size > max_pdf_size:
+                flash(
+                    f"Master PDF is too large (max {max_pdf_size // (1024 * 1024)} MB).",
+                    "danger",
+                )
+                return render_template("admin/book_edit.html", form=form, book=None)
             header = master_file.read(5)
             master_file.seek(0)
             if header != _PDF_MAGIC:
@@ -302,6 +310,14 @@ def book_edit(book_id):
         # Handle master PDF upload
         master_file = form.master_file.data
         if master_file and master_file.filename:
+            max_pdf_size = current_app.config.get("MAX_PDF_FILE_SIZE", 25 * 1024 * 1024)
+            master_size = _uploaded_file_size(master_file)
+            if master_size and master_size > max_pdf_size:
+                flash(
+                    f"Master PDF is too large (max {max_pdf_size // (1024 * 1024)} MB).",
+                    "danger",
+                )
+                return render_template("admin/book_edit.html", form=form, book=book)
             header = master_file.read(5)
             master_file.seek(0)
             if header != _PDF_MAGIC:
@@ -485,6 +501,9 @@ def loan_extend(loan_id):
     loan = db.session.get(Loan, loan_id)
     if not loan:
         abort(404)
+    if not loan.is_active or loan.invalidated:
+        flash("Only active, non-invalidated loans can be extended.", "warning")
+        return redirect(url_for("admin.loan_detail", loan_id=loan.id))
     form = LoanExtendForm()
     if form.validate_on_submit():
         days = form.days.data
@@ -619,6 +638,7 @@ def user_block(user_id):
     if form.validate_on_submit():
         user.is_blocked = True
         user.block_reason = form.reason.data.strip()
+        user.force_logout_before = _utcnow()
         db.session.commit()
         log_event("user_blocked", target_type="user", target_id=user.id, detail=f"Blocked: {user.block_reason}")
         flash(f"User {user.email} has been blocked.", "success")
@@ -653,6 +673,7 @@ def user_deactivate(user_id):
         flash("Cannot deactivate the only active admin account.", "danger")
         return redirect(url_for("admin.user_detail", user_id=user.id))
     user.is_active_account = False
+    user.force_logout_before = _utcnow()
     db.session.commit()
     log_event("user_deactivated", target_type="user", target_id=user.id, detail="Account deactivated")
     flash(f"User {user.email} has been deactivated.", "success")
@@ -1621,12 +1642,7 @@ def import_pdf_ai_enrich():
             skip_reasons.append(f"{staged.original_filename}: staging file not found")
             continue
 
-        try:
-            ai_meta = extract_metadata_with_ai(src_path, current_app.config)
-        except Exception as exc:
-            current_app.logger.error(f"AI enrichment failed for '{staged.original_filename}': {exc}")
-            skip_reasons.append(f"{staged.original_filename}: API error")
-            continue
+        ai_meta = extract_metadata_with_ai(src_path, current_app.config)
 
         if not ai_meta or not any(v for v in ai_meta.values()):
             skip_reasons.append(f"{staged.original_filename}: no extractable text")
@@ -1658,21 +1674,18 @@ def import_pdf_ai_enrich():
         )
 
         # Regenerate cover with updated title/author/isbn
-        try:
-            cover_dir = current_app.config["COVER_STORAGE"]
-            # Reuse existing cover public_id stem, or generate a new one
-            cover_public_id = staged.cover_filename.rsplit(".", 1)[0] if staged.cover_filename else uuid.uuid4().hex
-            new_cover = fetch_cover(
-                isbn=staged.isbn,
-                title=staged.title,
-                author=staged.author,
-                public_id=cover_public_id,
-                cover_storage_dir=cover_dir,
-            )
-            if new_cover:
-                staged.cover_filename = new_cover
-        except Exception as exc:
-            current_app.logger.debug("Cover refresh failed for '%s': %s", staged.original_filename, exc)
+        cover_dir = current_app.config["COVER_STORAGE"]
+        # Reuse existing cover public_id stem, or generate a new one
+        cover_public_id = staged.cover_filename.rsplit(".", 1)[0] if staged.cover_filename else uuid.uuid4().hex
+        new_cover = fetch_cover(
+            isbn=staged.isbn,
+            title=staged.title,
+            author=staged.author,
+            public_id=cover_public_id,
+            cover_storage_dir=cover_dir,
+        )
+        if new_cover:
+            staged.cover_filename = new_cover
 
         db.session.commit()
         enriched += 1
@@ -1708,21 +1721,17 @@ def import_pdf_refresh_covers():
 
         cover_public_id = staged.cover_filename.rsplit(".", 1)[0] if staged.cover_filename else uuid.uuid4().hex
 
-        try:
-            new_cover = fetch_cover(
-                isbn=staged.isbn,
-                title=staged.title,
-                author=staged.author,
-                public_id=cover_public_id,
-                cover_storage_dir=cover_dir,
-            )
-            if new_cover:
-                staged.cover_filename = new_cover
-                refreshed += 1
-            else:
-                failed += 1
-        except Exception as exc:
-            current_app.logger.debug("Cover refresh failed for '%s': %s", staged.original_filename, exc)
+        new_cover = fetch_cover(
+            isbn=staged.isbn,
+            title=staged.title,
+            author=staged.author,
+            public_id=cover_public_id,
+            cover_storage_dir=cover_dir,
+        )
+        if new_cover:
+            staged.cover_filename = new_cover
+            refreshed += 1
+        else:
             failed += 1
 
     db.session.commit()

@@ -47,7 +47,7 @@ def _extract_text_from_pdf(filepath, max_pages=3):
                     total_len += len(page_text)
                     if total_len >= _MAX_TEXT_CHARS:
                         break
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         logger.warning("PyMuPDF failed to read %s: %s", filepath, exc)
         return ""
 
@@ -78,7 +78,7 @@ def _render_pages_as_images(filepath, max_pages=_VISION_MAX_PAGES):
                 img_bytes = pix.tobytes("jpeg")
                 b64 = base64.standard_b64encode(img_bytes).decode("ascii")
                 images.append((b64, "image/jpeg"))
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         logger.warning("Failed to render PDF pages as images for %s: %s", filepath, exc)
 
     return images
@@ -252,7 +252,7 @@ def extract_metadata_with_ai(filepath, app_config):
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )
-        except Exception as exc:
+        except (anthropic.APIError, OSError, RuntimeError, TypeError, ValueError) as exc:
             logger.warning("AI API call failed for %s: %s", filepath, exc)
             return None
 
@@ -289,7 +289,7 @@ def extract_metadata_with_ai(filepath, app_config):
                 system=system_prompt,
                 messages=[{"role": "user", "content": content_blocks}],
             )
-        except Exception as exc:
+        except (anthropic.APIError, OSError, RuntimeError, TypeError, ValueError) as exc:
             logger.warning("AI vision call failed for %s: %s", filepath, exc)
             return None
 

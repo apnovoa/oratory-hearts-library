@@ -145,7 +145,7 @@ jobs:
           restore-keys: pip-
       - run: pip install -r requirements-dev.txt
       - name: Run test suite
-        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=40
+        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=52
 
   # ── CI gate ──────────────────────────────────────────────────────
   # This job depends on every other CI job.  Set it as the SOLE

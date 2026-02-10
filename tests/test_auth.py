@@ -24,6 +24,30 @@ def test_login_success_redirects(client, patron):
     assert rv.status_code == 302
 
 
+def test_login_next_rejects_external_redirect(client, patron):
+    rv = client.post(
+        "/login?next=//evil.example/path",
+        data={"email": patron.email, "password": "TestPass1"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    location = rv.headers.get("Location", "")
+    assert "evil.example" not in location
+    assert location.startswith("/")
+
+
+def test_login_next_rejects_backslash_open_redirect_variant(client, patron):
+    rv = client.post(
+        "/login?next=%5C%5Cevil.example/path",
+        data={"email": patron.email, "password": "TestPass1"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    location = rv.headers.get("Location", "")
+    assert "evil.example" not in location
+    assert location.startswith("/")
+
+
 def test_login_wrong_password(client, patron):
     rv = _login(client, patron.email, "WrongPass1")
     assert b"Invalid email or password" in rv.data
@@ -96,6 +120,35 @@ def test_register_duplicate_email_same_success(client, patron):
     )
     # Same message shown for both new and duplicate to prevent enumeration
     assert b"Account created successfully" in rv.data
+
+
+def test_duplicate_registration_notice_uses_library_domain_not_host_header(client, patron, app, monkeypatch):
+    app.config["LIBRARY_DOMAIN"] = "https://library.example.org"
+    captured = {}
+
+    def _fake_send_email(subject, recipient, html_body):
+        captured["html_body"] = html_body
+        return True
+
+    monkeypatch.setattr("app.email_service._send_email", _fake_send_email)
+
+    rv = client.post(
+        "/register",
+        data={
+            "first_name": "Dup",
+            "last_name": "User",
+            "email": patron.email,
+            "password": "GoodPass1",
+            "password_confirm": "GoodPass1",
+        },
+        follow_redirects=True,
+        environ_overrides={"HTTP_HOST": "evil.example.org"},
+    )
+    assert rv.status_code == 200
+    body = captured.get("html_body", "")
+    assert "https://library.example.org/login" in body
+    assert "https://library.example.org/reset-password" in body
+    assert "evil.example.org" not in body
 
 
 def test_register_weak_password_rejected(client):
@@ -183,3 +236,86 @@ def test_password_reset_token_expires(client, patron, monkeypatch):
     rv = client.get(f"/reset-password/{token}", follow_redirects=True)
     assert rv.status_code == 200
     assert b"invalid or has expired" in rv.data
+
+
+def test_password_reset_email_uses_library_domain_not_host_header(client, patron, app, monkeypatch):
+    app.config["LIBRARY_DOMAIN"] = "https://library.example.org"
+    captured = {}
+
+    def _fake_send_password_reset(user, reset_url):
+        captured["reset_url"] = reset_url
+        return True
+
+    monkeypatch.setattr("app.email_service.send_password_reset_email", _fake_send_password_reset)
+
+    rv = client.post(
+        "/reset-password",
+        data={"email": patron.email},
+        follow_redirects=True,
+        environ_overrides={"HTTP_HOST": "evil.example.org"},
+    )
+    assert rv.status_code == 200
+    reset_url = captured.get("reset_url", "")
+    assert reset_url.startswith("https://library.example.org/reset-password/")
+    assert "evil.example.org" not in reset_url
+
+
+def test_password_reset_email_invalid_library_domain_uses_safe_fallback(client, patron, app, monkeypatch):
+    app.config["LIBRARY_DOMAIN"] = "not-a-url"
+    captured = {}
+
+    def _fake_send_password_reset(user, reset_url):
+        captured["reset_url"] = reset_url
+        return True
+
+    monkeypatch.setattr("app.email_service.send_password_reset_email", _fake_send_password_reset)
+
+    rv = client.post(
+        "/reset-password",
+        data={"email": patron.email},
+        follow_redirects=True,
+        environ_overrides={"HTTP_HOST": "evil.example.org"},
+    )
+    assert rv.status_code == 200
+    reset_url = captured.get("reset_url", "")
+    assert reset_url.startswith("http://localhost:8080/reset-password/")
+    assert "evil.example.org" not in reset_url
+
+
+def test_google_login_uses_library_domain_callback(client, app, monkeypatch):
+    app.config["GOOGLE_CLIENT_ID"] = "google-client-id"
+    app.config["LIBRARY_DOMAIN"] = "https://library.example.org"
+    captured = {}
+
+    class _DummyGoogle:
+        def authorize_redirect(self, redirect_uri):
+            captured["redirect_uri"] = redirect_uri
+            return "", 200
+
+    monkeypatch.setattr("app.auth.routes.oauth.google", _DummyGoogle(), raising=False)
+
+    rv = client.get("/auth/google")
+    assert rv.status_code == 200
+    assert captured.get("redirect_uri") == "https://library.example.org/auth/google/callback"
+
+
+def test_google_callback_rejects_unverified_email(client, app, db, monkeypatch):
+    app.config["GOOGLE_CLIENT_ID"] = "google-client-id"
+
+    class _DummyGoogle:
+        def authorize_access_token(self):
+            return {
+                "userinfo": {
+                    "email": "unverified@example.org",
+                    "email_verified": False,
+                    "sub": "google-subject",
+                    "name": "Unverified User",
+                }
+            }
+
+    monkeypatch.setattr("app.auth.routes.oauth.google", _DummyGoogle(), raising=False)
+
+    rv = client.get("/auth/google/callback", follow_redirects=True)
+    assert rv.status_code == 200
+    assert b"email is not verified" in rv.data
+    assert User.query.filter_by(email="unverified@example.org").first() is None

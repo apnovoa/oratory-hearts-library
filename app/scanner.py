@@ -17,6 +17,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import requests
+from sqlalchemy.exc import SQLAlchemyError
 
 try:
     import fcntl
@@ -187,7 +188,7 @@ def _extract_pdf_metadata(filepath):
             if isbn_match:
                 result["isbn"] = isbn_match.group(1)
 
-    except Exception as exc:
+    except (pikepdf.PdfError, OSError, ValueError, RuntimeError) as exc:
         logger.warning("Failed to read PDF metadata from %s: %s", filepath, exc)
 
     return result
@@ -454,13 +455,9 @@ def _scan_single_file(filepath, batch_id, app):
             sources.append("filename")
 
         # ---- AI metadata extraction (Claude) ----
-        ai_meta = None
-        try:
-            from .ai_service import extract_metadata_with_ai
+        from .ai_service import extract_metadata_with_ai
 
-            ai_meta = extract_metadata_with_ai(filepath, app.config)
-        except Exception as exc:
-            logger.debug("AI extraction failed for %s: %s", filename, exc)
+        ai_meta = extract_metadata_with_ai(filepath, app.config)
 
         if ai_meta and any(v for v in ai_meta.values()):
             sources.append("ai_claude")
@@ -481,15 +478,12 @@ def _scan_single_file(filepath, batch_id, app):
             "isbn": None,
         }
 
-        try:
-            if lookup_isbn:
-                ol_meta = _lookup_openlibrary(isbn=lookup_isbn)
-            elif lookup_title and lookup_author:
-                ol_meta = _lookup_openlibrary(title=lookup_title, author=lookup_author)
-            elif lookup_title:
-                ol_meta = _lookup_openlibrary(title=lookup_title)
-        except Exception as exc:
-            logger.debug("Open Library enrichment failed for %s: %s", filename, exc)
+        if lookup_isbn:
+            ol_meta = _lookup_openlibrary(isbn=lookup_isbn)
+        elif lookup_title and lookup_author:
+            ol_meta = _lookup_openlibrary(title=lookup_title, author=lookup_author)
+        elif lookup_title:
+            ol_meta = _lookup_openlibrary(title=lookup_title)
 
         if any(v for v in ol_meta.values()):
             sources.append("openlibrary")
@@ -521,19 +515,16 @@ def _scan_single_file(filepath, batch_id, app):
         # ---- Cover fetch ----
         cover_filename = None
         if final_title or final_isbn:
-            try:
-                # Generate a temporary public_id for the staged book cover
-                cover_public_id = uuid4().hex
-                cover_dir = app.config.get("COVER_STORAGE", "storage/covers")
-                cover_filename = fetch_cover(
-                    isbn=final_isbn,
-                    title=final_title,
-                    author=final_author,
-                    public_id=cover_public_id,
-                    cover_storage_dir=cover_dir,
-                )
-            except Exception as exc:
-                logger.debug("Cover fetch failed for %s: %s", filename, exc)
+            # Generate a temporary public_id for the staged book cover
+            cover_public_id = uuid4().hex
+            cover_dir = app.config.get("COVER_STORAGE", "storage/covers")
+            cover_filename = fetch_cover(
+                isbn=final_isbn,
+                title=final_title,
+                author=final_author,
+                public_id=cover_public_id,
+                cover_storage_dir=cover_dir,
+            )
 
         # ---- Duplicate detection against existing Book records ----
         duplicate_of_book_id = None
@@ -583,6 +574,8 @@ def _scan_single_file(filepath, batch_id, app):
         return True
 
     except Exception as exc:
+        # Keep broad catch here intentionally: one malformed file must not
+        # crash the entire batch scan.
         db.session.rollback()
         logger.error("Error scanning %s: %s", filename, exc, exc_info=True)
 
@@ -600,7 +593,9 @@ def _scan_single_file(filepath, batch_id, app):
             )
             db.session.add(staged)
             db.session.commit()
-        except Exception:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError):
+            # Best-effort error visibility: if this write fails we still
+            # return False so the batch can continue.
             logger.exception("Failed to persist scan error row for %s", filename)
             db.session.rollback()
 
@@ -634,7 +629,8 @@ def _scan_single_file_with_timeout(filepath, batch_id, app, timeout_seconds):
         with app.app_context():
             try:
                 result["success"] = _scan_single_file(filepath, batch_id, app)
-            except Exception:
+            except (SQLAlchemyError, OSError, RuntimeError, ValueError):
+                # Isolate per-file operational failures so the batch continues.
                 logger.exception("Unhandled scanner crash for %s", filepath)
                 result["success"] = False
             finally:
@@ -695,7 +691,8 @@ def _scan_worker(staging_dir, batch_id, app, lock_fd=None):
                 if not success:
                     progress["errors"] += 1
                 _write_progress(progress, progress_path)
-        except Exception:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError):
+            # Keep worker alive long enough to publish final progress + release lock.
             logger.exception("Scan batch %s failed with unhandled error.", batch_id)
         finally:
             try:
@@ -760,7 +757,8 @@ def start_scan(app):
     )
     try:
         thread.start()
-    except Exception:
+    except RuntimeError:
+        # Thread startup can fail if Python refuses to create a new thread.
         _release_scan_lock(lock_fd)
         raise
 
