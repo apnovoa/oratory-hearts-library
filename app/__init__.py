@@ -1,6 +1,8 @@
+import logging
 import os
 import secrets
 from datetime import UTC
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from authlib.integrations.flask_client import OAuth
@@ -46,6 +48,9 @@ def create_app(config_name=None):
     from werkzeug.middleware.proxy_fix import ProxyFix
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    # Configure logging
+    _configure_logging(app)
 
     # Ensure storage directories exist
     for d in ("MASTER_STORAGE", "CIRCULATION_STORAGE", "COVER_STORAGE", "BACKUP_STORAGE", "STAGING_STORAGE"):
@@ -169,7 +174,7 @@ def create_app(config_name=None):
 
         init_scheduler(app)
 
-    # Health check endpoint
+    # Health check endpoints
     @app.route("/ping")
     def ping():
         from datetime import datetime
@@ -178,6 +183,28 @@ def create_app(config_name=None):
             "status": "ok",
             "timestamp": datetime.now(UTC).isoformat(),
         }, 200
+
+    @app.route("/health")
+    def health():
+        from datetime import datetime
+
+        result = {"timestamp": datetime.now(UTC).isoformat()}
+
+        # Check scheduler liveness
+        scheduler = getattr(app, "scheduler", None)
+        if scheduler is not None:
+            running = scheduler.running
+            jobs = []
+            for job in scheduler.get_jobs():
+                job_info = {"id": job.id, "next_run": job.next_run_time.isoformat() if job.next_run_time else None}
+                jobs.append(job_info)
+            result["scheduler"] = {"running": running, "jobs": jobs}
+        else:
+            result["scheduler"] = {"running": False, "reason": "disabled"}
+
+        all_ok = scheduler is None or scheduler.running
+        result["status"] = "ok" if all_ok else "degraded"
+        return result, 200 if all_ok else 503
 
     # Create tables and seed admin on first run
     with app.app_context():
@@ -247,6 +274,27 @@ def create_app(config_name=None):
             db.session.rollback()
 
     return app
+
+
+def _configure_logging(app):
+    """Set up file-based logging with rotation for production."""
+    if app.debug:
+        return
+
+    log_dir = Path(app.root_path).parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+
+    file_handler = RotatingFileHandler(
+        log_dir / "bibliotheca.log",
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=5,
+    )
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    )
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
 
 
 def _seed_admin_if_needed(app):

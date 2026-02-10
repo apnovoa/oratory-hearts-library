@@ -72,7 +72,7 @@ jobs:
           sed -i 's/^SCHEDULER_ENABLED=.*/SCHEDULER_ENABLED=false/' .env
       - name: Verify imports resolve
         run: python -c "from app import create_app"
-      - name: Smoke test /ping
+      - name: Smoke test /ping and /health
         run: |
           python -c "
           from app import create_app
@@ -83,4 +83,9 @@ jobs:
           data = resp.get_json()
           assert data['status'] == 'ok', f'Expected ok, got {data}'
           print('/ping returned 200 ok')
+          resp = client.get('/health')
+          assert resp.status_code == 200, f'Expected 200, got {resp.status_code}'
+          data = resp.get_json()
+          assert data['status'] == 'ok', f'Expected ok, got {data}'
+          print('/health returned 200 ok')
           "

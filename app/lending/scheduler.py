@@ -1,8 +1,17 @@
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from apscheduler.schedulers.background import BackgroundScheduler
 
 
 def init_scheduler(app):
     scheduler = BackgroundScheduler()
+
+    def job_listener(event):
+        if event.exception:
+            app.logger.error("Scheduler job %s failed: %s", event.job_id, event.exception)
+        else:
+            app.logger.debug("Scheduler job %s executed successfully", event.job_id)
+
+    scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
     def run_expiry():
         with app.app_context():
@@ -66,3 +75,4 @@ def init_scheduler(app):
         coalesce=True,
     )
     scheduler.start()
+    app.scheduler = scheduler

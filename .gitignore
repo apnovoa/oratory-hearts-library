@@ -16,6 +16,9 @@ venv/
 # Database
 *.db
 
+# Logs
+logs/
+
 # Storage (PDFs, covers, etc. — too large for git)
 storage/masters/*
 storage/circulation/*
