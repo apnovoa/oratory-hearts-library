@@ -289,9 +289,7 @@ def _configure_logging(app):
         maxBytes=5 * 1024 * 1024,  # 5 MB
         backupCount=5,
     )
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
-    )
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
     file_handler.setLevel(logging.INFO)
     app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
