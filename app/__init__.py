@@ -10,7 +10,7 @@ from flask import Flask
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 from flask_wtf.csrf import CSRFProtect
 
 from .config import config_by_name
@@ -206,28 +206,9 @@ def create_app(config_name=None):
         result["status"] = "ok" if all_ok else "degraded"
         return result, 200 if all_ok else 503
 
-    # Create tables and seed admin on first run
+    # Apply pending Alembic migrations and seed admin on first run
     with app.app_context():
-        db.create_all()
-
-        # Schema migrations for existing databases.
-        # Each (ALTER, INDEX) pair is idempotent: ALTER TABLE raises if column
-        # already exists, which the except block silently handles via rollback.
-        # For a formal migration system, consider Alembic.
-        _migrations = [
-            ("ALTER TABLE users ADD COLUMN google_id VARCHAR(255)", None),
-            (None, "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_id ON users(google_id)"),
-            ("ALTER TABLE books ADD COLUMN is_featured BOOLEAN NOT NULL DEFAULT 0", None),
-        ]
-        for alter_sql, index_sql in _migrations:
-            try:
-                if alter_sql:
-                    db.session.execute(db.text(alter_sql))
-                if index_sql:
-                    db.session.execute(db.text(index_sql))
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+        upgrade()
 
         _seed_admin_if_needed(app)
 
