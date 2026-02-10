@@ -77,6 +77,11 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
 
+    @classmethod
+    def init_app(cls, app):
+        if not os.environ.get("SECRET_KEY"):
+            app.logger.warning("SECRET_KEY not set — using an ephemeral key. Sessions will not survive restarts.")
+
 
 class ProductionConfig(Config):
     DEBUG = False

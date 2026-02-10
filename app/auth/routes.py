@@ -161,7 +161,7 @@ def register():
                         f'or <a href="{reset_url}">reset your password</a>.</p>'
                     ),
                 )
-            except Exception:
+            except Exception:  # nosec B110 — intentional: suppress to prevent email enumeration
                 pass
             # Show the same success message to prevent email enumeration
             flash("Account created successfully. You may now sign in.", "success")
