@@ -12,7 +12,7 @@ import os
 import re
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -41,6 +41,7 @@ _progress_lock = threading.Lock()
 def _progress_file_path():
     """Return path to the progress JSON file inside the staging directory's parent."""
     from flask import current_app
+
     try:
         storage = Path(current_app.config["STAGING_STORAGE"]).parent
     except RuntimeError:
@@ -54,7 +55,7 @@ def _read_progress(path=None):
     if path is None:
         path = _progress_file_path()
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return dict(_PROGRESS_DEFAULTS)
@@ -78,6 +79,7 @@ def get_scan_progress():
 # ---------------------------------------------------------------------------
 # SHA-256 hashing
 # ---------------------------------------------------------------------------
+
 
 def _compute_sha256(filepath):
     """Compute the SHA-256 hex digest of a file, reading in 8 KB chunks."""
@@ -140,9 +142,7 @@ def _extract_pdf_metadata(filepath):
             result["keywords"] = info_keywords
 
             # Hunt for ISBN in subject, keywords, and description fields
-            searchable = " ".join(
-                s for s in [result["subject"], result["keywords"], dc_description] if s
-            )
+            searchable = " ".join(s for s in [result["subject"], result["keywords"], dc_description] if s)
             isbn_match = _ISBN_RE.search(searchable)
             if isbn_match:
                 result["isbn"] = isbn_match.group(1)
@@ -348,6 +348,7 @@ def _lookup_openlibrary(isbn=None, title=None, author=None):
 # Confidence scoring
 # ---------------------------------------------------------------------------
 
+
 def _compute_confidence(metadata_sources, has_title, has_author, has_isbn):
     """Return a confidence level: 'high', 'medium', or 'low'.
 
@@ -359,9 +360,7 @@ def _compute_confidence(metadata_sources, has_title, has_author, has_isbn):
     sources = set(s.strip() for s in (metadata_sources or "").split(",") if s.strip())
 
     if has_title and has_author:
-        enriched = "ai_claude" in sources or "openlibrary" in sources or (
-            "pdf_metadata" in sources and has_isbn
-        )
+        enriched = "ai_claude" in sources or "openlibrary" in sources or ("pdf_metadata" in sources and has_isbn)
         if enriched:
             return "high"
         return "medium"
@@ -373,14 +372,15 @@ def _compute_confidence(metadata_sources, has_title, has_author, has_isbn):
 # Single-file pipeline
 # ---------------------------------------------------------------------------
 
+
 def _scan_single_file(filepath, batch_id, app):
     """Process one PDF file through the full metadata extraction pipeline.
 
     Creates a StagedBook record on success.  Returns True on success, False on
     error.
     """
-    from .models import StagedBook, Book, db
     from .cover_service import fetch_cover
+    from .models import Book, StagedBook, db
 
     filename = os.path.basename(filepath)
 
@@ -390,8 +390,7 @@ def _scan_single_file(filepath, batch_id, app):
 
         existing = StagedBook.query.filter_by(file_hash=file_hash).first()
         if existing:
-            logger.info("Skipping %s — already staged (hash match, id=%d).",
-                        filename, existing.id)
+            logger.info("Skipping %s — already staged (hash match, id=%d).", filename, existing.id)
             return True  # not an error, just a skip
 
         file_size = os.path.getsize(filepath)
@@ -407,9 +406,6 @@ def _scan_single_file(filepath, batch_id, app):
         merged_author = pdf_meta["author"] or fn_meta["author"]
         merged_isbn = pdf_meta["isbn"]
         merged_description = None
-        merged_year = None
-        merged_language = None
-        merged_subjects = None
 
         sources = []
         if pdf_meta["title"] or pdf_meta["author"] or pdf_meta["isbn"]:
@@ -421,6 +417,7 @@ def _scan_single_file(filepath, batch_id, app):
         ai_meta = None
         try:
             from .ai_service import extract_metadata_with_ai
+
             ai_meta = extract_metadata_with_ai(filepath, app.config)
         except Exception as exc:
             logger.debug("AI extraction failed for %s: %s", filename, exc)
@@ -434,8 +431,15 @@ def _scan_single_file(filepath, batch_id, app):
         lookup_author = (ai_meta or {}).get("author") or merged_author
         lookup_isbn = (ai_meta or {}).get("isbn") or merged_isbn
 
-        ol_meta = {"title": None, "author": None, "description": None,
-                   "year": None, "language": None, "subjects": None, "isbn": None}
+        ol_meta = {
+            "title": None,
+            "author": None,
+            "description": None,
+            "year": None,
+            "language": None,
+            "subjects": None,
+            "isbn": None,
+        }
 
         try:
             if lookup_isbn:
@@ -529,14 +533,13 @@ def _scan_single_file(filepath, batch_id, app):
             duplicate_of_book_id=duplicate_of_book_id,
             duplicate_type=duplicate_type,
             scan_batch_id=batch_id,
-            scanned_at=datetime.now(timezone.utc),
+            scanned_at=datetime.now(UTC),
         )
 
         db.session.add(staged)
         db.session.commit()
 
-        logger.info("Staged %s (confidence=%s, sources=%s)",
-                     filename, confidence, metadata_sources_str)
+        logger.info("Staged %s (confidence=%s, sources=%s)", filename, confidence, metadata_sources_str)
         return True
 
     except Exception as exc:
@@ -553,7 +556,7 @@ def _scan_single_file(filepath, batch_id, app):
                 status="error",
                 error_message=str(exc)[:2000],
                 scan_batch_id=batch_id,
-                scanned_at=datetime.now(timezone.utc),
+                scanned_at=datetime.now(UTC),
             )
             db.session.add(staged)
             db.session.commit()
@@ -584,7 +587,8 @@ def _scan_worker(staging_dir, batch_id, app):
 
         try:
             pdf_files = sorted(
-                p for p in Path(staging_dir).iterdir()
+                p
+                for p in Path(staging_dir).iterdir()
                 if p.is_file() and p.suffix.lower() == ".pdf" and _is_valid_pdf(p)
             )
 
@@ -592,8 +596,7 @@ def _scan_worker(staging_dir, batch_id, app):
             progress["total"] = len(pdf_files)
             _write_progress(progress, progress_path)
 
-            logger.info("Scan batch %s started: %d PDF(s) in %s",
-                         batch_id, len(pdf_files), staging_dir)
+            logger.info("Scan batch %s started: %d PDF(s) in %s", batch_id, len(pdf_files), staging_dir)
 
             for filepath in pdf_files:
                 progress = _read_progress(progress_path)
@@ -611,18 +614,20 @@ def _scan_worker(staging_dir, batch_id, app):
             logger.exception("Scan batch %s failed with unhandled error.", batch_id)
         finally:
             progress = _read_progress(progress_path)
-            progress["finished_at"] = datetime.now(timezone.utc).isoformat()
+            progress["finished_at"] = datetime.now(UTC).isoformat()
             progress["running"] = False
             progress["current_file"] = ""
             _write_progress(progress, progress_path)
 
-        logger.info("Scan batch %s finished: %d processed, %d errors.",
-                     batch_id, progress["processed"], progress["errors"])
+        logger.info(
+            "Scan batch %s finished: %d processed, %d errors.", batch_id, progress["processed"], progress["errors"]
+        )
 
 
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def start_scan(app):
     """Kick off a background scan of the staging directory.
@@ -635,8 +640,7 @@ def start_scan(app):
         progress = _read_progress(progress_path)
 
         if progress["running"]:
-            logger.warning("Scan already in progress (batch %s).",
-                           progress["batch_id"])
+            logger.warning("Scan already in progress (batch %s).", progress["batch_id"])
             return False
 
         batch_id = uuid4().hex
@@ -644,7 +648,7 @@ def start_scan(app):
         progress = dict(_PROGRESS_DEFAULTS)
         progress["running"] = True
         progress["batch_id"] = batch_id
-        progress["started_at"] = datetime.now(timezone.utc).isoformat()
+        progress["started_at"] = datetime.now(UTC).isoformat()
         _write_progress(progress, progress_path)
 
     staging_dir = app.config.get("STAGING_STORAGE", "storage/staging")
@@ -658,6 +662,5 @@ def start_scan(app):
     )
     thread.start()
 
-    logger.info("Launched scan thread for batch %s (staging: %s).",
-                batch_id, staging_dir)
+    logger.info("Launched scan thread for batch %s (staging: %s).", batch_id, staging_dir)
     return batch_id

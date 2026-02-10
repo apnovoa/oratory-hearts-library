@@ -1,0 +1,34 @@
+target-version = "py313"
+line-length = 120
+
+[lint]
+select = [
+    "F",     # Pyflakes — undefined names, unused imports
+    "E4",    # import errors
+    "E7",    # statement errors
+    "E9",    # runtime errors
+    "B",     # flake8-bugbear — real bugs
+    "S",     # flake8-bandit — security
+    "I",     # isort — import ordering
+    "UP",    # pyupgrade — modernize syntax
+    "SIM",   # flake8-simplify — unnecessary complexity
+    "T20",   # flake8-print — stray print()
+    "LOG",   # flake8-logging — logging anti-patterns
+    "RUF",   # ruff-specific rules
+]
+ignore = [
+    "E711",  # comparison to None — SQLAlchemy uses == None
+    "E712",  # comparison to True/False — SQLAlchemy uses == True
+    "S101",  # assert — used in non-test code acceptably
+    "S105",  # hardcoded password strings — config defaults
+    "S106",  # hardcoded password arguments — config defaults
+    "S324",  # hashlib SHA-256 — used for file dedup, not passwords
+    "S608",  # SQL injection — static SQL strings (migrations/FTS5)
+    "B008",  # function call in default arg — Flask request/current_user
+    "RUF001",  # ambiguous unicode — en dashes in user-facing strings are intentional
+    "S110",  # try-except-pass — intentional silent fallback (e.g. email enumeration prevention)
+]
+
+[lint.per-file-ignores]
+"run.py" = ["T20", "E402"]     # print() is fine; dotenv must load before app import
+"app/liturgical.py" = ["E741"] # single-letter variable `l` is domain-appropriate

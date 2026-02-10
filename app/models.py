@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import bcrypt
 from flask_login import UserMixin
@@ -9,7 +9,7 @@ db = SQLAlchemy()
 
 
 def _utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _uuid():
@@ -27,6 +27,7 @@ book_tags = db.Table(
 
 # ── User ────────────────────────────────────────────────────────────
 
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
@@ -35,16 +36,14 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     display_name = db.Column(db.String(255), nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(
-        db.String(20), nullable=False, default="patron"
-    )  # admin, librarian, patron
+    role = db.Column(db.String(20), nullable=False, default="patron")  # admin, librarian, patron
     is_active_account = db.Column(db.Boolean, nullable=False, default=True)
     is_blocked = db.Column(db.Boolean, nullable=False, default=False)
     block_reason = db.Column(db.Text, nullable=True)
     failed_login_count = db.Column(db.Integer, nullable=False, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
-    birth_month = db.Column(db.Integer, nullable=True)   # 1-12
-    birth_day = db.Column(db.Integer, nullable=True)     # 1-31
+    birth_month = db.Column(db.Integer, nullable=True)  # 1-12
+    birth_day = db.Column(db.Integer, nullable=True)  # 1-31
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     last_login_at = db.Column(db.DateTime, nullable=True)
     force_logout_before = db.Column(db.DateTime, nullable=True)
@@ -55,15 +54,11 @@ class User(UserMixin, db.Model):
     waitlist_entries = db.relationship("WaitlistEntry", backref="patron", lazy="dynamic")
 
     def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(
-            password.encode("utf-8"), bcrypt.gensalt(rounds=13)
-        ).decode("utf-8")
-        self.password_changed_at = datetime.now(timezone.utc)
+        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=13)).decode("utf-8")
+        self.password_changed_at = datetime.now(UTC)
 
     def check_password(self, password):
-        return bcrypt.checkpw(
-            password.encode("utf-8"), self.password_hash.encode("utf-8")
-        )
+        return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
 
     @property
     def is_admin(self):
@@ -88,6 +83,7 @@ class User(UserMixin, db.Model):
 
 # ── Tag ─────────────────────────────────────────────────────────────
 
+
 class Tag(db.Model):
     __tablename__ = "tags"
 
@@ -99,6 +95,7 @@ class Tag(db.Model):
 
 
 # ── Book ────────────────────────────────────────────────────────────
+
 
 class Book(db.Model):
     __tablename__ = "books"
@@ -118,9 +115,7 @@ class Book(db.Model):
     master_filename = db.Column(db.String(255), nullable=True)
 
     owned_copies = db.Column(db.Integer, nullable=False, default=1)
-    watermark_mode = db.Column(
-        db.String(20), nullable=False, default="standard"
-    )  # standard, gentle
+    watermark_mode = db.Column(db.String(20), nullable=False, default="standard")  # standard, gentle
     loan_duration_override = db.Column(db.Integer, nullable=True)  # days, or NULL for default
     is_visible = db.Column(db.Boolean, nullable=False, default=True)
     is_disabled = db.Column(db.Boolean, nullable=False, default=False)
@@ -144,7 +139,7 @@ class Book(db.Model):
         # Catalog browse uses a subquery instead to avoid N+1.
         return Loan.query.filter(
             Loan.book_id == self.id,
-            Loan.is_active == True,  # noqa: E712
+            Loan.is_active == True,
         ).count()
 
     @property
@@ -154,15 +149,13 @@ class Book(db.Model):
     @property
     def is_available(self):
         return (
-            self.is_visible
-            and not self.is_disabled
-            and self.available_copies > 0
-            and self.master_filename is not None
+            self.is_visible and not self.is_disabled and self.available_copies > 0 and self.master_filename is not None
         )
 
     @property
     def loan_days(self):
         from flask import current_app
+
         if self.loan_duration_override:
             return self.loan_duration_override
         return current_app.config.get("DEFAULT_LOAN_DAYS", 14)
@@ -172,6 +165,7 @@ class Book(db.Model):
 
 
 # ── Loan ────────────────────────────────────────────────────────────
+
 
 class Loan(db.Model):
     __tablename__ = "loans"
@@ -190,7 +184,9 @@ class Loan(db.Model):
 
     circulation_filename = db.Column(db.String(255), nullable=True)
     # 64 hex chars (two uuid4 hex values concatenated) — used as unguessable URL token
-    access_token = db.Column(db.String(64), unique=True, nullable=False, default=lambda: uuid.uuid4().hex + uuid.uuid4().hex)
+    access_token = db.Column(
+        db.String(64), unique=True, nullable=False, default=lambda: uuid.uuid4().hex + uuid.uuid4().hex
+    )
     download_count = db.Column(db.Integer, nullable=False, default=0)
 
     renewal_count = db.Column(db.Integer, nullable=False, default=0)
@@ -207,7 +203,7 @@ class Loan(db.Model):
     def is_expired(self):
         due = self.due_at
         if due.tzinfo is None:
-            due = due.replace(tzinfo=timezone.utc)
+            due = due.replace(tzinfo=UTC)
         return _utcnow() >= due
 
     @property
@@ -220,6 +216,7 @@ class Loan(db.Model):
 
 # ── Waitlist ────────────────────────────────────────────────────────
 
+
 class WaitlistEntry(db.Model):
     __tablename__ = "waitlist_entries"
 
@@ -230,12 +227,11 @@ class WaitlistEntry(db.Model):
     notified_at = db.Column(db.DateTime, nullable=True)
     is_fulfilled = db.Column(db.Boolean, nullable=False, default=False)
 
-    __table_args__ = (
-        db.UniqueConstraint("user_id", "book_id", name="uq_waitlist_user_book"),
-    )
+    __table_args__ = (db.UniqueConstraint("user_id", "book_id", name="uq_waitlist_user_book"),)
 
 
 # ── Audit Log ───────────────────────────────────────────────────────
+
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
@@ -256,6 +252,7 @@ class AuditLog(db.Model):
 
 
 # ── System Config ───────────────────────────────────────────────────
+
 
 class SystemConfig(db.Model):
     __tablename__ = "system_config"
@@ -283,6 +280,7 @@ class SystemConfig(db.Model):
 
 # ── Favorite ───────────────────────────────────────────────────────
 
+
 class Favorite(db.Model):
     __tablename__ = "favorites"
 
@@ -294,12 +292,11 @@ class Favorite(db.Model):
     user = db.relationship("User", backref=db.backref("favorites", lazy="dynamic"))
     book = db.relationship("Book", backref=db.backref("favorited_by", lazy="dynamic"))
 
-    __table_args__ = (
-        db.UniqueConstraint("user_id", "book_id", name="uq_favorite_user_book"),
-    )
+    __table_args__ = (db.UniqueConstraint("user_id", "book_id", name="uq_favorite_user_book"),)
 
 
 # ── Book Note ──────────────────────────────────────────────────────
+
 
 class BookNote(db.Model):
     __tablename__ = "book_notes"
@@ -317,6 +314,7 @@ class BookNote(db.Model):
 
 # ── Book Request ───────────────────────────────────────────────────
 
+
 class BookRequest(db.Model):
     __tablename__ = "book_requests"
 
@@ -333,13 +331,15 @@ class BookRequest(db.Model):
     resolved_at = db.Column(db.DateTime, nullable=True)
 
     user = db.relationship(
-        "User", foreign_keys=[user_id],
+        "User",
+        foreign_keys=[user_id],
         backref=db.backref("book_requests", lazy="dynamic"),
     )
     resolver = db.relationship("User", foreign_keys=[resolved_by])
 
 
 # ── Reading List ───────────────────────────────────────────────────
+
 
 class ReadingList(db.Model):
     __tablename__ = "reading_lists"
@@ -356,10 +356,13 @@ class ReadingList(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
     creator = db.relationship(
-        "User", backref=db.backref("reading_lists", lazy="dynamic"),
+        "User",
+        backref=db.backref("reading_lists", lazy="dynamic"),
     )
     items = db.relationship(
-        "ReadingListItem", backref="reading_list", lazy="joined",
+        "ReadingListItem",
+        backref="reading_list",
+        lazy="joined",
         order_by="ReadingListItem.position",
         cascade="all, delete-orphan",
     )
@@ -370,7 +373,10 @@ class ReadingListItem(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     reading_list_id = db.Column(
-        db.Integer, db.ForeignKey("reading_lists.id"), nullable=False, index=True,
+        db.Integer,
+        db.ForeignKey("reading_lists.id"),
+        nullable=False,
+        index=True,
     )
     book_id = db.Column(db.Integer, db.ForeignKey("books.id"), nullable=False, index=True)
     position = db.Column(db.Integer, nullable=False, default=0)
@@ -379,12 +385,11 @@ class ReadingListItem(db.Model):
 
     book = db.relationship("Book")
 
-    __table_args__ = (
-        db.UniqueConstraint("reading_list_id", "book_id", name="uq_reading_list_book"),
-    )
+    __table_args__ = (db.UniqueConstraint("reading_list_id", "book_id", name="uq_reading_list_book"),)
 
 
 # ── Staged Book (Bulk PDF Import) ────────────────────────────────
+
 
 class StagedBook(db.Model):
     __tablename__ = "staged_books"

@@ -1,11 +1,11 @@
 import io
 import os
+from datetime import UTC
 
 import pikepdf
 from flask import current_app
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
@@ -20,9 +20,7 @@ def _register_cormorant_font():
     global _font_registered
     if _font_registered:
         return
-    font_path = os.path.join(
-        current_app.root_path, "static", "fonts", "CormorantGaramond-Regular.ttf"
-    )
+    font_path = os.path.join(current_app.root_path, "static", "fonts", "CormorantGaramond-Regular.ttf")
     if os.path.isfile(font_path):
         pdfmetrics.registerFont(TTFont("CormorantGaramond", font_path))
     _font_registered = True
@@ -38,15 +36,10 @@ def generate_circulation_copy(loan, book, user):
     if not master_path.startswith(os.path.realpath(master_dir) + os.sep):
         raise ValueError(f"Path traversal blocked: {book.master_filename}")
     if not os.path.isfile(master_path):
-        raise FileNotFoundError(
-            f"Master PDF not found: {book.master_filename}"
-        )
+        raise FileNotFoundError(f"Master PDF not found: {book.master_filename}")
 
     due_str = loan.due_at.strftime("%B %d, %Y")
-    watermark_text = (
-        f"Loaned to {user.display_name} \u2014 Due {due_str} "
-        f"\u2014 {LIBRARY_NAME}"
-    )
+    watermark_text = f"Loaned to {user.display_name} \u2014 Due {due_str} \u2014 {LIBRARY_NAME}"
 
     # Build the cover page PDF (loan slip)
     cover_buf = _build_cover_page(book, user, due_str)
@@ -100,9 +93,7 @@ def generate_circulation_copy(loan, book, user):
 
         # Save to circulation storage
         filename = f"loan_{loan.public_id}.pdf"
-        output_path = os.path.join(
-            current_app.config["CIRCULATION_STORAGE"], filename
-        )
+        output_path = os.path.join(current_app.config["CIRCULATION_STORAGE"], filename)
         master_pdf.save(output_path)
 
         cover_pdf.close()
@@ -113,9 +104,7 @@ def generate_circulation_copy(loan, book, user):
 
 def _get_logo_path():
     """Return the absolute path to the library logo, or None if not found."""
-    logo_path = os.path.join(
-        current_app.root_path, "static", "img", "logo.png"
-    )
+    logo_path = os.path.join(current_app.root_path, "static", "img", "logo.png")
     if os.path.isfile(logo_path):
         return logo_path
     return None
@@ -231,9 +220,7 @@ def _build_end_page(book, user, due_str):
     c = canvas.Canvas(buf, pagesize=letter)
     width, height = letter
 
-    contact_email = current_app.config.get(
-        "LIBRARY_CONTACT_EMAIL", "library@oratory.example.org"
-    )
+    contact_email = current_app.config.get("LIBRARY_CONTACT_EMAIL", "library@oratory.example.org")
 
     logo_path = _get_logo_path()
 
@@ -253,7 +240,7 @@ def _build_end_page(book, user, due_str):
         )
 
     # Header
-    header_y = height - 1.5 * inch if not logo_path else height - 1.5 * inch
+    header_y = height - 1.5 * inch
     c.setFont("Times-Bold", 18)
     c.drawCentredString(width / 2, header_y, "Return Instructions")
 
@@ -265,10 +252,10 @@ def _build_end_page(book, user, due_str):
     c.setFont("Times-Roman", 12)
 
     paragraphs = [
-        f"This loan of \"{book.title}\" is due on {due_str}.",
+        f'This loan of "{book.title}" is due on {due_str}.',
         "",
         "To return this book early, sign in to your library account and",
-        "select \"Return\" from your active loans on your patron dashboard.",
+        'select "Return" from your active loans on your patron dashboard.',
         "",
         "If you do not return the book manually, your access will expire",
         "automatically on the due date and the copy will be released back",
@@ -393,6 +380,7 @@ def _build_watermark_overlay(page, text):
 
 def _format_date(loan_date=None):
     """Format the current date for the loan slip."""
-    from datetime import datetime, timezone
-    now = loan_date or datetime.now(timezone.utc)
+    from datetime import datetime
+
+    now = loan_date or datetime.now(UTC)
     return now.strftime("%B %d, %Y")

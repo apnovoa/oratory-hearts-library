@@ -1,15 +1,15 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
-from flask import Blueprint, render_template, redirect, url_for, flash, abort, request, jsonify
-from flask_login import login_required, current_user
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
 from .. import limiter
-from ..models import db, Loan, Book, Favorite, BookNote, BookRequest
 from ..audit import log_event
-from ..lending.service import return_loan as service_return_loan
 from ..lending.service import renew_loan as service_renew_loan
-from .forms import ProfileForm, BookRequestForm, BookNoteForm
+from ..lending.service import return_loan as service_return_loan
+from ..models import Book, BookNote, BookRequest, Favorite, Loan, db
+from .forms import BookNoteForm, BookRequestForm, ProfileForm
 
 patron_bp = Blueprint("patron", __name__)
 
@@ -27,18 +27,9 @@ def before_request():
 
 @patron_bp.route("/dashboard")
 def dashboard():
-    active_loans = (
-        Loan.query
-        .filter_by(user_id=current_user.id, is_active=True)
-        .order_by(Loan.due_at.asc())
-        .all()
-    )
+    active_loans = Loan.query.filter_by(user_id=current_user.id, is_active=True).order_by(Loan.due_at.asc()).all()
     past_loans = (
-        Loan.query
-        .filter_by(user_id=current_user.id, is_active=False)
-        .order_by(Loan.returned_at.desc())
-        .limit(10)
-        .all()
+        Loan.query.filter_by(user_id=current_user.id, is_active=False).order_by(Loan.returned_at.desc()).limit(10).all()
     )
     return render_template(
         "patron/dashboard.html",
@@ -52,8 +43,7 @@ def loans():
     page = request.args.get("page", 1, type=int)
     per_page = 20
     pagination = (
-        Loan.query
-        .filter_by(user_id=current_user.id)
+        Loan.query.filter_by(user_id=current_user.id)
         .order_by(Loan.borrowed_at.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
@@ -137,7 +127,7 @@ def profile():
                 return render_template("patron/profile.html", form=form)
 
             current_user.set_password(form.new_password.data)
-            current_user.force_logout_before = datetime.now(timezone.utc)
+            current_user.force_logout_before = datetime.now(UTC)
             log_event(
                 action="password_changed",
                 target_type="user",
@@ -159,6 +149,7 @@ def profile():
 
 
 # ── Favorites ─────────────────────────────────────────────────────
+
 
 @patron_bp.route("/favorites/<string:book_public_id>/toggle", methods=["POST"])
 @limiter.limit("30 per minute")
@@ -192,32 +183,25 @@ def toggle_favorite(book_public_id):
         parsed = urlparse(referrer)
         if parsed.netloc and parsed.netloc != request.host:
             referrer = None
-    return redirect(
-        referrer or url_for("catalog.detail", public_id=book.public_id)
-    )
+    return redirect(referrer or url_for("catalog.detail", public_id=book.public_id))
 
 
 @patron_bp.route("/favorites")
 def favorites():
-    favorites_list = (
-        Favorite.query
-        .filter_by(user_id=current_user.id)
-        .order_by(Favorite.created_at.desc())
-        .all()
-    )
+    favorites_list = Favorite.query.filter_by(user_id=current_user.id).order_by(Favorite.created_at.desc()).all()
     books = [fav.book for fav in favorites_list if fav.book.is_visible and not fav.book.is_disabled]
     return render_template("patron/favorites.html", books=books)
 
 
 # ── Reading History ───────────────────────────────────────────────
 
+
 @patron_bp.route("/history")
 def history():
     page = request.args.get("page", 1, type=int)
     per_page = 20
     pagination = (
-        Loan.query
-        .filter_by(user_id=current_user.id, is_active=False)
+        Loan.query.filter_by(user_id=current_user.id, is_active=False)
         .order_by(Loan.borrowed_at.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
@@ -229,6 +213,7 @@ def history():
 
 
 # ── Book Requests ─────────────────────────────────────────────────
+
 
 @patron_bp.route("/requests/new", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
@@ -259,16 +244,12 @@ def request_new():
 
 @patron_bp.route("/requests")
 def requests():
-    my_requests = (
-        BookRequest.query
-        .filter_by(user_id=current_user.id)
-        .order_by(BookRequest.created_at.desc())
-        .all()
-    )
+    my_requests = BookRequest.query.filter_by(user_id=current_user.id).order_by(BookRequest.created_at.desc()).all()
     return render_template("patron/requests.html", requests=my_requests)
 
 
 # ── Patron Notes ──────────────────────────────────────────────────
+
 
 @patron_bp.route("/notes/<string:book_public_id>", methods=["POST"])
 @limiter.limit("20 per minute")

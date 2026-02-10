@@ -1,4 +1,5 @@
 import time
+from datetime import UTC
 
 from flask import current_app, render_template
 
@@ -19,6 +20,7 @@ def _send_email(subject, recipient, html_body):
         return
     try:
         import httpx
+
         resp = httpx.post(
             "https://api.brevo.com/v3/smtp/email",
             headers={
@@ -133,10 +135,11 @@ def send_password_reset_email(user, reset_url):
 
 def send_birthday_greetings():
     """Send birthday emails and prayers to patrons whose birthday is today."""
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from ..models import User
 
-    today = datetime.now(timezone.utc)
+    today = datetime.now(UTC)
     month, day = today.month, today.day
 
     birthday_patrons = User.query.filter_by(
@@ -178,16 +181,16 @@ def send_new_acquisitions_digest():
     Queries books created within the last 7 days and emails each
     active patron a summary of the new titles.
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
+
     from ..models import Book, User
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.now(UTC) - timedelta(days=7)
     new_books = (
-        Book.query
-        .filter(
+        Book.query.filter(
             Book.created_at >= cutoff,
-            Book.is_visible == True,   # noqa: E712
-            Book.is_disabled == False,  # noqa: E712
+            Book.is_visible == True,
+            Book.is_disabled == False,
         )
         .order_by(Book.created_at.desc())
         .all()
@@ -200,9 +203,7 @@ def send_new_acquisitions_digest():
     domain = current_app.config["LIBRARY_DOMAIN"]
     catalog_url = f"{domain}/catalog"
 
-    active_patrons = User.query.filter_by(
-        role="patron", is_active_account=True, is_blocked=False
-    ).all()
+    active_patrons = User.query.filter_by(role="patron", is_active_account=True, is_blocked=False).all()
 
     sent_count = 0
     for patron in active_patrons:
@@ -224,6 +225,4 @@ def send_new_acquisitions_digest():
         if sent_count < len(active_patrons):
             time.sleep(_BULK_SEND_DELAY)
 
-    current_app.logger.info(
-        f"New acquisitions digest sent: {len(new_books)} books, {sent_count} patrons."
-    )
+    current_app.logger.info(f"New acquisitions digest sent: {len(new_books)} books, {sent_count} patrons.")

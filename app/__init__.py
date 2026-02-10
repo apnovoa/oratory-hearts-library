@@ -1,14 +1,15 @@
 import os
 import secrets
+from datetime import UTC
 from pathlib import Path
 
+from authlib.integrations.flask_client import OAuth
 from flask import Flask
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
-from authlib.integrations.flask_client import OAuth
 
 from .config import config_by_name
 from .models import db
@@ -30,6 +31,7 @@ oauth = OAuth()
 def create_app(config_name=None):
     # Load .env so gunicorn (production) picks up env vars too
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
     if config_name is None:
@@ -42,6 +44,7 @@ def create_app(config_name=None):
         config_cls.init_app(app)
 
     from werkzeug.middleware.proxy_fix import ProxyFix
+
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # Ensure storage directories exist
@@ -73,8 +76,9 @@ def create_app(config_name=None):
     def load_user(user_id):
         user = db.session.get(User, int(user_id))
         if user and user.force_logout_before:
+            from datetime import datetime
+
             from flask import session
-            from datetime import datetime, timezone
 
             login_time = session.get("login_time")
             if not login_time:
@@ -84,21 +88,21 @@ def create_app(config_name=None):
                 flo = user.force_logout_before
                 # Ensure both are aware or both naive for comparison
                 if lt.tzinfo is None:
-                    lt = lt.replace(tzinfo=timezone.utc)
+                    lt = lt.replace(tzinfo=UTC)
                 if flo.tzinfo is None:
-                    flo = flo.replace(tzinfo=timezone.utc)
+                    flo = flo.replace(tzinfo=UTC)
                 if lt < flo:
                     return None
         return user
 
     # Register blueprints
+    from .admin.routes import admin_bp
     from .auth.routes import auth_bp
     from .catalog.routes import catalog_bp
-    from .lending.routes import lending_bp
-    from .admin.routes import admin_bp
-    from .patron.routes import patron_bp
-    from .opds.routes import opds_bp
     from .collections.routes import collections_bp
+    from .lending.routes import lending_bp
+    from .opds.routes import opds_bp
+    from .patron.routes import patron_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(catalog_bp)
@@ -110,18 +114,21 @@ def create_app(config_name=None):
 
     # Register error handlers
     from .errors import register_error_handlers
+
     register_error_handlers(app)
 
     # Generate a per-request CSP nonce for inline scripts that need template vars
     @app.before_request
     def generate_csp_nonce():
         from flask import g
+
         g.csp_nonce = secrets.token_urlsafe(16)
 
     # Security headers
     @app.after_request
     def set_security_headers(response):
         from flask import g
+
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["X-XSS-Protection"] = "1; mode=block"
@@ -148,6 +155,7 @@ def create_app(config_name=None):
     @app.context_processor
     def inject_library_branding():
         from flask import g
+
         return {
             "library_name_latin": app.config["LIBRARY_NAME_LATIN"],
             "library_name_english": app.config["LIBRARY_NAME_ENGLISH"],
@@ -158,15 +166,17 @@ def create_app(config_name=None):
     # Start scheduler for loan expiration
     if app.config.get("SCHEDULER_ENABLED"):
         from .lending.scheduler import init_scheduler
+
         init_scheduler(app)
 
     # Health check endpoint
     @app.route("/ping")
     def ping():
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         return {
             "status": "ok",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }, 200
 
     # Create tables and seed admin on first run
@@ -196,35 +206,41 @@ def create_app(config_name=None):
 
         # Create FTS5 virtual table for full-text search on books
         try:
-            db.session.execute(db.text(
-                "CREATE VIRTUAL TABLE IF NOT EXISTS books_fts "
-                "USING fts5(title, author, description, content=books, content_rowid=id)"
-            ))
+            db.session.execute(
+                db.text(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS books_fts "
+                    "USING fts5(title, author, description, content=books, content_rowid=id)"
+                )
+            )
             # Triggers to keep FTS index in sync with books table
-            db.session.execute(db.text("""
+            db.session.execute(
+                db.text("""
                 CREATE TRIGGER IF NOT EXISTS books_ai AFTER INSERT ON books BEGIN
                     INSERT INTO books_fts(rowid, title, author, description)
                     VALUES (new.id, new.title, new.author, new.description);
                 END
-            """))
-            db.session.execute(db.text("""
+            """)
+            )
+            db.session.execute(
+                db.text("""
                 CREATE TRIGGER IF NOT EXISTS books_ad AFTER DELETE ON books BEGIN
                     INSERT INTO books_fts(books_fts, rowid, title, author, description)
                     VALUES ('delete', old.id, old.title, old.author, old.description);
                 END
-            """))
-            db.session.execute(db.text("""
+            """)
+            )
+            db.session.execute(
+                db.text("""
                 CREATE TRIGGER IF NOT EXISTS books_au AFTER UPDATE ON books BEGIN
                     INSERT INTO books_fts(books_fts, rowid, title, author, description)
                     VALUES ('delete', old.id, old.title, old.author, old.description);
                     INSERT INTO books_fts(rowid, title, author, description)
                     VALUES (new.id, new.title, new.author, new.description);
                 END
-            """))
+            """)
+            )
             # Rebuild FTS index from existing data
-            db.session.execute(db.text(
-                "INSERT OR IGNORE INTO books_fts(books_fts) VALUES('rebuild')"
-            ))
+            db.session.execute(db.text("INSERT OR IGNORE INTO books_fts(books_fts) VALUES('rebuild')"))
             db.session.commit()
         except Exception:
             app.logger.warning("FTS5 setup skipped (may not be supported by this SQLite build)")
@@ -263,8 +279,6 @@ def _seed_admin_if_needed(app):
             # Write to a temporary file instead of stdout
             pw_file = Path(app.instance_path) / ".admin_password"
             pw_file.parent.mkdir(parents=True, exist_ok=True)
-            pw_file.write_text(
-                f"Email:    {admin_email}\nPassword: {admin_password}\n"
-            )
+            pw_file.write_text(f"Email:    {admin_email}\nPassword: {admin_password}\n")
             pw_file.chmod(0o600)
             app.logger.info("Generated admin credentials written to %s", pw_file)

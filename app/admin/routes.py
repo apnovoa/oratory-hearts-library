@@ -3,7 +3,7 @@ import io
 import os
 import shutil
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 
@@ -26,7 +26,18 @@ from werkzeug.utils import secure_filename
 from .. import limiter
 from ..audit import log_event
 from ..cover_service import fetch_cover
-from ..models import AuditLog, Book, BookRequest, Loan, ReadingList, ReadingListItem, StagedBook, Tag, User, WaitlistEntry, db
+from ..models import (
+    AuditLog,
+    Book,
+    BookRequest,
+    Loan,
+    ReadingList,
+    ReadingListItem,
+    StagedBook,
+    Tag,
+    User,
+    db,
+)
 from .forms import (
     AdminChangePasswordForm,
     AuditFilterForm,
@@ -53,14 +64,16 @@ def admin_required(f):
         if not current_user.is_admin:
             abort(403)
         return f(*args, **kwargs)
+
     return decorated_function
 
 
 def _utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ── Dashboard ──────────────────────────────────────────────────────
+
 
 @admin_bp.route("/")
 @admin_required
@@ -93,6 +106,7 @@ def dashboard():
 
 # ── Change Password ────────────────────────────────────────────────
 
+
 @admin_bp.route("/change-password", methods=["GET", "POST"])
 @admin_required
 @limiter.limit("30 per minute")
@@ -104,7 +118,7 @@ def change_password():
             return render_template("admin/change_password.html", form=form)
 
         current_user.set_password(form.new_password.data)
-        current_user.force_logout_before = datetime.now(timezone.utc)
+        current_user.force_logout_before = datetime.now(UTC)
         db.session.commit()
 
         log_event(
@@ -121,6 +135,7 @@ def change_password():
 
 # ── Books ──────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/books")
 @admin_required
 def books():
@@ -130,9 +145,7 @@ def books():
 
     if form.q.data:
         search = f"%{form.q.data}%"
-        query = query.filter(
-            db.or_(Book.title.ilike(search), Book.author.ilike(search))
-        )
+        query = query.filter(db.or_(Book.title.ilike(search), Book.author.ilike(search)))
 
     query = query.order_by(Book.title)
     pagination = query.paginate(page=page, per_page=25, error_out=False)
@@ -169,7 +182,9 @@ def book_add():
             restricted_access=form.restricted_access.data,
             imprimatur=form.imprimatur.data.strip() if form.imprimatur.data else None,
             nihil_obstat=form.nihil_obstat.data.strip() if form.nihil_obstat.data else None,
-            ecclesiastical_approval_date=form.ecclesiastical_approval_date.data.strip() if form.ecclesiastical_approval_date.data else None,
+            ecclesiastical_approval_date=form.ecclesiastical_approval_date.data.strip()
+            if form.ecclesiastical_approval_date.data
+            else None,
         )
 
         # Handle master PDF upload
@@ -197,8 +212,7 @@ def book_add():
         db.session.add(book)
         db.session.commit()
 
-        log_event("book_created", target_type="book", target_id=book.id,
-                  detail=f"Created book: {book.title}")
+        log_event("book_created", target_type="book", target_id=book.id, detail=f"Created book: {book.title}")
         flash("Book added successfully.", "success")
         return redirect(url_for("admin.books"))
 
@@ -235,7 +249,9 @@ def book_edit(book_id):
         book.restricted_access = form.restricted_access.data
         book.imprimatur = form.imprimatur.data.strip() if form.imprimatur.data else None
         book.nihil_obstat = form.nihil_obstat.data.strip() if form.nihil_obstat.data else None
-        book.ecclesiastical_approval_date = form.ecclesiastical_approval_date.data.strip() if form.ecclesiastical_approval_date.data else None
+        book.ecclesiastical_approval_date = (
+            form.ecclesiastical_approval_date.data.strip() if form.ecclesiastical_approval_date.data else None
+        )
 
         # Handle master PDF upload
         master_file = form.master_file.data
@@ -261,8 +277,7 @@ def book_edit(book_id):
 
         db.session.commit()
 
-        log_event("book_updated", target_type="book", target_id=book.id,
-                  detail=f"Updated book: {book.title}")
+        log_event("book_updated", target_type="book", target_id=book.id, detail=f"Updated book: {book.title}")
         flash("Book updated successfully.", "success")
         return redirect(url_for("admin.books"))
 
@@ -278,9 +293,10 @@ def book_toggle_visibility(book_id):
         abort(404)
     book.is_visible = not book.is_visible
     db.session.commit()
-    log_event("book_visibility_toggled", target_type="book", target_id=book.id,
-              detail=f"Visibility set to {book.is_visible}")
-    flash(f"Visibility {'enabled' if book.is_visible else 'disabled'} for \"{book.title}\".", "success")
+    log_event(
+        "book_visibility_toggled", target_type="book", target_id=book.id, detail=f"Visibility set to {book.is_visible}"
+    )
+    flash(f'Visibility {"enabled" if book.is_visible else "disabled"} for "{book.title}".', "success")
     return redirect(url_for("admin.books"))
 
 
@@ -293,9 +309,10 @@ def book_toggle_disabled(book_id):
         abort(404)
     book.is_disabled = not book.is_disabled
     db.session.commit()
-    log_event("book_disabled_toggled", target_type="book", target_id=book.id,
-              detail=f"Disabled set to {book.is_disabled}")
-    flash(f"Book \"{book.title}\" {'disabled' if book.is_disabled else 'enabled'}.", "success")
+    log_event(
+        "book_disabled_toggled", target_type="book", target_id=book.id, detail=f"Disabled set to {book.is_disabled}"
+    )
+    flash(f'Book "{book.title}" {"disabled" if book.is_disabled else "enabled"}.', "success")
     return redirect(url_for("admin.books"))
 
 
@@ -319,8 +336,9 @@ def book_fetch_cover(book_id):
     if filename:
         book.cover_filename = filename
         db.session.commit()
-        log_event("cover_auto_fetched", target_type="book", target_id=book.id,
-                  detail=f"Auto-fetched cover for: {book.title}")
+        log_event(
+            "cover_auto_fetched", target_type="book", target_id=book.id, detail=f"Auto-fetched cover for: {book.title}"
+        )
         flash("Cover image fetched successfully from Open Library.", "success")
     else:
         flash("Could not find a cover image on Open Library. Try uploading one manually.", "warning")
@@ -346,6 +364,7 @@ def _sync_tags(book, tags_text):
 
 # ── Loans ──────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/loans")
 @admin_required
 def loans():
@@ -355,21 +374,25 @@ def loans():
 
     if form.q.data:
         search = f"%{form.q.data}%"
-        query = query.join(User, Loan.user_id == User.id).join(Book, Loan.book_id == Book.id).filter(
-            db.or_(
-                User.email.ilike(search),
-                Book.title.ilike(search),
-                Loan.book_title_snapshot.ilike(search),
+        query = (
+            query.join(User, Loan.user_id == User.id)
+            .join(Book, Loan.book_id == Book.id)
+            .filter(
+                db.or_(
+                    User.email.ilike(search),
+                    Book.title.ilike(search),
+                    Loan.book_title_snapshot.ilike(search),
+                )
             )
         )
 
     status = form.status.data
     if status == "active":
-        query = query.filter(Loan.is_active == True)  # noqa: E712
+        query = query.filter(Loan.is_active == True)
     elif status == "expired":
-        query = query.filter(Loan.is_active == True, Loan.due_at < _utcnow())  # noqa: E712
+        query = query.filter(Loan.is_active == True, Loan.due_at < _utcnow())
     elif status == "returned":
-        query = query.filter(Loan.is_active == False)  # noqa: E712
+        query = query.filter(Loan.is_active == False)
 
     query = query.order_by(Loan.borrowed_at.desc())
     pagination = query.paginate(page=page, per_page=25, error_out=False)
@@ -410,8 +433,12 @@ def loan_extend(loan_id):
         days = form.days.data
         loan.due_at = loan.due_at + timedelta(days=days)
         db.session.commit()
-        log_event("loan_extended", target_type="loan", target_id=loan.id,
-                  detail=f"Extended by {days} days. New due: {loan.due_at.isoformat()}")
+        log_event(
+            "loan_extended",
+            target_type="loan",
+            target_id=loan.id,
+            detail=f"Extended by {days} days. New due: {loan.due_at.isoformat()}",
+        )
         flash(f"Loan extended by {days} days.", "success")
     else:
         flash("Invalid extension request.", "danger")
@@ -427,12 +454,12 @@ def loan_terminate(loan_id):
         abort(404)
     try:
         from ..lending.service import return_loan
+
         return_loan(loan)
     except ValueError as exc:
         flash(str(exc), "warning")
         return redirect(url_for("admin.loan_detail", loan_id=loan.id))
-    log_event("loan_terminated", target_type="loan", target_id=loan.id,
-              detail="Loan terminated by admin")
+    log_event("loan_terminated", target_type="loan", target_id=loan.id, detail="Loan terminated by admin")
     flash("Loan terminated.", "success")
     return redirect(url_for("admin.loan_detail", loan_id=loan.id))
 
@@ -451,10 +478,12 @@ def loan_invalidate(loan_id):
         loan.is_active = False
         loan.returned_at = _utcnow()
         db.session.commit()
-        log_event("loan_invalidated", target_type="loan", target_id=loan.id,
-                  detail=f"Invalidated: {loan.invalidated_reason}")
+        log_event(
+            "loan_invalidated", target_type="loan", target_id=loan.id, detail=f"Invalidated: {loan.invalidated_reason}"
+        )
         # Clean up circulation file and process waitlist (same as return)
         from ..lending.service import _delete_circulation_file, process_waitlist
+
         _delete_circulation_file(loan)
         if loan.book:
             process_waitlist(loan.book)
@@ -466,6 +495,7 @@ def loan_invalidate(loan_id):
 
 # ── Users ──────────────────────────────────────────────────────────
 
+
 @admin_bp.route("/users")
 @admin_required
 def users():
@@ -475,9 +505,7 @@ def users():
 
     if form.q.data:
         search = f"%{form.q.data}%"
-        query = query.filter(
-            db.or_(User.email.ilike(search), User.display_name.ilike(search))
-        )
+        query = query.filter(db.or_(User.email.ilike(search), User.display_name.ilike(search)))
 
     query = query.order_by(User.created_at.desc())
     pagination = query.paginate(page=page, per_page=25, error_out=False)
@@ -497,9 +525,7 @@ def user_detail(user_id):
     if not user:
         abort(404)
     page = request.args.get("page", 1, type=int)
-    loan_pagination = user.loans.order_by(Loan.borrowed_at.desc()).paginate(
-        page=page, per_page=20, error_out=False
-    )
+    loan_pagination = user.loans.order_by(Loan.borrowed_at.desc()).paginate(page=page, per_page=20, error_out=False)
     block_form = UserBlockForm()
     role_form = UserRoleForm()
     role_form.role.data = user.role
@@ -525,8 +551,7 @@ def user_block(user_id):
         user.is_blocked = True
         user.block_reason = form.reason.data.strip()
         db.session.commit()
-        log_event("user_blocked", target_type="user", target_id=user.id,
-                  detail=f"Blocked: {user.block_reason}")
+        log_event("user_blocked", target_type="user", target_id=user.id, detail=f"Blocked: {user.block_reason}")
         flash(f"User {user.email} has been blocked.", "success")
     else:
         flash("Please provide a reason for blocking.", "danger")
@@ -543,8 +568,7 @@ def user_unblock(user_id):
     user.is_blocked = False
     user.block_reason = None
     db.session.commit()
-    log_event("user_unblocked", target_type="user", target_id=user.id,
-              detail="User unblocked")
+    log_event("user_unblocked", target_type="user", target_id=user.id, detail="User unblocked")
     flash(f"User {user.email} has been unblocked.", "success")
     return redirect(url_for("admin.user_detail", user_id=user.id))
 
@@ -558,8 +582,7 @@ def user_deactivate(user_id):
         abort(404)
     user.is_active_account = False
     db.session.commit()
-    log_event("user_deactivated", target_type="user", target_id=user.id,
-              detail="Account deactivated")
+    log_event("user_deactivated", target_type="user", target_id=user.id, detail="Account deactivated")
     flash(f"User {user.email} has been deactivated.", "success")
     return redirect(url_for("admin.user_detail", user_id=user.id))
 
@@ -573,8 +596,7 @@ def user_activate(user_id):
         abort(404)
     user.is_active_account = True
     db.session.commit()
-    log_event("user_activated", target_type="user", target_id=user.id,
-              detail="Account activated")
+    log_event("user_activated", target_type="user", target_id=user.id, detail="Account activated")
     flash(f"User {user.email} has been activated.", "success")
     return redirect(url_for("admin.user_detail", user_id=user.id))
 
@@ -588,8 +610,7 @@ def user_force_logout(user_id):
         abort(404)
     user.force_logout_before = _utcnow()
     db.session.commit()
-    log_event("user_force_logout", target_type="user", target_id=user.id,
-              detail="Forced logout of all sessions")
+    log_event("user_force_logout", target_type="user", target_id=user.id, detail="Forced logout of all sessions")
     flash(f"All sessions for {user.email} have been invalidated.", "success")
     return redirect(url_for("admin.user_detail", user_id=user.id))
 
@@ -608,8 +629,12 @@ def user_change_role(user_id):
         if new_role in ("patron", "librarian"):
             user.role = new_role
             db.session.commit()
-            log_event("user_role_changed", target_type="user", target_id=user.id,
-                      detail=f"Role changed from {old_role} to {new_role}")
+            log_event(
+                "user_role_changed",
+                target_type="user",
+                target_id=user.id,
+                detail=f"Role changed from {old_role} to {new_role}",
+            )
             flash(f"Role for {user.email} changed to {new_role}.", "success")
         else:
             flash("Invalid role.", "danger")
@@ -617,6 +642,7 @@ def user_change_role(user_id):
 
 
 # ── Audit Log ──────────────────────────────────────────────────────
+
 
 @admin_bp.route("/audit")
 @admin_required
@@ -630,16 +656,14 @@ def audit():
 
     if form.date_from.data:
         try:
-            dt_from = datetime.strptime(form.date_from.data, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            dt_from = datetime.strptime(form.date_from.data, "%Y-%m-%d").replace(tzinfo=UTC)
             query = query.filter(AuditLog.timestamp >= dt_from)
         except ValueError:
             pass
 
     if form.date_to.data:
         try:
-            dt_to = datetime.strptime(form.date_to.data, "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59, tzinfo=timezone.utc
-            )
+            dt_to = datetime.strptime(form.date_to.data, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=UTC)
             query = query.filter(AuditLog.timestamp <= dt_to)
         except ValueError:
             pass
@@ -656,6 +680,7 @@ def audit():
 
 
 # ── Reports ────────────────────────────────────────────────────────
+
 
 @admin_bp.route("/reports")
 @admin_required
@@ -692,24 +717,23 @@ def reports():
         while month <= 0:
             month += 12
             year -= 1
-        m_start = datetime(year, month, 1, tzinfo=timezone.utc)
-        if month == 12:
-            m_end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
-        else:
-            m_end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+        m_start = datetime(year, month, 1, tzinfo=UTC)
+        m_end = datetime(year + 1, 1, 1, tzinfo=UTC) if month == 12 else datetime(year, month + 1, 1, tzinfo=UTC)
         count = Loan.query.filter(
             Loan.borrowed_at >= m_start,
             Loan.borrowed_at < m_end,
         ).count()
-        loans_per_month.append({
-            "month": m_start.strftime("%b %Y"),
-            "count": count,
-        })
+        loans_per_month.append(
+            {
+                "month": m_start.strftime("%b %Y"),
+                "count": count,
+            }
+        )
 
     # Active loans summary
     active_loans_count = Loan.query.filter_by(is_active=True).count()
     overdue_count = Loan.query.filter(
-        Loan.is_active == True,  # noqa: E712
+        Loan.is_active == True,
         Loan.due_at < _utcnow(),
     ).count()
 
@@ -740,6 +764,7 @@ def reports():
 
 
 # ── CSV Import ────────────────────────────────────────────────────
+
 
 @admin_bp.route("/books/import-csv", methods=["GET", "POST"])
 @admin_required
@@ -847,9 +872,10 @@ def books_import_csv():
 
 # ── Audit Log CSV Export ──────────────────────────────────────────
 
+
 def _sanitize_csv_value(val):
     """Prevent CSV formula injection."""
-    if val and isinstance(val, str) and val[0] in ('=', '+', '-', '@', '\t', '\r'):
+    if val and isinstance(val, str) and val[0] in ("=", "+", "-", "@", "\t", "\r"):
         return "'" + val
     return val
 
@@ -860,36 +886,35 @@ def audit_export():
     def generate():
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["id", "timestamp", "user_id", "user_email", "action",
-                         "target_type", "target_id", "detail", "ip_address"])
+        writer.writerow(
+            ["id", "timestamp", "user_id", "user_email", "action", "target_type", "target_id", "detail", "ip_address"]
+        )
         yield buf.getvalue()
 
         page = 1
         page_size = 1000
         while True:
             logs = (
-                AuditLog.query
-                .order_by(AuditLog.timestamp.desc())
-                .offset((page - 1) * page_size)
-                .limit(page_size)
-                .all()
+                AuditLog.query.order_by(AuditLog.timestamp.desc()).offset((page - 1) * page_size).limit(page_size).all()
             )
             if not logs:
                 break
             for log in logs:
                 buf = io.StringIO()
                 writer = csv.writer(buf)
-                writer.writerow([
-                    log.id,
-                    log.timestamp.isoformat() if log.timestamp else "",
-                    log.user_id or "",
-                    _sanitize_csv_value(log.user.email if log.user else ""),
-                    _sanitize_csv_value(log.action),
-                    _sanitize_csv_value(log.target_type or ""),
-                    log.target_id or "",
-                    _sanitize_csv_value(log.detail or ""),
-                    _sanitize_csv_value(log.ip_address or ""),
-                ])
+                writer.writerow(
+                    [
+                        log.id,
+                        log.timestamp.isoformat() if log.timestamp else "",
+                        log.user_id or "",
+                        _sanitize_csv_value(log.user.email if log.user else ""),
+                        _sanitize_csv_value(log.action),
+                        _sanitize_csv_value(log.target_type or ""),
+                        log.target_id or "",
+                        _sanitize_csv_value(log.detail or ""),
+                        _sanitize_csv_value(log.ip_address or ""),
+                    ]
+                )
                 yield buf.getvalue()
             page += 1
 
@@ -903,6 +928,7 @@ def audit_export():
 
 
 # ── Book Requests ─────────────────────────────────────────────────
+
 
 @admin_bp.route("/requests")
 @admin_required
@@ -967,6 +993,7 @@ def book_request_resolve(request_id):
 
 # ── Reading Lists ─────────────────────────────────────────────────
 
+
 @admin_bp.route("/reading-lists")
 @admin_required
 def reading_lists():
@@ -991,8 +1018,12 @@ def reading_list_new():
         db.session.add(rl)
         db.session.commit()
 
-        log_event("reading_list_created", target_type="reading_list",
-                  target_id=rl.id, detail=f"Created reading list: {rl.name}")
+        log_event(
+            "reading_list_created",
+            target_type="reading_list",
+            target_id=rl.id,
+            detail=f"Created reading list: {rl.name}",
+        )
         flash("Reading list created. You can now add books to it.", "success")
         return redirect(url_for("admin.reading_list_edit", list_id=rl.id))
 
@@ -1017,10 +1048,7 @@ def reading_list_edit(list_id):
     # Books available to add (exclude those already in the list)
     existing_book_ids = [item.book_id for item in rl.items]
     all_books = (
-        Book.query
-        .filter(~Book.id.in_(existing_book_ids) if existing_book_ids else True)
-        .order_by(Book.title)
-        .all()
+        Book.query.filter(~Book.id.in_(existing_book_ids) if existing_book_ids else True).order_by(Book.title).all()
     )
 
     if form.validate_on_submit():
@@ -1061,8 +1089,12 @@ def reading_list_edit(list_id):
 
         db.session.commit()
 
-        log_event("reading_list_updated", target_type="reading_list",
-                  target_id=rl.id, detail=f"Updated reading list: {rl.name}")
+        log_event(
+            "reading_list_updated",
+            target_type="reading_list",
+            target_id=rl.id,
+            detail=f"Updated reading list: {rl.name}",
+        )
         flash("Reading list updated.", "success")
         return redirect(url_for("admin.reading_list_edit", list_id=rl.id))
 
@@ -1086,13 +1118,15 @@ def reading_list_delete(list_id):
     db.session.delete(rl)
     db.session.commit()
 
-    log_event("reading_list_deleted", target_type="reading_list",
-              target_id=list_id, detail=f"Deleted reading list: {name}")
+    log_event(
+        "reading_list_deleted", target_type="reading_list", target_id=list_id, detail=f"Deleted reading list: {name}"
+    )
     flash(f'Reading list "{name}" deleted.', "success")
     return redirect(url_for("admin.reading_lists"))
 
 
 # ── Bulk PDF Import ──────────────────────────────────────────────
+
 
 @admin_bp.route("/import-pdf")
 @admin_required
@@ -1118,12 +1152,13 @@ def import_pdf_dashboard():
 
     # Get scan progress
     from ..scanner import get_scan_progress
+
     scan_progress = get_scan_progress()
 
     return render_template(
         "admin/import_pdf.html",
         staging_file_count=pdf_count,
-        staging_size_gb=total_size / (1024 ** 3),
+        staging_size_gb=total_size / (1024**3),
         pending_count=status_counts["pending"],
         approved_count=status_counts["approved"],
         dismissed_count=status_counts["dismissed"],
@@ -1338,8 +1373,12 @@ def import_pdf_staged_approve(staged_id):
         flash("A database error occurred during approval.", "danger")
         return redirect(url_for("admin.import_pdf_review"))
 
-    log_event("staged_book_approved", target_type="book", target_id=book.id,
-              detail=f"Imported from staging: {staged.original_filename}")
+    log_event(
+        "staged_book_approved",
+        target_type="book",
+        target_id=book.id,
+        detail=f"Imported from staging: {staged.original_filename}",
+    )
     flash(f'Approved and imported "{book.title}".', "success")
     return redirect(url_for("admin.import_pdf_review"))
 
@@ -1423,8 +1462,12 @@ def import_pdf_bulk_approve():
 
             approved_count += 1
 
-            log_event("staged_book_approved", target_type="book", target_id=book.id,
-                      detail=f"Bulk imported from staging: {staged.original_filename}")
+            log_event(
+                "staged_book_approved",
+                target_type="book",
+                target_id=book.id,
+                detail=f"Bulk imported from staging: {staged.original_filename}",
+            )
         except Exception as exc:
             db.session.rollback()
             current_app.logger.error(f"Bulk approve failed for '{staged.original_filename}': {exc}")
@@ -1530,10 +1573,7 @@ def import_pdf_ai_enrich():
         try:
             cover_dir = current_app.config["COVER_STORAGE"]
             # Reuse existing cover public_id stem, or generate a new one
-            cover_public_id = (
-                staged.cover_filename.rsplit(".", 1)[0]
-                if staged.cover_filename else uuid.uuid4().hex
-            )
+            cover_public_id = staged.cover_filename.rsplit(".", 1)[0] if staged.cover_filename else uuid.uuid4().hex
             new_cover = fetch_cover(
                 isbn=staged.isbn,
                 title=staged.title,
@@ -1544,8 +1584,7 @@ def import_pdf_ai_enrich():
             if new_cover:
                 staged.cover_filename = new_cover
         except Exception as exc:
-            current_app.logger.debug(
-                "Cover refresh failed for '%s': %s", staged.original_filename, exc)
+            current_app.logger.debug("Cover refresh failed for '%s': %s", staged.original_filename, exc)
 
         db.session.commit()
         enriched += 1
@@ -1579,10 +1618,7 @@ def import_pdf_refresh_covers():
             failed += 1
             continue
 
-        cover_public_id = (
-            staged.cover_filename.rsplit(".", 1)[0]
-            if staged.cover_filename else uuid.uuid4().hex
-        )
+        cover_public_id = staged.cover_filename.rsplit(".", 1)[0] if staged.cover_filename else uuid.uuid4().hex
 
         try:
             new_cover = fetch_cover(
@@ -1598,8 +1634,7 @@ def import_pdf_refresh_covers():
             else:
                 failed += 1
         except Exception as exc:
-            current_app.logger.debug(
-                "Cover refresh failed for '%s': %s", staged.original_filename, exc)
+            current_app.logger.debug("Cover refresh failed for '%s': %s", staged.original_filename, exc)
             failed += 1
 
     db.session.commit()

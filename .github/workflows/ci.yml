@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install bandit[toml]
+      - run: bandit -c bandit.yaml -r app/ -ll -ii -f json -o bandit-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y libqpdf-dev libjpeg-dev libpng-dev
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
+      - run: pip install -r requirements.txt pip-audit
+      - run: pip-audit --strict --desc
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y libqpdf-dev libjpeg-dev libpng-dev
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
+      - run: pip install -r requirements.txt
+      - name: Prepare .env for CI
+        run: |
+          cp .env.example .env
+          sed -i 's/^SCHEDULER_ENABLED=.*/SCHEDULER_ENABLED=false/' .env
+      - name: Verify imports resolve
+        run: python -c "from app import create_app"
+      - name: Smoke test /ping
+        run: |
+          python -c "
+          from app import create_app
+          app = create_app()
+          client = app.test_client()
+          resp = client.get('/ping')
+          assert resp.status_code == 200, f'Expected 200, got {resp.status_code}'
+          data = resp.get_json()
+          assert data['status'] == 'ok', f'Expected ok, got {data}'
+          print('/ping returned 200 ok')
+          "

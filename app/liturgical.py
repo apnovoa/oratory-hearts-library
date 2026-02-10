@@ -24,7 +24,7 @@ def get_easter_date(year):
     h = (19 * a + b - d - g + 15) % 30
     i = c // 4
     k = c % 4
-    l = (32 + 2 * e + 2 * i - h - k) % 7  # noqa: E741
+    l = (32 + 2 * e + 2 * i - h - k) % 7
     m = (a + 11 * h + 22 * l) // 451
     month = (h + l - 7 * m + 114) // 31
     day = ((h + l - 7 * m + 114) % 31) + 1
@@ -76,7 +76,7 @@ def get_current_season(today=None):
     # Christmas season: Dec 25 of previous year through ~Jan 13
     # If today is Jan 1-13, check if we're still in Christmas season
     christmas_end = date(year, 1, 13)
-    christmas_start_prev = date(year - 1, 12, 25)
+    date(year - 1, 12, 25)
 
     if today >= date(year, 12, 25):
         return "christmas"
@@ -117,30 +117,24 @@ def get_season_description(season):
     descriptions = {
         "advent": (
             "A season of joyful expectation and preparation for the coming "
-            "of Christ. \"Rorate caeli desuper, et nubes pluant iustum.\""
+            'of Christ. "Rorate caeli desuper, et nubes pluant iustum."'
         ),
         "christmas": (
             "The Church celebrates the Nativity of Our Lord and the "
-            "manifestation of God made flesh. \"Verbum caro factum est, "
-            "et habitavit in nobis.\""
+            'manifestation of God made flesh. "Verbum caro factum est, '
+            'et habitavit in nobis."'
         ),
-        "ordinary_early": (
-            "A time of growth in the faith, meditating on the public life "
-            "and teachings of Our Lord."
-        ),
+        "ordinary_early": ("A time of growth in the faith, meditating on the public life and teachings of Our Lord."),
         "lent": (
             "A penitential season of prayer, fasting, and almsgiving in "
-            "preparation for the Paschal mystery. \"Memento, homo, quia "
-            "pulvis es, et in pulverem reverteris.\""
+            'preparation for the Paschal mystery. "Memento, homo, quia '
+            'pulvis es, et in pulverem reverteris."'
         ),
         "easter": (
             "The Church rejoices in the Resurrection of Christ and the "
-            "promise of eternal life. \"Haec dies quam fecit Dominus; "
-            "exsultemus et laetemur in ea.\""
+            'promise of eternal life. "Haec dies quam fecit Dominus; '
+            'exsultemus et laetemur in ea."'
         ),
-        "ordinary_late": (
-            "A time of growth in the faith, meditating on the Kingdom of "
-            "God and the call to holiness."
-        ),
+        "ordinary_late": ("A time of growth in the faith, meditating on the Kingdom of God and the call to holiness."),
     }
     return descriptions.get(season, "")

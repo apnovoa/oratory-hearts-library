@@ -7,11 +7,13 @@ def init_scheduler(app):
     def run_expiry():
         with app.app_context():
             from .service import expire_loans
+
             expire_loans()
 
     def run_reminders():
         with app.app_context():
             from .service import send_reminders
+
             send_reminders()
 
     scheduler.add_job(
@@ -30,6 +32,7 @@ def init_scheduler(app):
     def run_new_acquisitions_digest():
         with app.app_context():
             from ..email_service import send_new_acquisitions_digest
+
             send_new_acquisitions_digest()
 
     scheduler.add_job(
@@ -44,6 +47,7 @@ def init_scheduler(app):
     def run_birthday_greetings():
         with app.app_context():
             from ..email_service import send_birthday_greetings
+
             send_birthday_greetings()
 
     scheduler.add_job(

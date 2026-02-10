@@ -1,15 +1,15 @@
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed
+from flask_wtf.file import FileAllowed, FileField
 from wtforms import (
-    StringField,
-    TextAreaField,
-    IntegerField,
-    SelectField,
     BooleanField,
+    IntegerField,
     PasswordField,
+    SelectField,
+    StringField,
     SubmitField,
+    TextAreaField,
 )
-from wtforms.validators import DataRequired, EqualTo, Length, Optional, NumberRange
+from wtforms.validators import DataRequired, EqualTo, Length, NumberRange, Optional
 
 
 class BookForm(FlaskForm):
@@ -274,5 +274,7 @@ class StagedBookForm(FlaskForm):
     language = StringField("Language", validators=[Optional(), Length(max=50)], default="en")
     publication_year = IntegerField("Publication Year", validators=[Optional(), NumberRange(min=1, max=2100)])
     isbn = StringField("ISBN", validators=[Optional(), Length(max=20)])
-    tags_text = StringField("Tags", validators=[Optional(), Length(max=1000)], render_kw={"placeholder": "Comma-separated tags"})
+    tags_text = StringField(
+        "Tags", validators=[Optional(), Length(max=1000)], render_kw={"placeholder": "Comma-separated tags"}
+    )
     submit = SubmitField("Save Changes")

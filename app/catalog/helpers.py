@@ -2,7 +2,7 @@
 
 from sqlalchemy import func
 
-from ..models import Book, Tag, book_tags, db
+from ..models import Book, book_tags, db
 
 
 def get_related_books(book, limit=4):
@@ -32,11 +32,10 @@ def get_related_books(book, limit=4):
     )
 
     related = (
-        Book.query
-        .join(shared_count, Book.id == shared_count.c.book_id)
+        Book.query.join(shared_count, Book.id == shared_count.c.book_id)
         .filter(
-            Book.is_visible == True,   # noqa: E712
-            Book.is_disabled == False,  # noqa: E712
+            Book.is_visible == True,
+            Book.is_disabled == False,
         )
         .order_by(shared_count.c.shared.desc(), Book.title.asc())
         .limit(limit)

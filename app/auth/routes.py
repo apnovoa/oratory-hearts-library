@@ -1,9 +1,9 @@
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 import bcrypt
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for, current_app
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -19,6 +19,7 @@ PASSWORD_RESET_MAX_AGE = 3600  # 1 hour
 
 def _get_reset_serializer():
     from flask import current_app
+
     return URLSafeTimedSerializer(str(current_app.config["SECRET_KEY"]) + "-password-reset")
 
 
@@ -38,6 +39,7 @@ def _verify_reset_token(token):
 
 # ── Login ──────────────────────────────────────────────────────────
 
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
 def login():
@@ -50,11 +52,13 @@ def login():
         user = User.query.filter_by(email=email).first()
 
         # Check account lockout before anything else
-        if user and user.locked_until and user.locked_until > datetime.now(timezone.utc):
+        if user and user.locked_until and user.locked_until > datetime.now(UTC):
             # Perform dummy check to prevent timing oracle
             bcrypt.checkpw(b"dummy-password", bcrypt.gensalt())
             log_event("login_locked", "user", user.id)
-            flash("Account temporarily locked due to repeated failed login attempts. Please try again later.", "warning")
+            flash(
+                "Account temporarily locked due to repeated failed login attempts. Please try again later.", "warning"
+            )
             return render_template("auth/login.html", form=form)
 
         if user is None:
@@ -72,13 +76,18 @@ def login():
             db.session.commit()
             db.session.refresh(user)
             from flask import current_app
+
             max_failures = current_app.config.get("MAX_FAILED_LOGINS", 5)
             if user.failed_login_count >= max_failures:
                 lockout_minutes = current_app.config.get("ACCOUNT_LOCKOUT_MINUTES", 15)
-                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=lockout_minutes)
+                user.locked_until = datetime.now(UTC) + timedelta(minutes=lockout_minutes)
                 db.session.commit()
-                log_event("account_locked", "user", user.id,
-                          detail=f"Locked for {lockout_minutes} minutes after {user.failed_login_count} failed attempts")
+                log_event(
+                    "account_locked",
+                    "user",
+                    user.id,
+                    detail=f"Locked for {lockout_minutes} minutes after {user.failed_login_count} failed attempts",
+                )
             log_event("login_failed", detail=f"email={email}")
             flash("Invalid email or password.", "danger")
             return render_template("auth/login.html", form=form)
@@ -98,9 +107,9 @@ def login():
         user.locked_until = None
 
         login_user(user, remember=form.remember_me.data)
-        session["login_time"] = datetime.now(timezone.utc).isoformat()
+        session["login_time"] = datetime.now(UTC).isoformat()
 
-        user.last_login_at = datetime.now(timezone.utc)
+        user.last_login_at = datetime.now(UTC)
         db.session.commit()
 
         log_event("login_success", "user", user.id)
@@ -117,6 +126,7 @@ def login():
 
 # ── Registration ───────────────────────────────────────────────────
 
+
 @auth_bp.route("/register", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
 def register():
@@ -124,6 +134,7 @@ def register():
         return redirect(url_for("catalog.index"))
 
     from flask import current_app
+
     if not current_app.config.get("REGISTRATION_ENABLED", True):
         flash("Registration is currently closed.", "info")
         return redirect(url_for("auth.login"))
@@ -135,17 +146,19 @@ def register():
             # Silently handle — send a notification email to the existing address
             try:
                 from flask import current_app as _ca
-                domain = _ca.config.get("LIBRARY_DOMAIN", "")
+
+                _ca.config.get("LIBRARY_DOMAIN", "")
                 login_url = url_for("auth.login", _external=True)
                 reset_url = url_for("auth.reset_password", _external=True)
                 from ..email_service import _send_email
+
                 _send_email(
                     subject="Registration Attempt",
                     recipient=existing_user.email,
                     html_body=(
                         f"<p>Someone tried to register an account with your email address.</p>"
-                        f"<p>If this was you, you can <a href=\"{login_url}\">sign in</a> "
-                        f"or <a href=\"{reset_url}\">reset your password</a>.</p>"
+                        f'<p>If this was you, you can <a href="{login_url}">sign in</a> '
+                        f'or <a href="{reset_url}">reset your password</a>.</p>'
                     ),
                 )
             except Exception:
@@ -173,6 +186,7 @@ def register():
 
 # ── Logout ─────────────────────────────────────────────────────────
 
+
 @auth_bp.route("/logout", methods=["POST"])
 @login_required
 @limiter.limit("10 per minute")
@@ -185,6 +199,7 @@ def logout():
 
 
 # ── Password reset request ─────────────────────────────────────────
+
 
 @auth_bp.route("/reset-password", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
@@ -200,10 +215,12 @@ def reset_password():
         if user:
             token = _generate_reset_token(user.email)
             from flask import current_app
+
             reset_url = url_for("auth.reset_password_token", token=token, _external=True)
 
             try:
                 from ..email_service import send_password_reset_email
+
                 send_password_reset_email(user, reset_url)
             except Exception:
                 current_app.logger.exception("Failed to send password reset email")
@@ -221,6 +238,7 @@ def reset_password():
 
 
 # ── Password reset with token ──────────────────────────────────────
+
 
 @auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
@@ -257,7 +275,7 @@ def reset_password_token(token):
     form = ResetPasswordForm()
     if form.validate_on_submit():
         user.set_password(form.password.data)
-        user.force_logout_before = datetime.now(timezone.utc)
+        user.force_logout_before = datetime.now(UTC)
         db.session.commit()
         log_event("password_reset_completed", "user", user.id)
         flash("Your password has been reset. You may now sign in.", "success")
@@ -267,6 +285,7 @@ def reset_password_token(token):
 
 
 # ── Google OAuth ──────────────────────────────────────────────────
+
 
 @auth_bp.route("/auth/google")
 def google_login():
@@ -337,8 +356,8 @@ def google_callback():
 
     # Log in
     login_user(user, remember=True)
-    session["login_time"] = datetime.now(timezone.utc).isoformat()
-    user.last_login_at = datetime.now(timezone.utc)
+    session["login_time"] = datetime.now(UTC).isoformat()
+    user.last_login_at = datetime.now(UTC)
     user.failed_login_count = 0
     user.locked_until = None
     db.session.commit()

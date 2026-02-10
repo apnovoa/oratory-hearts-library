@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from flask import Blueprint, Response, request, url_for
+from flask import Blueprint, Response, request
 from flask_login import login_required
 
-from ..models import Book, db
+from ..models import Book
 
 OPDS_PAGE_SIZE = 50
 
@@ -11,7 +11,7 @@ opds_bp = Blueprint("opds", __name__)
 
 
 def _utcnow_iso():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _make_xml_response(xml_string):
@@ -67,13 +67,10 @@ def _escape_xml(text):
 def all_books():
     page = max(1, request.args.get("page", 1, type=int))
 
-    query = (
-        Book.query.filter(
-            Book.is_visible == True,   # noqa: E712
-            Book.is_disabled == False,  # noqa: E712
-        )
-        .order_by(Book.title.asc())
-    )
+    query = Book.query.filter(
+        Book.is_visible == True,
+        Book.is_disabled == False,
+    ).order_by(Book.title.asc())
     pagination = query.paginate(page=page, per_page=OPDS_PAGE_SIZE, error_out=False)
     books = pagination.items
 

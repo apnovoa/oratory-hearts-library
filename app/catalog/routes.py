@@ -1,10 +1,10 @@
 import re
 
-from flask import Blueprint, render_template, redirect, request, url_for, abort, current_app, send_from_directory
-from flask_login import login_required, current_user
+from flask import Blueprint, abort, current_app, redirect, render_template, request, send_from_directory, url_for
+from flask_login import current_user, login_required
 from sqlalchemy import text
 
-from ..models import Book, Tag, Loan, Favorite, BookNote, db
+from ..models import Book, BookNote, Favorite, Loan, Tag, db
 from .forms import CatalogSearchForm
 from .helpers import get_related_books
 
@@ -12,18 +12,19 @@ from .helpers import get_related_books
 def _sanitize_fts5_query(q):
     """Strip FTS5 query syntax to prevent query injection."""
     # Remove FTS5 operators and special characters
-    q = re.sub(r'["\(\)\*\{\}]', ' ', q)
+    q = re.sub(r'["\(\)\*\{\}]', " ", q)
     # Remove boolean operators as standalone words
-    q = re.sub(r'\b(AND|OR|NOT|NEAR)\b', ' ', q, flags=re.IGNORECASE)
+    q = re.sub(r"\b(AND|OR|NOT|NEAR)\b", " ", q, flags=re.IGNORECASE)
     # Remove column filter syntax (word followed by colon)
-    q = re.sub(r'\w+:', ' ', q)
+    q = re.sub(r"\w+:", " ", q)
     # Collapse whitespace
-    q = re.sub(r'\s+', ' ', q).strip()
+    q = re.sub(r"\s+", " ", q).strip()
     if not q:
         return None
     # Wrap each remaining token in double quotes for literal matching
     tokens = q.split()
-    return ' '.join(f'"{t}"' for t in tokens)
+    return " ".join(f'"{t}"' for t in tokens)
+
 
 catalog_bp = Blueprint("catalog", __name__)
 
@@ -60,7 +61,7 @@ def browse():
 
     languages = (
         db.session.query(Book.language)
-        .filter(Book.is_visible == True, Book.is_disabled == False)  # noqa: E712
+        .filter(Book.is_visible == True, Book.is_disabled == False)
         .distinct()
         .order_by(Book.language)
         .all()
@@ -71,8 +72,8 @@ def browse():
 
     # Base query: visible and not disabled
     query = Book.query.filter(
-        Book.is_visible == True,   # noqa: E712
-        Book.is_disabled == False,  # noqa: E712
+        Book.is_visible == True,
+        Book.is_disabled == False,
     )
 
     # Search by title or author (FTS5 with LIKE fallback)
@@ -126,16 +127,16 @@ def browse():
                 Loan.book_id,
                 db.func.count(Loan.id).label("loan_count"),
             )
-            .filter(Loan.is_active == True)  # noqa: E712
+            .filter(Loan.is_active == True)
             .group_by(Loan.book_id)
             .subquery()
         )
         query = query.outerjoin(active_loans, Book.id == active_loans.c.book_id).filter(
             db.or_(
-                active_loans.c.loan_count == None,  # noqa: E711
+                active_loans.c.loan_count == None,
                 active_loans.c.loan_count < Book.owned_copies,
             ),
-            Book.master_filename != None,  # noqa: E711
+            Book.master_filename != None,
         )
     elif availability_filter == "unavailable":
         active_loans = (
@@ -143,7 +144,7 @@ def browse():
                 Loan.book_id,
                 db.func.count(Loan.id).label("loan_count"),
             )
-            .filter(Loan.is_active == True)  # noqa: E712
+            .filter(Loan.is_active == True)
             .group_by(Loan.book_id)
             .subquery()
         )
@@ -161,7 +162,7 @@ def browse():
         # Available books first (those with a master file), then alphabetical
         query = query.order_by(
             db.case(
-                (Book.master_filename != None, 0),  # noqa: E711
+                (Book.master_filename != None, 0),
                 else_=1,
             ),
             Book.title.asc(),
@@ -177,17 +178,15 @@ def browse():
         return redirect(url_for("catalog.browse", page=pagination.pages))
 
     # Determine whether any search/filter is active (controls shelf visibility)
-    has_active_search = bool(
-        form.q.data or form.tag.data or form.language.data or form.availability.data
-    )
+    has_active_search = bool(form.q.data or form.tag.data or form.language.data or form.availability.data)
 
     # New Arrivals: 6 most recently added books
     new_arrivals = []
     if not has_active_search:
         new_arrivals = (
             Book.query.filter(
-                Book.is_visible == True,   # noqa: E712
-                Book.is_disabled == False,  # noqa: E712
+                Book.is_visible == True,
+                Book.is_disabled == False,
             )
             .order_by(Book.created_at.desc())
             .limit(6)
@@ -199,9 +198,9 @@ def browse():
     if not has_active_search:
         featured_books = (
             Book.query.filter(
-                Book.is_featured == True,   # noqa: E712
-                Book.is_visible == True,    # noqa: E712
-                Book.is_disabled == False,  # noqa: E712
+                Book.is_featured == True,
+                Book.is_visible == True,
+                Book.is_disabled == False,
             )
             .order_by(Book.created_at.desc())
             .limit(6)
@@ -234,23 +233,33 @@ def detail(public_id):
     is_favorited = False
     patron_note = None
     if current_user.role == "patron":
-        patron_has_loan = Loan.query.filter(
-            Loan.book_id == book.id,
-            Loan.user_id == current_user.id,
-            Loan.is_active == True,  # noqa: E712
-        ).first() is not None
+        patron_has_loan = (
+            Loan.query.filter(
+                Loan.book_id == book.id,
+                Loan.user_id == current_user.id,
+                Loan.is_active == True,
+            ).first()
+            is not None
+        )
 
         from ..models import WaitlistEntry
-        patron_on_waitlist = WaitlistEntry.query.filter(
-            WaitlistEntry.book_id == book.id,
-            WaitlistEntry.user_id == current_user.id,
-            WaitlistEntry.is_fulfilled == False,  # noqa: E712
-        ).first() is not None
 
-        is_favorited = Favorite.query.filter_by(
-            user_id=current_user.id,
-            book_id=book.id,
-        ).first() is not None
+        patron_on_waitlist = (
+            WaitlistEntry.query.filter(
+                WaitlistEntry.book_id == book.id,
+                WaitlistEntry.user_id == current_user.id,
+                WaitlistEntry.is_fulfilled == False,
+            ).first()
+            is not None
+        )
+
+        is_favorited = (
+            Favorite.query.filter_by(
+                user_id=current_user.id,
+                book_id=book.id,
+            ).first()
+            is not None
+        )
 
         patron_note = BookNote.query.filter_by(
             user_id=current_user.id,
@@ -263,10 +272,9 @@ def detail(public_id):
     next_available_date = None
     if not book.is_available:
         earliest_loan = (
-            Loan.query
-            .filter(
+            Loan.query.filter(
                 Loan.book_id == book.id,
-                Loan.is_active == True,  # noqa: E712
+                Loan.is_active == True,
             )
             .order_by(Loan.due_at.asc())
             .first()

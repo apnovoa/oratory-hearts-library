@@ -1,10 +1,10 @@
 """Public-facing routes for curated reading-list collections."""
 
-from flask import Blueprint, render_template, abort
+from flask import Blueprint, render_template
 from flask_login import login_required
 
+from ..liturgical import get_current_season, get_season_description, get_season_display_name
 from ..models import ReadingList, db
-from ..liturgical import get_current_season, get_season_display_name, get_season_description
 
 collections_bp = Blueprint("collections", __name__)
 
@@ -19,21 +19,17 @@ def index():
 
     # Seasonal lists that match the current liturgical season
     seasonal_lists = (
-        ReadingList.query
-        .filter_by(is_public=True, season=current_season)
-        .order_by(ReadingList.name.asc())
-        .all()
+        ReadingList.query.filter_by(is_public=True, season=current_season).order_by(ReadingList.name.asc()).all()
     )
 
     # Featured lists (non-seasonal or different season)
     featured_lists = (
-        ReadingList.query
-        .filter(
-            ReadingList.is_public == True,   # noqa: E712
-            ReadingList.is_featured == True,  # noqa: E712
+        ReadingList.query.filter(
+            ReadingList.is_public == True,
+            ReadingList.is_featured == True,
             db.or_(
                 ReadingList.season != current_season,
-                ReadingList.season == None,  # noqa: E711
+                ReadingList.season == None,
             ),
         )
         .order_by(ReadingList.name.asc())
@@ -43,9 +39,8 @@ def index():
     # All other public lists
     exclude_ids = [rl.id for rl in seasonal_lists + featured_lists]
     other_lists = (
-        ReadingList.query
-        .filter(
-            ReadingList.is_public == True,  # noqa: E712
+        ReadingList.query.filter(
+            ReadingList.is_public == True,
             ~ReadingList.id.in_(exclude_ids) if exclude_ids else True,
         )
         .order_by(ReadingList.name.asc())
@@ -67,9 +62,7 @@ def index():
 @login_required
 def detail(public_id):
     """View a single reading list with its books."""
-    reading_list = ReadingList.query.filter_by(
-        public_id=public_id, is_public=True
-    ).first_or_404()
+    reading_list = ReadingList.query.filter_by(public_id=public_id, is_public=True).first_or_404()
 
     return render_template(
         "collections/detail.html",

@@ -16,7 +16,7 @@ from flask_login import current_user, login_required
 from .. import limiter
 from ..audit import log_event
 from ..models import Book, Loan, WaitlistEntry, db
-from .service import checkout_book, return_loan
+from .service import checkout_book
 
 lending_bp = Blueprint("lending", __name__)
 
@@ -28,9 +28,7 @@ def borrow(book_public_id):
     book = Book.query.filter_by(public_id=book_public_id).first_or_404()
 
     if not book.is_available:
-        waitlist_position = (
-            WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False).count()
-        )
+        waitlist_position = WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False).count()
         return render_template(
             "lending/unavailable.html",
             book=book,
@@ -46,6 +44,7 @@ def borrow(book_public_id):
     # Send loan email
     try:
         from ..email_service import send_loan_email
+
         send_loan_email(loan, current_user, book)
     except Exception:
         current_app.logger.exception("Failed to send loan email")
@@ -135,25 +134,19 @@ def join_waitlist(book_public_id):
         return redirect(url_for("catalog.detail", public_id=book.public_id))
 
     # Check if already on waitlist
-    existing = WaitlistEntry.query.filter_by(
-        user_id=current_user.id, book_id=book.id, is_fulfilled=False
-    ).first()
+    existing = WaitlistEntry.query.filter_by(user_id=current_user.id, book_id=book.id, is_fulfilled=False).first()
     if existing:
         flash("You are already on the waitlist for this book.", "info")
         return redirect(url_for("catalog.detail", public_id=book.public_id))
 
     # Check if patron already has an active loan for this book
-    active_loan = Loan.query.filter_by(
-        user_id=current_user.id, book_id=book.id, is_active=True
-    ).first()
+    active_loan = Loan.query.filter_by(user_id=current_user.id, book_id=book.id, is_active=True).first()
     if active_loan:
         flash("You already have an active loan for this book.", "info")
         return redirect(url_for("catalog.detail", public_id=book.public_id))
 
     # Remove any previously fulfilled waitlist entry so re-join works
-    fulfilled = WaitlistEntry.query.filter_by(
-        user_id=current_user.id, book_id=book.id, is_fulfilled=True
-    ).first()
+    fulfilled = WaitlistEntry.query.filter_by(user_id=current_user.id, book_id=book.id, is_fulfilled=True).first()
     if fulfilled:
         db.session.delete(fulfilled)
 
@@ -161,9 +154,7 @@ def join_waitlist(book_public_id):
     db.session.add(entry)
     db.session.commit()
 
-    position = WaitlistEntry.query.filter_by(
-        book_id=book.id, is_fulfilled=False
-    ).count()
+    position = WaitlistEntry.query.filter_by(book_id=book.id, is_fulfilled=False).count()
 
     log_event(
         action="waitlist_join",
@@ -174,7 +165,7 @@ def join_waitlist(book_public_id):
     )
 
     flash(
-        f"You have been added to the waitlist for \"{book.title}\" "
+        f'You have been added to the waitlist for "{book.title}" '
         f"(position {position}). We will notify you when a copy is available.",
         "success",
     )

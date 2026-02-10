@@ -1,0 +1,7 @@
+skips:
+  - B101  # assert
+  - B105  # hardcoded password strings
+  - B106  # hardcoded password arguments
+  - B113  # request timeout
+  - B324  # hashlib
+  - B608  # SQL injection (static strings)

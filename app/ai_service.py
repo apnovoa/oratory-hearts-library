@@ -79,8 +79,7 @@ def _render_pages_as_images(filepath, max_pages=_VISION_MAX_PAGES):
                 b64 = base64.standard_b64encode(img_bytes).decode("ascii")
                 images.append((b64, "image/jpeg"))
     except Exception as exc:
-        logger.warning("Failed to render PDF pages as images for %s: %s",
-                       filepath, exc)
+        logger.warning("Failed to render PDF pages as images for %s: %s", filepath, exc)
 
     return images
 
@@ -103,10 +102,7 @@ def _build_metadata_prompt(text, include_description=True):
     ]
 
     if include_description:
-        fields.append(
-            '"description": "2-3 sentence catalog description of the book\'s '
-            'content and significance"'
-        )
+        fields.append('"description": "2-3 sentence catalog description of the book\'s content and significance"')
 
     json_schema = "{\n  " + ",\n  ".join(fields) + "\n}"
 
@@ -138,10 +134,7 @@ def _build_vision_prompt(include_description=True):
     ]
 
     if include_description:
-        fields.append(
-            '"description": "2-3 sentence catalog description of the book\'s '
-            'content and significance"'
-        )
+        fields.append('"description": "2-3 sentence catalog description of the book\'s content and significance"')
 
     json_schema = "{\n  " + ",\n  ".join(fields) + "\n}"
 
@@ -277,14 +270,16 @@ def extract_metadata_with_ai(filepath, app_config):
 
         content_blocks = []
         for b64_data, media_type in page_images:
-            content_blocks.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": media_type,
-                    "data": b64_data,
-                },
-            })
+            content_blocks.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,
+                        "data": b64_data,
+                    },
+                }
+            )
         content_blocks.append({"type": "text", "text": user_text})
 
         try:
@@ -301,6 +296,5 @@ def extract_metadata_with_ai(filepath, app_config):
         result = _parse_ai_response(response.content[0].text, filepath)
 
     if result:
-        logger.info("AI extracted metadata for %s: title=%r, author=%r",
-                    filepath, result["title"], result["author"])
+        logger.info("AI extracted metadata for %s: title=%r, author=%r", filepath, result["title"], result["author"])
     return result

@@ -7,9 +7,7 @@ STORAGE_DIR = BASE_DIR / "storage"
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", f"sqlite:///{BASE_DIR / 'bibliotheca.db'}"
-    )
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'bibliotheca.db'}")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAX_CONTENT_LENGTH = 200 * 1024 * 1024  # 200 MB
 
@@ -36,25 +34,17 @@ class Config:
 
     # Email (Brevo HTTP API)
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
-    MAIL_DEFAULT_SENDER = os.environ.get(
-        "MAIL_DEFAULT_SENDER", "library@oratory.example.org"
-    )
-    MAIL_DEFAULT_SENDER_NAME = os.environ.get(
-        "MAIL_DEFAULT_SENDER_NAME", "Custos Oratorii"
-    )
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", "library@oratory.example.org")
+    MAIL_DEFAULT_SENDER_NAME = os.environ.get("MAIL_DEFAULT_SENDER_NAME", "Custos Oratorii")
 
     # Library branding
     LIBRARY_NAME_LATIN = "Bibliotheca Oratorii Sacratissimorum Cordium"
     LIBRARY_NAME_ENGLISH = "Library of the Oratory of the Most Sacred Hearts"
-    LIBRARY_CONTACT_EMAIL = os.environ.get(
-        "LIBRARY_CONTACT_EMAIL", "library@oratory.example.org"
-    )
+    LIBRARY_CONTACT_EMAIL = os.environ.get("LIBRARY_CONTACT_EMAIL", "library@oratory.example.org")
     LIBRARY_DOMAIN = os.environ.get("LIBRARY_DOMAIN", "http://localhost:5000")
 
     # Bulk PDF import staging
-    STAGING_STORAGE = os.environ.get(
-        "STAGING_STORAGE", str(STORAGE_DIR / "staging")
-    )
+    STAGING_STORAGE = os.environ.get("STAGING_STORAGE", str(STORAGE_DIR / "staging"))
 
     # AI metadata extraction (Claude API)
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -75,9 +65,9 @@ class Config:
     SESSION_COOKIE_SECURE = False
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = 3600 * 8  # 8 hours
-    REMEMBER_COOKIE_DURATION = 3600 * 24 * 14    # 14 days (down from 365-day default)
+    REMEMBER_COOKIE_DURATION = 3600 * 24 * 14  # 14 days (down from 365-day default)
     REMEMBER_COOKIE_HTTPONLY = True
-    REMEMBER_COOKIE_SECURE = False               # overridden in production
+    REMEMBER_COOKIE_SECURE = False  # overridden in production
     REMEMBER_COOKIE_SAMESITE = "Lax"
 
     # Scheduler

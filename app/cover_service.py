@@ -41,8 +41,7 @@ def _fetch_cover_by_isbn(isbn, dest_path):
     # Open Library returns a 1x1 pixel placeholder for missing covers.
     # Reject responses smaller than 1 KB as likely placeholders.
     if len(resp.content) < 1024:
-        logger.info("ISBN %s returned a placeholder image (%d bytes), skipping.",
-                     isbn, len(resp.content))
+        logger.info("ISBN %s returned a placeholder image (%d bytes), skipping.", isbn, len(resp.content))
         return False
 
     with open(dest_path, "wb") as f:
@@ -74,8 +73,7 @@ def _search_isbn_by_title_author(title, author):
         resp.raise_for_status()
         data = resp.json()
     except (requests.RequestException, ValueError) as exc:
-        logger.warning("Open Library search failed for title=%r author=%r: %s",
-                       title, author, exc)
+        logger.warning("Open Library search failed for title=%r author=%r: %s", title, author, exc)
         return None
 
     docs = data.get("docs", [])
@@ -89,8 +87,7 @@ def _search_isbn_by_title_author(title, author):
     return None
 
 
-def fetch_cover(isbn=None, title=None, author=None, public_id=None,
-                cover_storage_dir=None):
+def fetch_cover(isbn=None, title=None, author=None, public_id=None, cover_storage_dir=None):
     """Fetch a cover image from Open Library and save it locally.
 
     Tries ISBN-based lookup first. If no ISBN is provided (or the lookup
@@ -125,11 +122,9 @@ def fetch_cover(isbn=None, title=None, author=None, public_id=None,
 
     # Strategy 2: Search by title/author to find an ISBN, then fetch cover
     discovered_isbn = _search_isbn_by_title_author(title, author)
-    if discovered_isbn:
-        if _fetch_cover_by_isbn(discovered_isbn, dest_path):
-            logger.info("Cover fetched via discovered ISBN %s -> %s",
-                        discovered_isbn, filename)
-            return filename
+    if discovered_isbn and _fetch_cover_by_isbn(discovered_isbn, dest_path):
+        logger.info("Cover fetched via discovered ISBN %s -> %s", discovered_isbn, filename)
+        return filename
 
     # Strategy 3: Generate a cover with Pillow
     font_path = str(Path(__file__).resolve().parent / "static" / "fonts" / "CormorantGaramond-Regular.ttf")
@@ -155,10 +150,10 @@ def fetch_cover(isbn=None, title=None, author=None, public_id=None,
 # Design constants
 _COVER_WIDTH = 600
 _COVER_HEIGHT = 900
-_BG_COLOR = (255, 255, 255)       # white
-_TITLE_COLOR = (107, 29, 42)      # burgundy          #6b1d2a
-_AUTHOR_COLOR = (107, 29, 42)     # burgundy (same)
-_GOLD_COLOR = (197, 153, 62)      # gold              #c5993e
+_BG_COLOR = (255, 255, 255)  # white
+_TITLE_COLOR = (107, 29, 42)  # burgundy          #6b1d2a
+_AUTHOR_COLOR = (107, 29, 42)  # burgundy (same)
+_GOLD_COLOR = (197, 153, 62)  # gold              #c5993e
 
 _SEAL_PATH = Path(__file__).resolve().parent / "static" / "img" / "Sacred-Hearts-plain.png"
 
@@ -185,8 +180,7 @@ def _wrap_text(text, font, max_width, draw):
     return lines or [text]
 
 
-def generate_cover(title=None, author=None, public_id=None,
-                   cover_storage_dir=None, font_path=None):
+def generate_cover(title=None, author=None, public_id=None, cover_storage_dir=None, font_path=None):
     """Generate a styled book cover using Pillow.
 
     Creates a 600x900 white cover with burgundy title, gold separator,
@@ -212,7 +206,7 @@ def generate_cover(title=None, author=None, public_id=None,
     try:
         title_font = ImageFont.truetype(font_path, 42) if font_path else ImageFont.load_default()
         author_font = ImageFont.truetype(font_path, 28) if font_path else ImageFont.load_default()
-    except (OSError, IOError):
+    except OSError:
         title_font = ImageFont.load_default()
         author_font = ImageFont.load_default()
 
