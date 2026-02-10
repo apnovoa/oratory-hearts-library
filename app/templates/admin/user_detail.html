@@ -61,43 +61,47 @@
       </dl>
     </div>
 
-    {% if not user.is_admin %}
+    {% if user.id != current_user.id %}
       <div class="admin-actions">
         <h2>Actions</h2>
 
-        <div class="action-row">
-          {% if user.is_blocked %}
-            <form method="POST" action="{{ url_for('admin.user_unblock', user_id=user.id) }}" class="inline-form">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-primary">Unblock</button>
-            </form>
-          {% else %}
-            <form method="POST" action="{{ url_for('admin.user_block', user_id=user.id) }}" class="inline-form">
-              {{ block_form.hidden_tag() }}
-              <div class="form-group">
-                {{ block_form.reason(class="form-control") }}
-                {% for error in block_form.reason.errors %}
-                  <span class="form-error">{{ error }}</span>
-                {% endfor %}
-              </div>
-              {{ block_form.submit(class="btn btn-danger") }}
-            </form>
-          {% endif %}
-        </div>
+        {% if not is_last_admin %}
+          <div class="action-row">
+            {% if user.is_blocked %}
+              <form method="POST" action="{{ url_for('admin.user_unblock', user_id=user.id) }}" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary">Unblock</button>
+              </form>
+            {% else %}
+              <form method="POST" action="{{ url_for('admin.user_block', user_id=user.id) }}" class="inline-form">
+                {{ block_form.hidden_tag() }}
+                <div class="form-group">
+                  {{ block_form.reason(class="form-control") }}
+                  {% for error in block_form.reason.errors %}
+                    <span class="form-error">{{ error }}</span>
+                  {% endfor %}
+                </div>
+                {{ block_form.submit(class="btn btn-danger") }}
+              </form>
+            {% endif %}
+          </div>
 
-        <div class="action-row">
-          {% if user.is_active_account %}
-            <form method="POST" action="{{ url_for('admin.user_deactivate', user_id=user.id) }}" class="inline-form">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-warning" data-confirm="Deactivate this account?">Deactivate Account</button>
-            </form>
-          {% else %}
-            <form method="POST" action="{{ url_for('admin.user_activate', user_id=user.id) }}" class="inline-form">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-primary">Activate Account</button>
-            </form>
-          {% endif %}
-        </div>
+          <div class="action-row">
+            {% if user.is_active_account %}
+              <form method="POST" action="{{ url_for('admin.user_deactivate', user_id=user.id) }}" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning" data-confirm="Deactivate this account?">Deactivate Account</button>
+              </form>
+            {% else %}
+              <form method="POST" action="{{ url_for('admin.user_activate', user_id=user.id) }}" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary">Activate Account</button>
+              </form>
+            {% endif %}
+          </div>
+        {% else %}
+          <p><em>This is the only active admin account. Block, deactivate, and role-change actions are disabled.</em></p>
+        {% endif %}
 
         <div class="action-row">
           <form method="POST" action="{{ url_for('admin.user_force_logout', user_id=user.id) }}" class="inline-form">
@@ -106,15 +110,17 @@
           </form>
         </div>
 
-        <div class="action-row">
-          <form method="POST" action="{{ url_for('admin.user_change_role', user_id=user.id) }}" class="inline-form">
-            {{ role_form.hidden_tag() }}
-            <div class="form-group">
-              {{ role_form.role(class="form-control form-control-w180") }}
-            </div>
-            {{ role_form.submit(class="btn btn-secondary") }}
-          </form>
-        </div>
+        {% if not is_last_admin %}
+          <div class="action-row">
+            <form method="POST" action="{{ url_for('admin.user_change_role', user_id=user.id) }}" class="inline-form">
+              {{ role_form.hidden_tag() }}
+              <div class="form-group">
+                {{ role_form.role(class="form-control form-control-w180") }}
+              </div>
+              {{ role_form.submit(class="btn btn-secondary") }}
+            </form>
+          </div>
+        {% endif %}
       </div>
     {% endif %}
 

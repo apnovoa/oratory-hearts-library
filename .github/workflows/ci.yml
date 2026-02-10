@@ -106,3 +106,22 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Run test suite
         run: pytest -q
+
+  # ── CI gate ──────────────────────────────────────────────────────
+  # This job depends on every other CI job.  Set it as the SOLE
+  # required status check in GitHub branch-protection so one rule
+  # covers all jobs:
+  #
+  #   Repo → Settings → Branches → main → Require status checks →
+  #   Search "ci-gate" → Save
+  ci-gate:
+    if: always()
+    needs: [lint, security, audit, smoke, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all checks passed
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
+            echo "One or more CI jobs failed."
+            exit 1
+          fi

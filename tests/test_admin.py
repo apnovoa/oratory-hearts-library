@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
-from app.models import Book, Loan
+from app.models import Book, Loan, User
 from tests.conftest import _make_book, _make_user
 
 # ── Access control ─────────────────────────────────────────────────
@@ -98,6 +98,50 @@ def test_admin_change_role(admin_client, db):
     assert rv.status_code == 200
     db.session.refresh(user)
     assert user.role == "librarian"
+
+
+# ── Last-admin guard ─────────────────────────────────────────────
+
+
+def test_last_admin_cannot_be_demoted(admin_client, db):
+    """Demoting the sole admin must be rejected."""
+    admin = User.query.filter_by(role="admin").first()
+    rv = admin_client.post(
+        f"/admin/users/{admin.id}/change-role",
+        data={"role": "patron"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    db.session.refresh(admin)
+    assert admin.role == "admin"
+    assert b"Cannot demote the only active admin" in rv.data
+
+
+def test_last_admin_cannot_be_deactivated(admin_client, db):
+    """Deactivating the sole admin must be rejected."""
+    admin = User.query.filter_by(role="admin").first()
+    rv = admin_client.post(
+        f"/admin/users/{admin.id}/deactivate",
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    db.session.refresh(admin)
+    assert admin.is_active_account is True
+    assert b"Cannot deactivate the only active admin" in rv.data
+
+
+def test_last_admin_cannot_be_blocked(admin_client, db):
+    """Blocking the sole admin must be rejected."""
+    admin = User.query.filter_by(role="admin").first()
+    rv = admin_client.post(
+        f"/admin/users/{admin.id}/block",
+        data={"reason": "test"},
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    db.session.refresh(admin)
+    assert admin.is_blocked is False
+    assert b"Cannot block the only active admin" in rv.data
 
 
 # ── Loan management ───────────────────────────────────────────────

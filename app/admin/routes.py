@@ -518,6 +518,14 @@ def users():
     )
 
 
+def _is_last_admin(user):
+    """Return True if *user* is the only active, unblocked admin."""
+    return (
+        user.role == "admin"
+        and User.query.filter_by(role="admin", is_active_account=True, is_blocked=False).count() <= 1
+    )
+
+
 @admin_bp.route("/users/<int:user_id>")
 @admin_required
 def user_detail(user_id):
@@ -536,6 +544,7 @@ def user_detail(user_id):
         pagination=loan_pagination,
         block_form=block_form,
         role_form=role_form,
+        is_last_admin=_is_last_admin(user),
     )
 
 
@@ -546,6 +555,9 @@ def user_block(user_id):
     user = db.session.get(User, user_id)
     if not user:
         abort(404)
+    if _is_last_admin(user):
+        flash("Cannot block the only active admin account.", "danger")
+        return redirect(url_for("admin.user_detail", user_id=user.id))
     form = UserBlockForm()
     if form.validate_on_submit():
         user.is_blocked = True
@@ -580,6 +592,9 @@ def user_deactivate(user_id):
     user = db.session.get(User, user_id)
     if not user:
         abort(404)
+    if _is_last_admin(user):
+        flash("Cannot deactivate the only active admin account.", "danger")
+        return redirect(url_for("admin.user_detail", user_id=user.id))
     user.is_active_account = False
     db.session.commit()
     log_event("user_deactivated", target_type="user", target_id=user.id, detail="Account deactivated")
@@ -626,6 +641,9 @@ def user_change_role(user_id):
     if form.validate_on_submit():
         old_role = user.role
         new_role = form.role.data
+        if old_role == "admin" and new_role != "admin" and _is_last_admin(user):
+            flash("Cannot demote the only active admin account.", "danger")
+            return redirect(url_for("admin.user_detail", user_id=user.id))
         if new_role in ("patron", "librarian"):
             user.role = new_role
             db.session.commit()

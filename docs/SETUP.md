@@ -164,18 +164,46 @@ Disable with `SCHEDULER_ENABLED=false` if running in a multi-worker setup (to pr
 
 ## Backups
 
-### Database
+### Running a backup
 
-The SQLite database is at `bibliotheca.db` in the project root. Back it up regularly:
+Use the provided backup script (preferred over manual `sqlite3` commands):
 
 ```bash
-sqlite3 bibliotheca.db ".backup 'storage/backups/bibliotheca-$(date +%Y%m%d).db'"
+scripts/backup.sh
 ```
 
-### Master Scans
+The script uses SQLite's online backup API for a transactionally consistent
+snapshot, verifies integrity, generates a SHA-256 checksum, copies the
+`storage/masters/` directory, and prunes backups older than 7 days.
 
-The `storage/masters/` directory contains irreplaceable source files. Back this up
-to an offsite location.
+### Scheduling
+
+Add a daily cron job (the recommended schedule is already in the script header):
+
+```cron
+0 2 * * * /opt/bibliotheca/current/scripts/backup.sh >> /var/log/bibliotheca-backup.log 2>&1
+```
+
+### Verifying a backup
+
+Run the restore-verification script against any backup directory:
+
+```bash
+scripts/restore-verify.sh storage/backups/<date>
+```
+
+This validates the checksum, runs `PRAGMA integrity_check`, performs a trial
+restore, and checks that key tables are non-empty.
+
+### Offsite sync
+
+Set the `BACKUP_REMOTE` environment variable (or add it to `.env`) to an
+rsync-compatible destination and `scripts/backup.sh` will push each backup
+offsite automatically after local verification:
+
+```bash
+BACKUP_REMOTE=user@backup-host:/backups/bibliotheca
+```
 
 ### What Doesn't Need Backup
 
