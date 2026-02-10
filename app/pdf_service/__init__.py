@@ -85,10 +85,7 @@ def generate_circulation_copy(loan, book, user):
         with master_pdf.open_metadata() as meta:
             meta["dc:title"] = book.title
             meta["dc:creator"] = [book.author]
-            meta["dc:description"] = (
-                f"Circulation copy \u2014 Loan {loan.public_id} \u2014 "
-                f"Borrower: {user.display_name} \u2014 Due: {due_str}"
-            )
+            meta["dc:description"] = f"Circulation copy \u2014 Borrower: {user.display_name} \u2014 Due: {due_str}"
             meta["pdf:Producer"] = LIBRARY_NAME
 
         # Save to circulation storage

@@ -1,5 +1,6 @@
 """Tests for admin management routes."""
 
+import io
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
@@ -144,6 +145,19 @@ def test_last_admin_cannot_be_blocked(admin_client, db):
     assert b"Cannot block the only active admin" in rv.data
 
 
+def test_last_admin_cannot_be_force_logged_out(admin_client, db):
+    """Force-logging out the sole admin must be rejected."""
+    admin = User.query.filter_by(role="admin").first()
+    rv = admin_client.post(
+        f"/admin/users/{admin.id}/force-logout",
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    db.session.refresh(admin)
+    assert admin.force_logout_before is None
+    assert b"Cannot force-logout the only active admin" in rv.data
+
+
 # ── Loan management ───────────────────────────────────────────────
 
 
@@ -175,3 +189,79 @@ def test_admin_extend_loan(admin_client, db):
     assert rv.status_code == 200
     db.session.refresh(loan)
     assert loan.due_at > original_due
+
+
+# ── Upload hardening ──────────────────────────────────────────────
+
+
+def test_admin_add_book_rejects_invalid_cover_magic(admin_client, db):
+    rv = admin_client.post(
+        "/admin/books/add",
+        data={
+            "title": "Invalid Cover Book",
+            "author": "Cover Author",
+            "language": "en",
+            "owned_copies": "1",
+            "watermark_mode": "standard",
+            "cover_file": (io.BytesIO(b"not-an-image"), "cover.jpg"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert b"not a valid JPEG, PNG, or WebP" in rv.data
+    assert Book.query.filter_by(title="Invalid Cover Book").first() is None
+
+
+def test_admin_add_book_accepts_valid_cover_magic(admin_client, db):
+    # Minimal PNG signature + padding; route validates magic bytes only.
+    png_payload = b"\x89PNG\r\n\x1a\n" + b"0" * 16
+    rv = admin_client.post(
+        "/admin/books/add",
+        data={
+            "title": "Valid Cover Book",
+            "author": "Cover Author",
+            "language": "en",
+            "owned_copies": "1",
+            "watermark_mode": "standard",
+            "cover_file": (io.BytesIO(png_payload), "cover.png"),
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    book = Book.query.filter_by(title="Valid Cover Book").first()
+    assert book is not None
+    assert book.cover_filename is not None
+
+
+def test_import_pdf_upload_enforces_file_count_limit(admin_client):
+    admin_client.application.config["MAX_FILES_PER_UPLOAD"] = 2
+    pdf = b"%PDF-1.7\n%%EOF"
+    rv = admin_client.post(
+        "/admin/import-pdf/upload",
+        data={
+            "pdf_files": [
+                (io.BytesIO(pdf), "a.pdf"),
+                (io.BytesIO(pdf), "b.pdf"),
+                (io.BytesIO(pdf), "c.pdf"),
+            ]
+        },
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert b"at most 2 files" in rv.data
+
+
+def test_import_pdf_upload_enforces_per_file_size_limit(admin_client):
+    admin_client.application.config["MAX_PDF_FILE_SIZE"] = 10
+    oversized_pdf = b"%PDF-" + b"0" * 64
+    rv = admin_client.post(
+        "/admin/import-pdf/upload",
+        data={"pdf_files": [(io.BytesIO(oversized_pdf), "oversized.pdf")]},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+    assert rv.status_code == 200
+    assert b"exceeds" in rv.data

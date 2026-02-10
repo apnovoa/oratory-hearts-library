@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 from flask import (
     Blueprint,
@@ -92,11 +92,13 @@ def download(access_token):
             flash("The circulation copy is not yet available. Please try again shortly.", "warning")
             return redirect(url_for("lending.download", access_token=access_token))
 
-        circ_dir = current_app.config["CIRCULATION_STORAGE"]
-        file_path = os.path.realpath(os.path.join(circ_dir, loan.circulation_filename))
-        if not file_path.startswith(os.path.realpath(circ_dir) + os.sep):
+        circ_dir = Path(current_app.config["CIRCULATION_STORAGE"]).resolve()
+        file_path = (circ_dir / loan.circulation_filename).resolve()
+        try:
+            file_path.relative_to(circ_dir)
+        except ValueError:
             abort(403)
-        if not os.path.isfile(file_path):
+        if not file_path.is_file():
             flash("The circulation file could not be found. Please contact the librarian.", "danger")
             return redirect(url_for("lending.download", access_token=access_token))
 
@@ -114,7 +116,7 @@ def download(access_token):
 
         download_name = f"{loan.book_title_snapshot or 'book'}.pdf"
         return send_from_directory(
-            circ_dir,
+            str(circ_dir),
             loan.circulation_filename,
             as_attachment=True,
             download_name=download_name,

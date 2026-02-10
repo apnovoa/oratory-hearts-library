@@ -316,6 +316,17 @@ def _seed_admin_if_needed(app):
             # Write to a temporary file instead of stdout
             pw_file = Path(app.instance_path) / ".admin_password"
             pw_file.parent.mkdir(parents=True, exist_ok=True)
-            pw_file.write_text(f"Email:    {admin_email}\nPassword: {admin_password}\n")
-            pw_file.chmod(0o600)
+            payload = f"Email:    {admin_email}\nPassword: {admin_password}\n"
+            try:
+                fd = os.open(
+                    pw_file,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                    0o600,
+                )
+            except FileExistsError:
+                fd = os.open(pw_file, os.O_WRONLY | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+                handle.flush()
+            os.chmod(pw_file, 0o600)
             app.logger.info("Generated admin credentials written to %s", pw_file)

@@ -78,7 +78,7 @@ echo "[backup] Backup complete: $DAILY_BACKUP_DIR"
 BACKUP_REMOTE="${BACKUP_REMOTE:-}"
 if [ -n "$BACKUP_REMOTE" ]; then
     echo "[backup] Syncing to offsite: $BACKUP_REMOTE"
-    if rsync -az --delete "$BACKUP_DIR/" "$BACKUP_REMOTE/"; then
+    if rsync -az --delay-updates --partial "$BACKUP_DIR/" "$BACKUP_REMOTE/"; then
         echo "[backup] Offsite sync complete."
     else
         echo "[backup] ERROR: Offsite sync failed." >&2

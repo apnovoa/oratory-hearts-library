@@ -51,9 +51,9 @@
               <br><small class="text-subdued">{{ req.user.email }}</small>
             </td>
             <td><strong>{{ req.title }}</strong></td>
-            <td>{{ req.author or '&mdash;'|safe }}</td>
+            <td>{{ req.author or '---' }}</td>
             <td class="td-truncate" title="{{ req.reason or '' }}">
-              {{ req.reason or '&mdash;'|safe }}
+              {{ req.reason or '---' }}
             </td>
             <td>{{ req.created_at.strftime('%Y-%m-%d') }}</td>
             <td>

@@ -10,8 +10,10 @@ created before the 0001 file was updated.  Batch-mode table recreation
 is required because SQLite does not support ALTER CONSTRAINT.
 """
 
-import sqlalchemy as sa
+from contextlib import suppress
+
 from alembic import op
+from sqlalchemy.exc import InternalError, OperationalError
 
 revision = "0002"
 down_revision = "0001"
@@ -30,20 +32,14 @@ def _recreate_fks(table_name, fk_specs):
 
     *fk_specs* is a list of (local_cols, remote_table, remote_cols, ondelete).
     """
-    with op.batch_alter_table(
-        table_name, schema=None, naming_convention=_naming_convention
-    ) as batch_op:
+    with op.batch_alter_table(table_name, schema=None, naming_convention=_naming_convention) as batch_op:
         for local_cols, remote_table, remote_cols, ondelete in fk_specs:
             col_name = local_cols[0]
             old_name = f"fk_{table_name}_{col_name}_{remote_table}"
             new_name = f"fk_{table_name}_{col_name}"
-            try:
+            with suppress(OperationalError, InternalError):
                 batch_op.drop_constraint(old_name, type_="foreignkey")
-            except Exception:
-                pass  # constraint may already have ondelete (fresh DB)
-            batch_op.create_foreign_key(
-                new_name, remote_table, local_cols, remote_cols, ondelete=ondelete
-            )
+            batch_op.create_foreign_key(new_name, remote_table, local_cols, remote_cols, ondelete=ondelete)
 
 
 def upgrade():
@@ -59,53 +55,83 @@ def upgrade():
         )
 
     # ── 2. FK ondelete on all child tables ──────────────────────────
-    _recreate_fks("book_tags", [
-        (["book_id"], "books", ["id"], "CASCADE"),
-        (["tag_id"], "tags", ["id"], "CASCADE"),
-    ])
+    _recreate_fks(
+        "book_tags",
+        [
+            (["book_id"], "books", ["id"], "CASCADE"),
+            (["tag_id"], "tags", ["id"], "CASCADE"),
+        ],
+    )
 
-    _recreate_fks("loans", [
-        (["user_id"], "users", ["id"], "CASCADE"),
-        (["book_id"], "books", ["id"], "CASCADE"),
-    ])
+    _recreate_fks(
+        "loans",
+        [
+            (["user_id"], "users", ["id"], "CASCADE"),
+            (["book_id"], "books", ["id"], "CASCADE"),
+        ],
+    )
 
-    _recreate_fks("waitlist_entries", [
-        (["user_id"], "users", ["id"], "CASCADE"),
-        (["book_id"], "books", ["id"], "CASCADE"),
-    ])
+    _recreate_fks(
+        "waitlist_entries",
+        [
+            (["user_id"], "users", ["id"], "CASCADE"),
+            (["book_id"], "books", ["id"], "CASCADE"),
+        ],
+    )
 
-    _recreate_fks("audit_logs", [
-        (["user_id"], "users", ["id"], "SET NULL"),
-    ])
+    _recreate_fks(
+        "audit_logs",
+        [
+            (["user_id"], "users", ["id"], "SET NULL"),
+        ],
+    )
 
-    _recreate_fks("favorites", [
-        (["user_id"], "users", ["id"], "CASCADE"),
-        (["book_id"], "books", ["id"], "CASCADE"),
-    ])
+    _recreate_fks(
+        "favorites",
+        [
+            (["user_id"], "users", ["id"], "CASCADE"),
+            (["book_id"], "books", ["id"], "CASCADE"),
+        ],
+    )
 
-    _recreate_fks("book_notes", [
-        (["user_id"], "users", ["id"], "CASCADE"),
-        (["book_id"], "books", ["id"], "CASCADE"),
-    ])
+    _recreate_fks(
+        "book_notes",
+        [
+            (["user_id"], "users", ["id"], "CASCADE"),
+            (["book_id"], "books", ["id"], "CASCADE"),
+        ],
+    )
 
-    _recreate_fks("book_requests", [
-        (["user_id"], "users", ["id"], "CASCADE"),
-        (["resolved_by"], "users", ["id"], "SET NULL"),
-    ])
+    _recreate_fks(
+        "book_requests",
+        [
+            (["user_id"], "users", ["id"], "CASCADE"),
+            (["resolved_by"], "users", ["id"], "SET NULL"),
+        ],
+    )
 
-    _recreate_fks("reading_lists", [
-        (["created_by"], "users", ["id"], "CASCADE"),
-    ])
+    _recreate_fks(
+        "reading_lists",
+        [
+            (["created_by"], "users", ["id"], "CASCADE"),
+        ],
+    )
 
-    _recreate_fks("reading_list_items", [
-        (["reading_list_id"], "reading_lists", ["id"], "CASCADE"),
-        (["book_id"], "books", ["id"], "CASCADE"),
-    ])
+    _recreate_fks(
+        "reading_list_items",
+        [
+            (["reading_list_id"], "reading_lists", ["id"], "CASCADE"),
+            (["book_id"], "books", ["id"], "CASCADE"),
+        ],
+    )
 
-    _recreate_fks("staged_books", [
-        (["duplicate_of_book_id"], "books", ["id"], "SET NULL"),
-        (["imported_book_id"], "books", ["id"], "SET NULL"),
-    ])
+    _recreate_fks(
+        "staged_books",
+        [
+            (["duplicate_of_book_id"], "books", ["id"], "SET NULL"),
+            (["imported_book_id"], "books", ["id"], "SET NULL"),
+        ],
+    )
 
 
 def downgrade():
@@ -115,58 +141,82 @@ def downgrade():
         batch_op.drop_constraint("ck_users_birth_day_range", type_="check")
 
     # Revert FKs to no ondelete (original behavior)
-    _revert_fks("book_tags", [
-        (["book_id"], "books", ["id"]),
-        (["tag_id"], "tags", ["id"]),
-    ])
-    _revert_fks("loans", [
-        (["user_id"], "users", ["id"]),
-        (["book_id"], "books", ["id"]),
-    ])
-    _revert_fks("waitlist_entries", [
-        (["user_id"], "users", ["id"]),
-        (["book_id"], "books", ["id"]),
-    ])
-    _revert_fks("audit_logs", [
-        (["user_id"], "users", ["id"]),
-    ])
-    _revert_fks("favorites", [
-        (["user_id"], "users", ["id"]),
-        (["book_id"], "books", ["id"]),
-    ])
-    _revert_fks("book_notes", [
-        (["user_id"], "users", ["id"]),
-        (["book_id"], "books", ["id"]),
-    ])
-    _revert_fks("book_requests", [
-        (["user_id"], "users", ["id"]),
-        (["resolved_by"], "users", ["id"]),
-    ])
-    _revert_fks("reading_lists", [
-        (["created_by"], "users", ["id"]),
-    ])
-    _revert_fks("reading_list_items", [
-        (["reading_list_id"], "reading_lists", ["id"]),
-        (["book_id"], "books", ["id"]),
-    ])
-    _revert_fks("staged_books", [
-        (["duplicate_of_book_id"], "books", ["id"]),
-        (["imported_book_id"], "books", ["id"]),
-    ])
+    _revert_fks(
+        "book_tags",
+        [
+            (["book_id"], "books", ["id"]),
+            (["tag_id"], "tags", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "loans",
+        [
+            (["user_id"], "users", ["id"]),
+            (["book_id"], "books", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "waitlist_entries",
+        [
+            (["user_id"], "users", ["id"]),
+            (["book_id"], "books", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "audit_logs",
+        [
+            (["user_id"], "users", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "favorites",
+        [
+            (["user_id"], "users", ["id"]),
+            (["book_id"], "books", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "book_notes",
+        [
+            (["user_id"], "users", ["id"]),
+            (["book_id"], "books", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "book_requests",
+        [
+            (["user_id"], "users", ["id"]),
+            (["resolved_by"], "users", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "reading_lists",
+        [
+            (["created_by"], "users", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "reading_list_items",
+        [
+            (["reading_list_id"], "reading_lists", ["id"]),
+            (["book_id"], "books", ["id"]),
+        ],
+    )
+    _revert_fks(
+        "staged_books",
+        [
+            (["duplicate_of_book_id"], "books", ["id"]),
+            (["imported_book_id"], "books", ["id"]),
+        ],
+    )
 
 
 def _revert_fks(table_name, fk_specs):
     """Recreate FKs without ondelete (restore original behavior)."""
-    with op.batch_alter_table(
-        table_name, schema=None, naming_convention=_naming_convention
-    ) as batch_op:
+    with op.batch_alter_table(table_name, schema=None, naming_convention=_naming_convention) as batch_op:
         for local_cols, remote_table, remote_cols in fk_specs:
             col_name = local_cols[0]
             named = f"fk_{table_name}_{col_name}"
-            try:
+            with suppress(OperationalError, InternalError):
                 batch_op.drop_constraint(named, type_="foreignkey")
-            except Exception:
-                pass
-            batch_op.create_foreign_key(
-                None, remote_table, local_cols, remote_cols
-            )
+            batch_op.create_foreign_key(None, remote_table, local_cols, remote_cols)

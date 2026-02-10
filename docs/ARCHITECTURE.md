@@ -209,6 +209,8 @@ Authenticated patrons browse the catalog with full-text search powered by SQLite
 
 One-copy-one-loan model: each physical copy can only be lent to one patron at a time. On checkout, the system generates a watermarked PDF with a loan slip cover page, the book content with footer watermarks (borrower name + due date), and a return instructions page. Patrons access their book through an in-browser PDF.js reader or direct download, both gated by an unguessable access token. Loans default to 7 days with up to 2 renewals. Expired loans are automatically reclaimed every 5 minutes by the background scheduler, which also deletes the circulation PDF from disk.
 
+Each loan expiration runs inside its own database savepoint so that a failure on one loan (missing file, email error) does not roll back other expirations in the same scheduler tick. Waitlist processing uses the same per-loan isolation.
+
 ### Waitlist
 
 When all copies of a book are checked out, patrons can join a FIFO waitlist. When a copy becomes available (via return, expiration, or admin termination), the system automatically notifies the next person in line by email. Waitlist entries are marked as fulfilled once notified, allowing re-joining later.
@@ -240,6 +242,8 @@ The admin panel at `/admin` provides library-wide statistics (total books, patro
 ### Bulk PDF Import
 
 A multi-stage pipeline for importing books from PDF files. Admins upload PDFs to a staging directory, then trigger a background scan. The scanner extracts metadata from three sources: embedded PDF metadata (pikepdf), filename parsing (heuristic), and optionally the Claude AI API (text or vision-based extraction). It also queries Open Library for enrichment and fetches cover images. Each scanned PDF becomes a StagedBook record with a confidence score (high/medium/low). Admins review staged books, edit metadata, and approve (moves PDF to master storage + creates Book record) or dismiss. Bulk approve/dismiss and AI enrichment are available for batch operations.
+
+The scanner acquires an `flock`-based file lock on the staging directory to prevent concurrent scans, even across process restarts or multiple gunicorn workers. Uploads are capped at `MAX_FILES_PER_UPLOAD` files and `MAX_PDF_FILE_SIZE_MB` per file.
 
 ### Cover Images
 

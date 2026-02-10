@@ -82,12 +82,52 @@ jobs:
           assert resp.status_code == 200, f'Expected 200, got {resp.status_code}'
           data = resp.get_json()
           assert data['status'] == 'ok', f'Expected ok, got {data}'
+          assert resp.headers.get('X-Content-Type-Options') == 'nosniff'
+          assert resp.headers.get('X-Frame-Options') == 'SAMEORIGIN'
+          assert resp.headers.get('Referrer-Policy') == 'strict-origin-when-cross-origin'
           print('/ping returned 200 ok')
           resp = client.get('/health')
           assert resp.status_code == 200, f'Expected 200, got {resp.status_code}'
           data = resp.get_json()
           assert data['status'] == 'ok', f'Expected ok, got {data}'
+          assert resp.headers.get('X-Content-Type-Options') == 'nosniff'
+          assert resp.headers.get('X-Frame-Options') == 'SAMEORIGIN'
+          assert resp.headers.get('Referrer-Policy') == 'strict-origin-when-cross-origin'
           print('/health returned 200 ok')
+          "
+
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y libqpdf-dev libjpeg-dev libpng-dev
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: pip-
+      - run: pip install -r requirements.txt
+      - name: Migration round-trip
+        run: |
+          python -c "
+          import os
+          import tempfile
+          from pathlib import Path
+          from flask_migrate import downgrade, upgrade
+          db_path = Path(tempfile.mkdtemp()) / 'migration-ci.db'
+          os.environ['DATABASE_URL'] = f'sqlite:///{db_path}'
+          os.environ['SECRET_KEY'] = 'ci-secret-key'
+          os.environ['SCHEDULER_ENABLED'] = 'false'
+          os.environ['ADMIN_PASSWORD'] = 'CiAdminPass123!'
+          from app import create_app
+          app = create_app('development')
+          with app.app_context():
+              downgrade(revision='0001')
+              upgrade()
+          print('Migration round-trip succeeded.')
           "
 
   tests:
@@ -116,7 +156,7 @@ jobs:
   #   Search "ci-gate" → Save
   ci-gate:
     if: always()
-    needs: [lint, security, audit, smoke, tests]
+    needs: [lint, security, audit, smoke, migrations, tests]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all checks passed

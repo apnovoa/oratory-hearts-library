@@ -42,9 +42,17 @@ Edit `.env` with your actual values:
 | `MAIL_DEFAULT_SENDER_NAME` | Display name on outgoing emails (default: `Custos Oratorii`) | No |
 | `LIBRARY_CONTACT_EMAIL` | Contact shown in policy and loan slips | Yes |
 | `LIBRARY_DOMAIN` | Public URL of the library (e.g. `https://library.oratory.org`) | Yes |
-| `DEFAULT_LOAN_DAYS` | Default loan period in days (default: 14) | No |
+| `DEFAULT_LOAN_DAYS` | Default loan period in days (default: 7) | No |
 | `MAX_LOANS_PER_PATRON` | Max simultaneous loans per patron (default: 5) | No |
+| `MAX_RENEWALS` | Maximum renewals per loan (default: 2) | No |
 | `REMINDER_DAYS_BEFORE_DUE` | Days before due date to send reminder (default: 2) | No |
+| `MAX_FAILED_LOGINS` | Failed login attempts before account lockout (default: 5) | No |
+| `ACCOUNT_LOCKOUT_MINUTES` | Lockout duration in minutes (default: 15) | No |
+| `REGISTRATION_ENABLED` | Enable self-registration (`true`/`false`, default: `true`) | No |
+| `MAX_FILES_PER_UPLOAD` | Max files per bulk PDF upload (default: 20) | No |
+| `MAX_PDF_FILE_SIZE_MB` | Max PDF file size in MB (default: 25) | No |
+| `MAX_COVER_FILE_SIZE_MB` | Max cover image size in MB (default: 10) | No |
+| `SCAN_FILE_TIMEOUT_SECONDS` | Scanner per-file processing timeout in seconds (default: 300) | No |
 
 ### 4. Run (Development)
 
@@ -129,6 +137,10 @@ Additional users register themselves (or admin can change roles from the admin p
    - **Gentle**: Watermark only first and last content pages (for children's books, etc.).
 8. Save. The book appears in the catalog immediately.
 
+**Upload limits**: Bulk uploads are capped at `MAX_FILES_PER_UPLOAD` files (default 20) and
+`MAX_PDF_FILE_SIZE_MB` per file (default 25 MB). Cover images are validated by magic-byte
+check (JPEG, PNG, GIF, WebP, BMP only) and capped at `MAX_COVER_FILE_SIZE_MB` (default 10 MB).
+
 ---
 
 ## How Lending Works
@@ -146,6 +158,11 @@ Additional users register themselves (or admin can change roles from the admin p
    - Inventory is released
    - Expiration notice sent to patron
 5. If a waitlisted patron exists, they are notified that the book is now available.
+
+**Transaction safety**: Each loan expiration runs inside its own savepoint, so a failure
+on one loan (e.g. missing file, email error) does not roll back other expirations in the
+same scheduler tick. Waitlist processing also runs per-loan so a notification failure
+cannot block other waitlist entries.
 
 ---
 
@@ -205,6 +222,9 @@ offsite automatically after local verification:
 BACKUP_REMOTE=user@backup-host:/backups/bibliotheca
 ```
 
+The script uses `rsync -az` (no `--delete`), so old backups on the remote side are
+preserved even if they have been pruned locally.
+
 ### What Doesn't Need Backup
 
 - `storage/circulation/` — regeneratable from masters
@@ -222,6 +242,11 @@ BACKUP_REMOTE=user@backup-host:/backups/bibliotheca
 - **CSRF protection**: All POST forms use CSRF tokens via Flask-WTF.
 - **Force logout**: Admin can invalidate all sessions for any user.
 - **Rate limiting**: Application-level rate limiting via Flask-Limiter (in-memory, single-worker). Additional reverse proxy rate limiting (nginx `limit_req`) is recommended if exposed to the internet.
+- **Scanner cross-process lock**: The bulk-import scanner acquires an `flock` on the staging directory, preventing concurrent scans even across process restarts.
+- **Open Library redirects disabled**: Cover-fetch requests to Open Library set `allow_redirects=False` to prevent SSRF via attacker-controlled redirect targets.
+- **Last-admin guard**: Demoting, deactivating, or blocking the sole remaining admin account is rejected to prevent permanent admin lockout.
+- **Upload validation**: PDF uploads are checked against file-size limits; cover images are validated by magic bytes (not just file extension).
+- **Account lockout**: After `MAX_FAILED_LOGINS` consecutive failed login attempts the account is locked for `ACCOUNT_LOCKOUT_MINUTES`.
 
 ---
 
@@ -236,6 +261,9 @@ gunicorn -w 1 -b 0.0.0.0:8000 "app:create_app('production')"
 ```
 
 Or migrate to PostgreSQL and replace the lock with `with_for_update()` in `service.py`.
+
+The bulk-import scanner also uses an `flock`-based file lock on the staging directory to
+prevent concurrent scans across processes or restarts.
 
 ---
 

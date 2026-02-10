@@ -236,3 +236,62 @@ def test_download_blocks_path_traversal(mock_pdf, mock_del, patron_client, patro
 
     rv = patron_client.get(f"/loan/{loan.access_token}/download?file=1")
     assert rv.status_code == 403
+
+
+# ── Expiry + waitlist integration ─────────────────────────────────
+
+
+@patch("app.email_service.send_waitlist_notification")
+@patch("app.email_service.send_expiration_email")
+def test_expire_loans_marks_expired_and_notifies_waitlist(mock_expiration, mock_waitlist, app, db):
+    borrower = _make_user(email="exp-borrower@test.com")
+    waiting_patron = _make_user(email="exp-waiter@test.com")
+    book = _make_book(title="Expiry Book", owned_copies=1)
+
+    overdue_loan = Loan(
+        user_id=borrower.id,
+        book_id=book.id,
+        is_active=True,
+        due_at=datetime.now(UTC) - timedelta(hours=1),
+        book_title_snapshot=book.title,
+        book_author_snapshot=book.author,
+    )
+    db.session.add(overdue_loan)
+    db.session.add(WaitlistEntry(user_id=waiting_patron.id, book_id=book.id))
+    db.session.commit()
+
+    with app.app_context():
+        from app.lending.service import expire_loans
+
+        expire_loans()
+
+    db.session.refresh(overdue_loan)
+    waitlist_entry = WaitlistEntry.query.filter_by(user_id=waiting_patron.id, book_id=book.id).first()
+    assert overdue_loan.is_active is False
+    assert overdue_loan.returned_at is not None
+    assert waitlist_entry.notified_at is not None
+    mock_waitlist.assert_called_once()
+
+
+@patch("app.email_service.send_expiration_email")
+def test_expire_loans_rolls_back_single_loan_if_waitlist_step_fails(mock_expiration, app, db):
+    borrower = _make_user(email="rollback-borrower@test.com")
+    book = _make_book(title="Rollback Book", owned_copies=1)
+    overdue_loan = Loan(
+        user_id=borrower.id,
+        book_id=book.id,
+        is_active=True,
+        due_at=datetime.now(UTC) - timedelta(minutes=30),
+    )
+    db.session.add(overdue_loan)
+    db.session.commit()
+
+    with app.app_context():
+        from app.lending.service import expire_loans
+
+        with patch("app.lending.service.process_waitlist", side_effect=RuntimeError("waitlist failed")):
+            expire_loans()
+
+    db.session.refresh(overdue_loan)
+    assert overdue_loan.is_active is True
+    assert overdue_loan.returned_at is None

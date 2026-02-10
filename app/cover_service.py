@@ -27,7 +27,7 @@ def _fetch_cover_by_isbn(isbn, dest_path):
     time.sleep(0.5)  # Respect Open Library rate limits
     url = COVER_API_URL.format(isbn=isbn)
     try:
-        resp = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        resp = requests.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
         resp.raise_for_status()
     except requests.RequestException as exc:
         logger.warning("Cover fetch failed for ISBN %s: %s", isbn, exc)
@@ -69,7 +69,7 @@ def _search_isbn_by_title_author(title, author):
     params["fields"] = "isbn"
 
     try:
-        resp = requests.get(SEARCH_API_URL, params=params, timeout=REQUEST_TIMEOUT)
+        resp = requests.get(SEARCH_API_URL, params=params, timeout=REQUEST_TIMEOUT, allow_redirects=False)
         resp.raise_for_status()
         data = resp.json()
     except (requests.RequestException, ValueError) as exc:

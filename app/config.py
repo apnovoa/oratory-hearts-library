@@ -10,6 +10,9 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'bibliotheca.db'}")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAX_CONTENT_LENGTH = 200 * 1024 * 1024  # 200 MB
+    MAX_FILES_PER_UPLOAD = int(os.environ.get("MAX_FILES_PER_UPLOAD", "20"))
+    MAX_PDF_FILE_SIZE = int(os.environ.get("MAX_PDF_FILE_SIZE_MB", "25")) * 1024 * 1024
+    MAX_COVER_FILE_SIZE = int(os.environ.get("MAX_COVER_FILE_SIZE_MB", "10")) * 1024 * 1024
 
     # Storage paths
     MASTER_STORAGE = str(STORAGE_DIR / "masters")

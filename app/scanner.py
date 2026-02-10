@@ -18,6 +18,11 @@ from uuid import uuid4
 
 import requests
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - platform-specific fallback
+    fcntl = None
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -51,6 +56,11 @@ def _progress_file_path():
     return storage / ".scan_progress.json"
 
 
+def _scan_lock_file_path():
+    """Return path to the cross-process scan lock file."""
+    return _progress_file_path().with_suffix(".lock")
+
+
 def _read_progress(path=None):
     """Read progress from disk. Returns defaults if file missing/corrupt."""
     if path is None:
@@ -70,6 +80,35 @@ def _write_progress(data, path=None):
     with open(tmp, "w") as f:
         json.dump(data, f)
     os.replace(tmp, str(path))
+
+
+def _acquire_scan_lock():
+    """Acquire cross-process scan lock. Returns fd on success, None if locked."""
+    if fcntl is None:
+        return -1
+
+    lock_path = _scan_lock_file_path()
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def _release_scan_lock(fd):
+    """Release cross-process scan lock."""
+    if fd is None:
+        return
+    if fd == -1:
+        return
+    if fcntl is None:
+        return
+    try:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
 
 
 def get_scan_progress():
@@ -276,7 +315,7 @@ def _lookup_openlibrary(isbn=None, title=None, author=None):
             resp = requests.get(
                 _OL_ISBN_URL.format(isbn=clean),
                 timeout=_OL_TIMEOUT,
-                allow_redirects=True,
+                allow_redirects=False,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -308,7 +347,7 @@ def _lookup_openlibrary(isbn=None, title=None, author=None):
         return result
 
     try:
-        resp = requests.get(_OL_SEARCH_URL, params=params, timeout=_OL_TIMEOUT)
+        resp = requests.get(_OL_SEARCH_URL, params=params, timeout=_OL_TIMEOUT, allow_redirects=False)
         resp.raise_for_status()
         data = resp.json()
     except (requests.RequestException, ValueError) as exc:
@@ -615,7 +654,7 @@ def _scan_single_file_with_timeout(filepath, batch_id, app, timeout_seconds):
     return result["success"]
 
 
-def _scan_worker(staging_dir, batch_id, app):
+def _scan_worker(staging_dir, batch_id, app, lock_fd=None):
     """Background thread target that processes all PDFs in the staging dir."""
     with app.app_context():
         progress_path = _progress_file_path()
@@ -659,11 +698,14 @@ def _scan_worker(staging_dir, batch_id, app):
         except Exception:
             logger.exception("Scan batch %s failed with unhandled error.", batch_id)
         finally:
-            progress = _read_progress(progress_path)
-            progress["finished_at"] = datetime.now(UTC).isoformat()
-            progress["running"] = False
-            progress["current_file"] = ""
-            _write_progress(progress, progress_path)
+            try:
+                progress = _read_progress(progress_path)
+                progress["finished_at"] = datetime.now(UTC).isoformat()
+                progress["running"] = False
+                progress["current_file"] = ""
+                _write_progress(progress, progress_path)
+            finally:
+                _release_scan_lock(lock_fd)
 
         logger.info(
             "Scan batch %s finished: %d processed, %d errors.", batch_id, progress["processed"], progress["errors"]
@@ -683,11 +725,21 @@ def start_scan(app):
     """
     with app.app_context():
         progress_path = _progress_file_path()
+        lock_fd = _acquire_scan_lock()
+        if lock_fd is None:
+            logger.warning("Scan already in progress (lock is held by another process).")
+            return False
         progress = _read_progress(progress_path)
 
         if progress["running"]:
-            logger.warning("Scan already in progress (batch %s).", progress["batch_id"])
-            return False
+            if lock_fd == -1:
+                logger.warning("Scan already in progress (batch %s).", progress["batch_id"])
+                _release_scan_lock(lock_fd)
+                return False
+            logger.warning(
+                "Detected stale scan state (batch %s marked running but no lock held). Resetting state.",
+                progress["batch_id"],
+            )
 
         batch_id = uuid4().hex
 
@@ -702,11 +754,15 @@ def start_scan(app):
 
     thread = threading.Thread(
         target=_scan_worker,
-        args=(staging_dir, batch_id, app),
+        args=(staging_dir, batch_id, app, lock_fd),
         daemon=True,
         name=f"scan-{batch_id[:8]}",
     )
-    thread.start()
+    try:
+        thread.start()
+    except Exception:
+        _release_scan_lock(lock_fd)
+        raise
 
     logger.info("Launched scan thread for batch %s (staging: %s).", batch_id, staging_dir)
     return batch_id

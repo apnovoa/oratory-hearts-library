@@ -228,7 +228,7 @@ class AdminChangePasswordForm(FlaskForm):
     )
     new_password = PasswordField(
         "New Password",
-        validators=[DataRequired(), Length(min=8, max=128)],
+        validators=[DataRequired(), Length(min=8, max=72)],
     )
     confirm_password = PasswordField(
         "Confirm New Password",

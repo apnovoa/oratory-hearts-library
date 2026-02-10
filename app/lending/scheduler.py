@@ -15,17 +15,23 @@ def init_scheduler(app):
 
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
+    def _run_job(job_id, fn):
+        try:
+            fn()
+        except Exception:
+            app.logger.exception("Scheduler job %s crashed.", job_id)
+
     def run_expiry():
         with app.app_context():
             from .service import expire_loans
 
-            expire_loans()
+            _run_job("expire_loans", expire_loans)
 
     def run_reminders():
         with app.app_context():
             from .service import send_reminders
 
-            send_reminders()
+            _run_job("send_reminders", send_reminders)
 
     scheduler.add_job(
         func=run_expiry,
@@ -48,7 +54,7 @@ def init_scheduler(app):
         with app.app_context():
             from ..email_service import send_new_acquisitions_digest
 
-            send_new_acquisitions_digest()
+            _run_job("new_acquisitions_digest", send_new_acquisitions_digest)
 
     scheduler.add_job(
         func=run_new_acquisitions_digest,
@@ -65,7 +71,7 @@ def init_scheduler(app):
         with app.app_context():
             from ..email_service import send_birthday_greetings
 
-            send_birthday_greetings()
+            _run_job("birthday_greetings", send_birthday_greetings)
 
     scheduler.add_job(
         func=run_birthday_greetings,

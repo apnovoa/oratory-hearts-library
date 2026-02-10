@@ -28,7 +28,7 @@
       {% for req in requests %}
       <tr>
         <td><strong>{{ req.title }}</strong></td>
-        <td>{{ req.author or '&mdash;'|safe }}</td>
+        <td>{{ req.author or '---' }}</td>
         <td class="text-sans text-small">{{ req.created_at.strftime('%d %b %Y') }}</td>
         <td>
           {% if req.status == 'pending' %}

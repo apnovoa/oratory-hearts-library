@@ -1,6 +1,6 @@
-import os
 import threading
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from flask import current_app
 
@@ -169,53 +169,65 @@ def return_loan(loan):
 
 
 def expire_loans():
-    """Find and expire all overdue loans."""
+    """Find and expire overdue loans with per-loan transactional isolation."""
     now = _utcnow()
     overdue = Loan.query.filter(
         Loan.is_active == True,
         Loan.due_at <= now,
     ).all()
 
+    expired_count = 0
+    failed_count = 0
+
     for loan in overdue:
-        loan.is_active = False
-        loan.returned_at = now
+        try:
+            with db.session.begin_nested():
+                loan.is_active = False
+                loan.returned_at = now
 
-        log_event(
-            action="loan_expired",
-            target_type="loan",
-            target_id=loan.id,
-            detail=f"Auto-expired loan {loan.public_id[:8]} for '{loan.book_title_snapshot}'",
-            user_id=loan.user_id,
-        )
+                log_event(
+                    action="loan_expired",
+                    target_type="loan",
+                    target_id=loan.id,
+                    detail=f"Auto-expired loan {loan.public_id[:8]} for '{loan.book_title_snapshot}'",
+                    user_id=loan.user_id,
+                )
 
-        _delete_circulation_file(loan)
+                # Send expiration notice (best-effort; expiry should still persist)
+                if not loan.expiration_notice_sent:
+                    try:
+                        from ..email_service import send_expiration_email
 
-        # Send expiration notice
-        if not loan.expiration_notice_sent:
-            try:
-                from ..email_service import send_expiration_email
+                        user = db.session.get(User, loan.user_id)
+                        book = db.session.get(Book, loan.book_id)
+                        if user and book:
+                            send_expiration_email(loan, user, book)
+                            loan.expiration_notice_sent = True
+                    except Exception:
+                        current_app.logger.exception("Failed to send expiration email for loan %s", loan.public_id)
 
-                user = db.session.get(User, loan.user_id)
                 book = db.session.get(Book, loan.book_id)
-                if user and book:
-                    send_expiration_email(loan, user, book)
-                    loan.expiration_notice_sent = True
-            except Exception:
-                current_app.logger.exception(f"Failed to send expiration email for loan {loan.public_id}")
+                if book:
+                    process_waitlist(book, commit=False)
 
-    if overdue:
-        db.session.commit()
-        current_app.logger.info(f"Expired {len(overdue)} overdue loan(s).")
+            db.session.commit()
+            _delete_circulation_file(loan)
+            expired_count += 1
+        except Exception:
+            db.session.rollback()
+            failed_count += 1
+            current_app.logger.exception(
+                "Failed to atomically expire loan %s. Changes for that loan were rolled back.",
+                loan.public_id,
+            )
 
-    # Process waitlists for all affected books
-    affected_book_ids = {loan.book_id for loan in overdue}
-    for book_id in affected_book_ids:
-        book = db.session.get(Book, book_id)
-        if book:
-            process_waitlist(book)
+    if expired_count:
+        current_app.logger.info("Expired %d overdue loan(s).", expired_count)
+    if failed_count:
+        current_app.logger.warning("Skipped %d overdue loan(s) due to processing errors.", failed_count)
 
 
-def process_waitlist(book):
+def process_waitlist(book, *, commit=True):
     """Notify the next patron on the waitlist when a copy becomes available."""
     if book.available_copies <= 0:
         return
@@ -229,15 +241,19 @@ def process_waitlist(book):
 
     if next_entry:
         next_entry.notified_at = _utcnow()
-        db.session.commit()
-
         log_event(
             action="waitlist_notify",
             target_type="book",
             target_id=book.id,
             detail=f"Notified patron {next_entry.user_id} that '{book.title}' is available",
             user_id=next_entry.user_id,
+            commit=False,
         )
+
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
 
         # Send waitlist notification email
         try:
@@ -284,16 +300,17 @@ def send_reminders():
 def _delete_circulation_file(loan):
     """Remove the circulation PDF from disk if it exists."""
     if loan.circulation_filename:
-        circ_dir = os.path.realpath(current_app.config["CIRCULATION_STORAGE"])
-        circ_path = os.path.realpath(os.path.join(circ_dir, loan.circulation_filename))
-        # Ensure the resolved path is within the circulation directory
-        if not circ_path.startswith(circ_dir + os.sep):
+        circ_dir = Path(current_app.config["CIRCULATION_STORAGE"]).resolve()
+        circ_path = (circ_dir / loan.circulation_filename).resolve()
+        try:
+            circ_path.relative_to(circ_dir)
+        except ValueError:
             current_app.logger.warning(
                 f"Blocked path traversal attempt in circulation file deletion: {loan.circulation_filename}"
             )
             return
         try:
-            if os.path.exists(circ_path):
-                os.remove(circ_path)
+            if circ_path.exists():
+                circ_path.unlink()
         except OSError as exc:
             current_app.logger.warning(f"Could not delete circulation file {circ_path}: {exc}")

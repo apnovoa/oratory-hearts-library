@@ -57,6 +57,12 @@ from .forms import (
 
 admin_bp = Blueprint("admin", __name__)
 
+_PDF_MAGIC = b"%PDF-"
+_JPEG_MAGIC = b"\xff\xd8\xff"
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+_WEBP_RIFF_MAGIC = b"RIFF"
+_WEBP_WEBP_MAGIC = b"WEBP"
+
 
 def admin_required(f):
     @wraps(f)
@@ -71,6 +77,34 @@ def admin_required(f):
 
 def _utcnow():
     return datetime.now(UTC)
+
+
+def _uploaded_file_size(file_storage):
+    """Return uploaded file size in bytes without consuming the stream."""
+    try:
+        stream = file_storage.stream
+        pos = stream.tell()
+        stream.seek(0, os.SEEK_END)
+        size = stream.tell()
+        stream.seek(pos)
+        return size
+    except (AttributeError, OSError):
+        return None
+
+
+def _is_valid_cover_image(file_storage):
+    """Validate JPEG/PNG/WebP by magic bytes."""
+    try:
+        header = file_storage.read(12)
+        file_storage.seek(0)
+    except OSError:
+        return False
+
+    if header.startswith(_JPEG_MAGIC):
+        return True
+    if header.startswith(_PNG_MAGIC):
+        return True
+    return header[:4] == _WEBP_RIFF_MAGIC and header[8:12] == _WEBP_WEBP_MAGIC
 
 
 # ── Dashboard ──────────────────────────────────────────────────────
@@ -193,7 +227,7 @@ def book_add():
         if master_file and master_file.filename:
             header = master_file.read(5)
             master_file.seek(0)
-            if header != b"%PDF-":
+            if header != _PDF_MAGIC:
                 flash("The uploaded file does not appear to be a valid PDF.", "danger")
                 return render_template("admin/book_edit.html", form=form, book=None)
             filename = f"{uuid.uuid4().hex}_{secure_filename(master_file.filename)}"
@@ -203,6 +237,17 @@ def book_add():
         # Handle cover image upload
         cover_file = form.cover_file.data
         if cover_file and cover_file.filename:
+            max_cover_size = current_app.config.get("MAX_COVER_FILE_SIZE", 10 * 1024 * 1024)
+            cover_size = _uploaded_file_size(cover_file)
+            if cover_size and cover_size > max_cover_size:
+                flash(
+                    f"Cover image is too large (max {max_cover_size // (1024 * 1024)} MB).",
+                    "danger",
+                )
+                return render_template("admin/book_edit.html", form=form, book=None)
+            if not _is_valid_cover_image(cover_file):
+                flash("The uploaded cover image is not a valid JPEG, PNG, or WebP file.", "danger")
+                return render_template("admin/book_edit.html", form=form, book=None)
             filename = f"{uuid.uuid4().hex}_{secure_filename(cover_file.filename)}"
             cover_file.save(os.path.join(current_app.config["COVER_STORAGE"], filename))
             book.cover_filename = filename
@@ -259,7 +304,7 @@ def book_edit(book_id):
         if master_file and master_file.filename:
             header = master_file.read(5)
             master_file.seek(0)
-            if header != b"%PDF-":
+            if header != _PDF_MAGIC:
                 flash("The uploaded file does not appear to be a valid PDF.", "danger")
                 return render_template("admin/book_edit.html", form=form, book=book)
             filename = f"{uuid.uuid4().hex}_{secure_filename(master_file.filename)}"
@@ -269,6 +314,17 @@ def book_edit(book_id):
         # Handle cover image upload
         cover_file = form.cover_file.data
         if cover_file and cover_file.filename:
+            max_cover_size = current_app.config.get("MAX_COVER_FILE_SIZE", 10 * 1024 * 1024)
+            cover_size = _uploaded_file_size(cover_file)
+            if cover_size and cover_size > max_cover_size:
+                flash(
+                    f"Cover image is too large (max {max_cover_size // (1024 * 1024)} MB).",
+                    "danger",
+                )
+                return render_template("admin/book_edit.html", form=form, book=book)
+            if not _is_valid_cover_image(cover_file):
+                flash("The uploaded cover image is not a valid JPEG, PNG, or WebP file.", "danger")
+                return render_template("admin/book_edit.html", form=form, book=book)
             filename = f"{uuid.uuid4().hex}_{secure_filename(cover_file.filename)}"
             cover_file.save(os.path.join(current_app.config["COVER_STORAGE"], filename))
             book.cover_filename = filename
@@ -624,6 +680,9 @@ def user_force_logout(user_id):
     user = db.session.get(User, user_id)
     if not user:
         abort(404)
+    if _is_last_admin(user):
+        flash("Cannot force-logout the only active admin account.", "danger")
+        return redirect(url_for("admin.user_detail", user_id=user.id))
     user.force_logout_before = _utcnow()
     db.session.commit()
     log_event("user_force_logout", target_type="user", target_id=user.id, detail="Forced logout of all sessions")
@@ -820,10 +879,10 @@ def books_import_csv():
     row_count = 0
 
     for row_num, row in enumerate(reader, start=2):
-        row_count += 1
-        if row_count > MAX_CSV_ROWS:
+        if row_count >= MAX_CSV_ROWS:
             flash(f"Import limited to {MAX_CSV_ROWS} rows. First {MAX_CSV_ROWS} rows were imported.", "warning")
             break
+        row_count += 1
 
         title = (row.get("title") or "").strip()[:500]
         author = (row.get("author") or "").strip()[:300]
@@ -1192,20 +1251,30 @@ def import_pdf_dashboard():
 @limiter.limit("30 per minute")
 def import_pdf_upload():
     files = request.files.getlist("pdf_files")
-    if not files or all(f.filename == "" for f in files):
+    files = [f for f in files if f and f.filename]
+    if not files:
         flash("No files selected.", "warning")
         return redirect(url_for("admin.import_pdf_dashboard"))
 
+    max_files = current_app.config.get("MAX_FILES_PER_UPLOAD", 20)
+    if len(files) > max_files:
+        flash(f"You can upload at most {max_files} files per request.", "danger")
+        return redirect(url_for("admin.import_pdf_dashboard"))
+
+    max_pdf_size = current_app.config.get("MAX_PDF_FILE_SIZE", 25 * 1024 * 1024)
     staging_dir = Path(current_app.config["STAGING_STORAGE"])
     uploaded, skipped = 0, []
 
     for f in files:
-        if not f.filename:
+        size = _uploaded_file_size(f)
+        if size and size > max_pdf_size:
+            skipped.append(f"{f.filename} (exceeds {max_pdf_size // (1024 * 1024)} MB limit)")
             continue
+
         # Validate PDF magic bytes
         header = f.read(5)
         f.seek(0)
-        if header != b"%PDF-":
+        if header != _PDF_MAGIC:
             skipped.append(f"{f.filename} (not a valid PDF)")
             continue
 

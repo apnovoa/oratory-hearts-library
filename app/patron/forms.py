@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SelectField, StringField, SubmitField, TextAreaField
-from wtforms.validators import DataRequired, EqualTo, Length, Optional
+from wtforms.validators import DataRequired, EqualTo, Length, Optional, ValidationError
 
 from ..auth.forms import _validate_password_strength
 
@@ -42,13 +42,37 @@ class ProfileForm(FlaskForm):
     )
     new_password = PasswordField(
         "New Password",
-        validators=[Optional(), Length(min=8, max=32), _validate_password_strength],
+        validators=[Optional(), Length(min=8, max=72), _validate_password_strength],
     )
     confirm_password = PasswordField(
         "Confirm New Password",
         validators=[Optional(), EqualTo("new_password", message="Passwords must match.")],
     )
     submit = SubmitField("Update Profile")
+
+    def validate_birth_day(self, field):
+        month = self.birth_month.data or 0
+        day = field.data or 0
+        if month == 0 or day == 0:
+            return
+
+        # Leap-year neutral check: validates month/day combinations like Feb 31.
+        max_day_by_month = {
+            1: 31,
+            2: 29,
+            3: 31,
+            4: 30,
+            5: 31,
+            6: 30,
+            7: 31,
+            8: 31,
+            9: 30,
+            10: 31,
+            11: 30,
+            12: 31,
+        }
+        if day > max_day_by_month.get(month, 31):
+            raise ValidationError("Invalid day for the selected month.")
 
 
 class BookRequestForm(FlaskForm):
