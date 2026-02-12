@@ -509,3 +509,50 @@ class StagedBook(db.Model):
 
     def __repr__(self):
         return f"<StagedBook {self.original_filename[:40]} ({self.status})>"
+
+
+# ── Membership Application ────────────────────────────────────────
+
+
+class MembershipApplication(db.Model):
+    __tablename__ = "membership_applications"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending, approved, rejected
+
+    # About You
+    state_of_life = db.Column(db.String(100), nullable=False)
+    religious_institute = db.Column(db.String(255), nullable=True)
+
+    # Where You Are
+    city = db.Column(db.String(255), nullable=True)
+    state_province = db.Column(db.String(255), nullable=True)
+    country = db.Column(db.String(255), nullable=True)
+
+    # Your Faith
+    baptismal_status = db.Column(db.String(50), nullable=False)
+    denomination = db.Column(db.String(255), nullable=True)
+    rite = db.Column(db.String(100), nullable=True)
+    diocese = db.Column(db.String(255), nullable=True)
+    parish = db.Column(db.String(255), nullable=True)
+    sacrament_baptism = db.Column(db.Boolean, nullable=False, default=False)
+    sacrament_confirmation = db.Column(db.Boolean, nullable=False, default=False)
+    sacrament_eucharist = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Your Application
+    why_join = db.Column(db.Text, nullable=False)
+    how_heard = db.Column(db.Text, nullable=True)
+    profession_of_faith = db.Column(db.String(10), nullable=False)  # "amen" or "no"
+
+    # Admin
+    admin_notes = db.Column(db.Text, nullable=True)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship("User", foreign_keys=[user_id], backref=db.backref("membership_applications", lazy="dynamic"))
+    reviewer = db.relationship("User", foreign_keys=[reviewed_by])
+
+    def __repr__(self):
+        return f"<MembershipApplication user={self.user_id} status={self.status}>"

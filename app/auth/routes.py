@@ -11,7 +11,7 @@ from .. import limiter, oauth
 from ..audit import log_event
 from ..models import User, db
 from ..url_utils import is_safe_redirect_target, public_base_url
-from .forms import LoginForm, RegistrationForm, RequestPasswordResetForm, ResetPasswordForm
+from .forms import JoinForm, LoginForm, RegistrationForm, RequestPasswordResetForm, ResetPasswordForm
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -129,58 +129,180 @@ def login():
     return render_template("auth/login.html", form=form)
 
 
-# ── Registration ───────────────────────────────────────────────────
+# ── Registration (redirect to /join) ──────────────────────────────
 
 
-@auth_bp.route("/register", methods=["GET", "POST"])
-@limiter.limit("5 per minute")
+@auth_bp.route("/register")
 def register():
+    return redirect(url_for("auth.join"), code=301)
+
+
+# ── Join the Oratory (unified form) ──────────────────────────────
+
+
+@auth_bp.route("/join", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
+def join():
+    from ..models import MembershipApplication
+
+    # Smart routing for logged-in users
     if current_user.is_authenticated:
-        return redirect(url_for("catalog.index"))
+        # Already a member (admin/librarian/member roles)?
+        if current_user.role in ("admin", "librarian", "member"):
+            flash("You are already a member of the Oratory.", "info")
+            return redirect(url_for("catalog.index"))
+        # Already has a pending application?
+        pending = MembershipApplication.query.filter_by(
+            user_id=current_user.id, status="pending"
+        ).first()
+        if pending:
+            flash("Your application is already pending review.", "info")
+            return redirect(url_for("auth.membership_status"))
 
-    from flask import current_app
-
-    if not current_app.config.get("REGISTRATION_ENABLED", True):
-        flash("Registration is currently closed.", "info")
-        return redirect(url_for("auth.login"))
-
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        existing_user = User.query.filter_by(email=form.email.data.lower().strip()).first()
-        if existing_user:
-            # Silently handle — send a notification email to the existing address
-            login_url = _library_absolute_url("auth.login")
-            reset_url = _library_absolute_url("auth.reset_password")
-            from ..email_service import _send_email
-
-            _send_email(
-                subject="Registration Attempt",
-                recipient=existing_user.email,
-                html_body=(
-                    f"<p>Someone tried to register an account with your email address.</p>"
-                    f'<p>If this was you, you can <a href="{login_url}">sign in</a> '
-                    f'or <a href="{reset_url}">reset your password</a>.</p>'
-                ),
-            )
-            # Show the same success message to prevent email enumeration
-            flash("Account created successfully. You may now sign in.", "success")
+    # Registration gate
+    if not current_user.is_authenticated:
+        if not current_app.config.get("REGISTRATION_ENABLED", True):
+            flash("Registration is currently closed.", "info")
             return redirect(url_for("auth.login"))
 
-        display_name = f"{form.first_name.data.strip()} {form.last_name.data.strip()}"
-        user = User(
-            email=form.email.data.lower().strip(),
-            display_name=display_name,
-            role="patron",
+    is_logged_in = current_user.is_authenticated
+    form = JoinForm(skip_account_fields=is_logged_in)
+
+    if form.validate_on_submit():
+        if is_logged_in:
+            user = current_user
+        else:
+            # Check for existing email
+            email = form.email.data.lower().strip()
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                login_url = _library_absolute_url("auth.login")
+                reset_url = _library_absolute_url("auth.reset_password")
+                from ..email_service import _send_email
+
+                _send_email(
+                    subject="Registration Attempt",
+                    recipient=existing_user.email,
+                    html_body=(
+                        f"<p>Someone tried to create an account with your email address.</p>"
+                        f'<p>If this was you, you can <a href="{login_url}">sign in</a> '
+                        f'or <a href="{reset_url}">reset your password</a>.</p>'
+                    ),
+                )
+                flash(
+                    "Your application has been submitted! Please check your email.",
+                    "success",
+                )
+                return redirect(url_for("auth.login"))
+
+            # Create new user account
+            display_name = f"{form.first_name.data.strip()} {form.last_name.data.strip()}"
+            user = User(
+                email=email,
+                display_name=display_name,
+                role="applicant",
+            )
+            user.set_password(secrets.token_urlsafe(32))
+            db.session.add(user)
+            db.session.flush()  # get user.id before creating application
+
+            log_event("registration", "user", user.id)
+
+        # Save birthday if provided
+        if form.birth_month.data:
+            user.birth_month = int(form.birth_month.data)
+        if form.birth_day.data:
+            user.birth_day = int(form.birth_day.data)
+
+        # Create membership application
+        application = MembershipApplication(
+            user_id=user.id,
+            state_of_life=form.state_of_life.data,
+            religious_institute=form.religious_institute.data.strip() if form.religious_institute.data else None,
+            city=form.city.data.strip() if form.city.data else None,
+            state_province=form.state_province.data.strip() if form.state_province.data else None,
+            country=form.country.data.strip() if form.country.data else None,
+            baptismal_status=form.baptismal_status.data,
+            denomination=form.denomination.data.strip() if form.denomination.data else None,
+            rite=form.rite.data if form.rite.data else None,
+            diocese=form.diocese.data.strip() if form.diocese.data else None,
+            parish=form.parish.data.strip() if form.parish.data else None,
+            sacrament_baptism=form.sacrament_baptism.data,
+            sacrament_confirmation=form.sacrament_confirmation.data,
+            sacrament_eucharist=form.sacrament_eucharist.data,
+            why_join=form.why_join.data.strip(),
+            how_heard=form.how_heard.data.strip() if form.how_heard.data else None,
+            profession_of_faith=form.profession_of_faith.data,
         )
-        user.set_password(form.password.data)
-        db.session.add(user)
+        db.session.add(application)
         db.session.commit()
 
-        log_event("registration", "user", user.id)
-        flash("Account created successfully. You may now sign in.", "success")
+        log_event("membership_application", "user", user.id)
+
+        # Send confirmation email to user
+        from ..email_service import _send_email
+
+        status_url = _library_absolute_url("auth.membership_status")
+        _send_email(
+            subject="Application Received — Oratory of the Most Sacred Hearts",
+            recipient=user.email,
+            html_body=(
+                f"<p>Dear {user.display_name},</p>"
+                f"<p>Thank you for applying to join the Oratory of the Most Sacred Hearts. "
+                f"Your application has been received and is under review.</p>"
+                f'<p>You can check your application status at any time: '
+                f'<a href="{status_url}">View Status</a></p>'
+                f"<p>Pax et bonum,<br>The Oratory</p>"
+            ),
+        )
+
+        # Notify admins
+        admin_emails = [
+            a.email for a in User.query.filter_by(role="admin", is_active_account=True).all()
+        ]
+        for admin_email in admin_emails:
+            _send_email(
+                subject=f"New Membership Application: {user.display_name}",
+                recipient=admin_email,
+                html_body=(
+                    f"<p>A new membership application has been submitted.</p>"
+                    f"<p><strong>Name:</strong> {user.display_name}<br>"
+                    f"<strong>Email:</strong> {user.email}<br>"
+                    f"<strong>State of Life:</strong> {application.state_of_life}<br>"
+                    f"<strong>Profession of Faith:</strong> {application.profession_of_faith}</p>"
+                ),
+            )
+
+        flash("Your application has been submitted! We will review it shortly.", "success")
+        if is_logged_in:
+            return redirect(url_for("auth.membership_status"))
         return redirect(url_for("auth.login"))
 
-    return render_template("auth/register.html", form=form)
+    return render_template("auth/join.html", form=form, is_logged_in=is_logged_in)
+
+
+# ── Membership Status ─────────────────────────────────────────────
+
+
+@auth_bp.route("/membership/status")
+@login_required
+def membership_status():
+    from ..models import MembershipApplication
+
+    application = (
+        MembershipApplication.query.filter_by(user_id=current_user.id)
+        .order_by(MembershipApplication.created_at.desc())
+        .first()
+    )
+    return render_template("auth/membership_status.html", application=application)
+
+
+# ── Membership Apply (redirect to /join) ──────────────────────────
+
+
+@auth_bp.route("/membership/apply")
+def membership_apply():
+    return redirect(url_for("auth.join"), code=302)
 
 
 # ── Logout ─────────────────────────────────────────────────────────

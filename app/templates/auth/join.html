@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Join the Oratory — {{ library_name_latin }}{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="join-form-container">
+    <div class="auth-header">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Library crest" class="auth-logo">
+      <h1 class="auth-title">Join the Oratory</h1>
+      <p class="auth-subtitle">of the Most Sacred Hearts</p>
+    </div>
+
+    <form method="POST" novalidate class="auth-form">
+      {{ form.hidden_tag() }}
+
+      {# ── Section 1: Your Account ── #}
+      {% if not is_logged_in %}
+      <h2 class="form-section-title">Your Account</h2>
+
+      <div class="d-flex gap-md">
+        <div class="form-group flex-1">
+          <label for="first_name" class="form-label">First Name <span class="form-required">*</span></label>
+          {{ form.first_name(class="form-control", id="first_name", autocomplete="given-name", placeholder="First name") }}
+          {% for error in form.first_name.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+        <div class="form-group flex-1">
+          <label for="last_name" class="form-label">Last Name <span class="form-required">*</span></label>
+          {{ form.last_name(class="form-control", id="last_name", autocomplete="family-name", placeholder="Last name") }}
+          {% for error in form.last_name.errors %}
+            <span class="form-error">{{ error }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Email <span class="form-required">*</span></label>
+        {{ form.email(class="form-control", id="email", autocomplete="email", type="email", placeholder="Email address") }}
+        {% for error in form.email.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {# ── Section 2: About You ── #}
+      <h2 class="form-section-title">About You</h2>
+
+      <div class="form-group">
+        <label class="form-label">Birthday <span class="form-hint">(so we can remember you in prayer)</span></label>
+        <div class="d-flex gap-md">
+          <div class="flex-1">
+            {{ form.birth_month(class="form-control", id="birth_month") }}
+          </div>
+          <div class="flex-1">
+            {{ form.birth_day(class="form-control", id="birth_day") }}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="state_of_life" class="form-label">State of Life <span class="form-required">*</span></label>
+        {{ form.state_of_life(class="form-control", id="state_of_life") }}
+        {% for error in form.state_of_life.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+
+      <div class="form-group" id="institute-group" style="display:none;">
+        <label for="religious_institute" class="form-label" id="institute-label">Religious Institute</label>
+        {{ form.religious_institute(class="form-control", id="religious_institute", placeholder="") }}
+        {% for error in form.religious_institute.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+
+      {# ── Section 3: Where You Are ── #}
+      <h2 class="form-section-title">Where You Are</h2>
+
+      <div class="d-flex gap-md">
+        <div class="form-group flex-1">
+          <label for="city" class="form-label">City</label>
+          {{ form.city(class="form-control", id="city", placeholder="City") }}
+        </div>
+        <div class="form-group flex-1">
+          <label for="state_province" class="form-label">State / Province</label>
+          {{ form.state_province(class="form-control", id="state_province", placeholder="State or province") }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="country" class="form-label">Country</label>
+        {{ form.country(class="form-control", id="country", placeholder="Country") }}
+      </div>
+
+      {# ── Section 4: Your Faith ── #}
+      <h2 class="form-section-title">Your Faith</h2>
+
+      <div class="form-group">
+        <label for="baptismal_status" class="form-label">Baptismal Status <span class="form-required">*</span></label>
+        {{ form.baptismal_status(class="form-control", id="baptismal_status") }}
+        {% for error in form.baptismal_status.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+
+      <div class="form-group" id="denomination-group" style="display:none;">
+        <label for="denomination" class="form-label">Denomination</label>
+        {{ form.denomination(class="form-control", id="denomination", placeholder="e.g. Lutheran, Anglican, Baptist") }}
+        {% for error in form.denomination.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+
+      <div class="form-group" id="rite-group" style="display:none;">
+        <label for="rite" class="form-label">Rite</label>
+        {{ form.rite(class="form-control", id="rite") }}
+      </div>
+
+      <div class="d-flex gap-md">
+        <div class="form-group flex-1">
+          <label for="diocese" class="form-label">Diocese</label>
+          {{ form.diocese(class="form-control", id="diocese", placeholder="Diocese") }}
+        </div>
+        <div class="form-group flex-1">
+          <label for="parish" class="form-label">Parish</label>
+          {{ form.parish(class="form-control", id="parish", placeholder="Parish") }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sacraments of Initiation Received</label>
+        <div class="checkbox-row">
+          <label class="checkbox-label">
+            {{ form.sacrament_baptism(id="sacrament_baptism") }}
+            Baptism
+          </label>
+          <label class="checkbox-label">
+            {{ form.sacrament_confirmation(id="sacrament_confirmation") }}
+            Confirmation
+          </label>
+          <label class="checkbox-label">
+            {{ form.sacrament_eucharist(id="sacrament_eucharist") }}
+            Holy Eucharist
+          </label>
+        </div>
+      </div>
+
+      {# ── Section 5: Your Application ── #}
+      <h2 class="form-section-title">Your Application</h2>
+
+      <div class="form-group">
+        <label for="why_join" class="form-label">Why do you wish to join the Oratory? <span class="form-required">*</span></label>
+        {{ form.why_join(class="form-control", id="why_join", placeholder="Tell us a bit about yourself and why you wish to join...", rows="4") }}
+        {% for error in form.why_join.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+
+      <div class="form-group">
+        <label for="how_heard" class="form-label">How did you hear about us? <span class="form-hint">(optional)</span></label>
+        {{ form.how_heard(class="form-control", id="how_heard", placeholder="e.g. a friend, social media, parish bulletin") }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Profession of Faith <span class="form-required">*</span></label>
+        <p class="form-help-text">
+          <em>&ldquo;I believe and profess all that the holy Catholic Church believes, teaches, and proclaims to be revealed by God.&rdquo;</em>
+        </p>
+        <div class="radio-row">
+          {% for value, label in form.profession_of_faith.choices %}
+          <label class="radio-label">
+            <input type="radio" name="profession_of_faith" value="{{ value }}" {% if form.profession_of_faith.data == value %}checked{% endif %}>
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        {% for error in form.profession_of_faith.errors %}
+          <span class="form-error">{{ error }}</span>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full">Join the Oratory</button>
+    </form>
+
+    <div class="auth-footer">
+      <a href="{{ url_for('auth.login') }}">Already have an account? Sign in</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  // State of life → religious institute follow-up
+  var stateSelect = document.getElementById('state_of_life');
+  var instituteGroup = document.getElementById('institute-group');
+  var instituteLabel = document.getElementById('institute-label');
+  var instituteInput = document.getElementById('religious_institute');
+
+  var prompts = {
+    'Member of a Third Order': 'Which Third Order?',
+    'Consecrated Member of a Religious Institute': 'Which institute, order, or society of apostolic life?',
+    'Society Priest': 'Which society of apostolic life do you belong to?',
+    'Religious Priest': 'What institute or order do you belong to?'
+  };
+
+  function updateInstitute() {
+    var val = stateSelect.value;
+    if (prompts[val]) {
+      instituteGroup.style.display = '';
+      instituteLabel.textContent = prompts[val];
+      instituteInput.placeholder = prompts[val];
+    } else {
+      instituteGroup.style.display = 'none';
+      instituteInput.value = '';
+    }
+  }
+  stateSelect.addEventListener('change', updateInstitute);
+  updateInstitute();
+
+  // Baptismal status → denomination / rite toggle
+  var baptismalSelect = document.getElementById('baptismal_status');
+  var denominationGroup = document.getElementById('denomination-group');
+  var riteGroup = document.getElementById('rite-group');
+
+  function updateBaptismal() {
+    var val = baptismalSelect.value;
+    denominationGroup.style.display = (val === 'Other Christian') ? '' : 'none';
+    riteGroup.style.display = (val === 'Baptized Catholic') ? '' : 'none';
+    if (val !== 'Other Christian') document.getElementById('denomination').value = '';
+    if (val !== 'Baptized Catholic') document.getElementById('rite').value = '';
+  }
+  baptismalSelect.addEventListener('change', updateBaptismal);
+  updateBaptismal();
+})();
+</script>
+{% endblock %}
